@@ -1,0 +1,20 @@
+# Local-only Claude state — never commit.
+settings.local.json
+**/settings.local.json
+*.local.json
+**/claude.log
+**/logs/
+**/.DS_Store
+
+# Node (for the plugin workspace)
+node_modules/
+*.log
+.env
+.env.local
+coverage/
+dist/
+
+# Editor noise
+.vscode/
+.idea/
+*.swp
