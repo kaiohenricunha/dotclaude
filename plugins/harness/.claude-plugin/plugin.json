@@ -1,0 +1,8 @@
+{
+  "name": "harness",
+  "description": "Portable SDD + harness engineering kit: skills-manifest validator, spec-coverage gate, spec-kit validators, instruction-drift detector, destructive-git hook, and `/init-harness` scaffolder. Works in any repo that follows the repo-facts.json + docs/specs/ conventions.",
+  "author": {
+    "name": "Kaio Cunha",
+    "email": "kaiohenricunha@example.com"
+  }
+}
