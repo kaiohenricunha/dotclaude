@@ -325,7 +325,7 @@ export function isMeaningfulSection(section) {
  * @typedef {object} PullRequestContext
  * @property {boolean} isPullRequest   Derived from `GITHUB_EVENT_NAME === "pull_request"`.
  * @property {string} body             `PR_BODY` env — populated by workflows that pipe PR text in.
- * @property {string} actor            `GITHUB_ACTOR` env.
+ * @property {string} actor            `PR_ACTOR` env (preferred) with `GITHUB_ACTOR` as fallback.
  */
 
 /**
