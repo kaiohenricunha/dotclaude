@@ -1,25 +1,92 @@
 #!/usr/bin/env node
-import { createHarnessContext } from "../src/spec-harness-lib.mjs";
-import { validateManifest, refreshChecksums } from "../src/validate-skills-inventory.mjs";
+/**
+ * harness-validate-skills — validates `.claude/skills-manifest.json` against
+ * the sha256 checksums recorded for every indexed skill/command, and flags
+ * orphan files on disk + dependency cycles.
+ *
+ * Exits: 0 manifest valid, 1 one or more violations, 2 env error, 64 usage
+ * error.
+ */
 
-const args = process.argv.slice(2);
-const update = args.includes("--update");
-const rrIdx = args.indexOf("--repo-root");
-const repoRoot = rrIdx >= 0 ? args[rrIdx + 1] : undefined;
+import { parse, helpText } from "../src/lib/argv.mjs";
+import { createOutput } from "../src/lib/output.mjs";
+import { EXIT_CODES } from "../src/lib/exit-codes.mjs";
+import { formatError } from "../src/lib/errors.mjs";
+import { version } from "../src/index.mjs";
+import {
+  createHarnessContext,
+  validateManifest,
+  refreshChecksums,
+} from "../src/index.mjs";
 
-const ctx = createHarnessContext({ repoRoot });
+const META = {
+  name: "harness-validate-skills",
+  synopsis: "harness-validate-skills [OPTIONS]",
+  description: "Validate .claude/skills-manifest.json checksums, orphans, and DAG. Use --update to rewrite checksums in place.",
+  flags: {
+    "repo-root": { type: "string" },
+    update: { type: "boolean" },
+  },
+};
 
-if (update) {
-  refreshChecksums(ctx);
-  console.log(`✅ Manifest refreshed at ${ctx.manifestPath}`);
-  process.exit(0);
+let argv;
+try {
+  argv = parse(process.argv.slice(2), META.flags);
+} catch (err) {
+  process.stderr.write(`${err.message}\n`);
+  process.exit(EXIT_CODES.USAGE);
 }
 
-const result = validateManifest(ctx);
+if (argv.help) {
+  process.stdout.write(`${helpText(META)}\n`);
+  process.exit(EXIT_CODES.OK);
+}
+if (argv.version) {
+  process.stdout.write(`${version}\n`);
+  process.exit(EXIT_CODES.OK);
+}
+
+const out = createOutput({ json: argv.json, noColor: argv.noColor });
+
+let ctx;
+try {
+  ctx = createHarnessContext({ repoRoot: argv.flags["repo-root"] });
+} catch (err) {
+  out.fail(`could not resolve repo root: ${err.message}`);
+  out.flush();
+  process.exit(EXIT_CODES.ENV);
+}
+
+if (argv.flags.update) {
+  try {
+    refreshChecksums(ctx);
+    out.pass(`manifest refreshed at ${ctx.manifestPath}`);
+    out.flush();
+    process.exit(EXIT_CODES.OK);
+  } catch (err) {
+    out.fail(`refresh failed: ${err.message}`);
+    out.flush();
+    process.exit(EXIT_CODES.ENV);
+  }
+}
+
+let result;
+try {
+  result = validateManifest(ctx);
+} catch (err) {
+  out.fail(err.message);
+  out.flush();
+  process.exit(EXIT_CODES.ENV);
+}
+
 if (result.ok) {
-  console.log(`✅ Manifest valid (${result.manifest.skills.length} skills).`);
-  process.exit(0);
+  out.pass(`manifest valid (${result.manifest.skills.length} skills)`);
+  out.flush();
+  process.exit(EXIT_CODES.OK);
 }
-console.error("❌ Manifest validation failed:");
-for (const err of result.errors) console.error(`  - ${err}`);
-process.exit(1);
+
+for (const err of result.errors) {
+  out.fail(formatError(err, { verbose: argv.verbose }), err.toJSON ? err.toJSON() : undefined);
+}
+out.flush();
+process.exit(EXIT_CODES.VALIDATION);

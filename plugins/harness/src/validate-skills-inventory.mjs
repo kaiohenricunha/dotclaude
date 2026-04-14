@@ -39,6 +39,21 @@ function listSkillFilesRecursive(ctx) {
   return out;
 }
 
+/**
+ * Validate `.claude/skills-manifest.json`:
+ *   - every indexed file exists on disk
+ *   - recorded sha256 checksum matches the current file contents
+ *   - no file on disk under `.claude/commands/` or `.claude/skills/` is
+ *     orphaned (i.e. missing from the manifest)
+ *   - the `dependencies[]` DAG has no cycles
+ *
+ * @param {import('./spec-harness-lib.mjs').HarnessContext} ctx
+ * @returns {{
+ *   ok: boolean,
+ *   errors: import('./lib/errors.mjs').ValidationError[],
+ *   manifest: any
+ * }}
+ */
 export function validateManifest(ctx) {
   const errors = [];
   const manifest = loadManifest(ctx);
@@ -111,6 +126,14 @@ export function validateManifest(ctx) {
   return { ok: errors.length === 0, errors, manifest };
 }
 
+/**
+ * Recompute every sha256 in `.claude/skills-manifest.json` from the current
+ * contents on disk and write the manifest back in place. Does not validate
+ * anything — pair with {@link validateManifest} to confirm the result.
+ *
+ * @param {import('./spec-harness-lib.mjs').HarnessContext} ctx
+ * @returns {any}   The in-memory manifest object just written to disk.
+ */
 export function refreshChecksums(ctx) {
   const manifest = loadManifest(ctx);
   for (const skill of manifest.skills) {

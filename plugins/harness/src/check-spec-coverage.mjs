@@ -15,6 +15,22 @@ function normalizeSpecId(v) {
   return v.replace(/^[`'"#]+|[`'"]+$/g, "").trim();
 }
 
+/**
+ * Enforce the spec-coverage contract for a PR: every protected-path change
+ * must be covered by an approved/implementing/done spec, or the PR body must
+ * carry a meaningful `## No-spec rationale` section. Known bot actors bypass
+ * the body contract.
+ *
+ * @param {import('./spec-harness-lib.mjs').HarnessContext} ctx
+ * @param {{ changedFiles: string[], isPullRequest: boolean, body: string, actor: string }} input
+ * @returns {{
+ *   ok: boolean,
+ *   errors: import('./lib/errors.mjs').ValidationError[],
+ *   protectedFiles: string[],
+ *   uncovered: string[],
+ *   note?: string
+ * }}
+ */
 export function checkSpecCoverage(ctx, input) {
   const { changedFiles, isPullRequest, body, actor } = input;
   const errors = [];

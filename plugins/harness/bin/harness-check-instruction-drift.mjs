@@ -1,18 +1,77 @@
 #!/usr/bin/env node
-import { createHarnessContext } from "../src/spec-harness-lib.mjs";
-import { checkInstructionDrift } from "../src/check-instruction-drift.mjs";
+/**
+ * harness-check-instruction-drift — cross-references `docs/repo-facts.json`
+ * against instruction files (CLAUDE.md, README.md, …) to catch stale
+ * team_count claims, missing protected-path documentation, and broken
+ * instruction-file references.
+ *
+ * Exits: 0 no drift, 1 drift detected, 2 env error, 64 usage error.
+ */
 
-const args = process.argv.slice(2);
-const rrIdx = args.indexOf("--repo-root");
-const repoRoot = rrIdx >= 0 ? args[rrIdx + 1] : undefined;
+import { parse, helpText } from "../src/lib/argv.mjs";
+import { createOutput } from "../src/lib/output.mjs";
+import { EXIT_CODES } from "../src/lib/exit-codes.mjs";
+import { formatError } from "../src/lib/errors.mjs";
+import { version } from "../src/index.mjs";
+import {
+  createHarnessContext,
+  checkInstructionDrift,
+} from "../src/index.mjs";
 
-const ctx = createHarnessContext({ repoRoot });
+const META = {
+  name: "harness-check-instruction-drift",
+  synopsis: "harness-check-instruction-drift [OPTIONS]",
+  description: "Detect drift between docs/repo-facts.json and instruction files (team_count, protected_paths, instruction_files).",
+  flags: {
+    "repo-root": { type: "string" },
+  },
+};
 
-const result = checkInstructionDrift(ctx);
-if (result.ok) {
-  console.log("✅ Instruction files match repo facts.");
-  process.exit(0);
+let argv;
+try {
+  argv = parse(process.argv.slice(2), META.flags);
+} catch (err) {
+  process.stderr.write(`${err.message}\n`);
+  process.exit(EXIT_CODES.USAGE);
 }
-console.error("❌ Instruction drift detected:");
-for (const err of result.errors) console.error(`  - ${err}`);
-process.exit(1);
+
+if (argv.help) {
+  process.stdout.write(`${helpText(META)}\n`);
+  process.exit(EXIT_CODES.OK);
+}
+if (argv.version) {
+  process.stdout.write(`${version}\n`);
+  process.exit(EXIT_CODES.OK);
+}
+
+const out = createOutput({ json: argv.json, noColor: argv.noColor });
+
+let ctx;
+try {
+  ctx = createHarnessContext({ repoRoot: argv.flags["repo-root"] });
+} catch (err) {
+  out.fail(`could not resolve repo root: ${err.message}`);
+  out.flush();
+  process.exit(EXIT_CODES.ENV);
+}
+
+let result;
+try {
+  result = checkInstructionDrift(ctx);
+} catch (err) {
+  out.fail(`drift check failed: ${err.message}`);
+  out.flush();
+  process.exit(EXIT_CODES.ENV);
+}
+
+if (result.ok) {
+  out.pass("instruction files match repo facts");
+  out.flush();
+  process.exit(EXIT_CODES.OK);
+}
+
+for (const err of result.errors) {
+  out.fail(formatError(err, { verbose: argv.verbose }), err.toJSON ? err.toJSON() : undefined);
+}
+out.flush();
+process.exit(EXIT_CODES.VALIDATION);
