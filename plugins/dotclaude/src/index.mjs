@@ -1,8 +1,8 @@
 /**
- * Public barrel for `@kaiohenricunha/dotclaude`.
+ * Public barrel for `@dotclaude/dotclaude`.
  *
  * Consumer contract:
- *   import { createHarnessContext, validateSpecs, EXIT_CODES, ValidationError } from "@kaiohenricunha/dotclaude";
+ *   import { createHarnessContext, validateSpecs, EXIT_CODES, ValidationError } from "@dotclaude/dotclaude";
  *
  * The surface intentionally stays small — deep imports are NOT a supported
  * contract. If you find yourself reaching for an internal helper that is not
@@ -53,5 +53,5 @@ export { EXIT_CODES } from "./lib/exit-codes.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkgPath = resolve(__dirname, "..", "..", "..", "package.json");
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-/** The `@kaiohenricunha/dotclaude` package version at import time. */
+/** The `@dotclaude/dotclaude` package version at import time. */
 export const version = pkg.version;

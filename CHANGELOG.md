@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@kaiohenricunha/dotclaude` land here. Format follows
+All notable changes to `@dotclaude/dotclaude` land here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [SemVer](https://semver.org/spec/v2.0.0.html).
 
@@ -90,7 +90,7 @@ and the docs set consumers need to adopt.
   `ValidationError.prototype.toString()` preserves the
   `"<file>: <message>"` format; pipelines that consume `--json` get the
   structured payload.
-- Deep imports (`import { … } from "@kaiohenricunha/dotclaude/src/validate-specs.mjs"`)
+- Deep imports (`import { … } from "@dotclaude/dotclaude/src/validate-specs.mjs"`)
   are no longer a supported contract — use the barrel.
 
 ## [0.1.0] — 2026-04-13

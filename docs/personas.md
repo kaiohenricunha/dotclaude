@@ -31,5 +31,5 @@ dotfile-specific top-level scripts (`bootstrap.sh`, `sync.sh`, `commands/`,
 `skills/`) via `package.json.files`.
 
 If the dotfile side feels like noise when you're only consuming the npm
-package: **it is.** Install via `npm i -D @kaiohenricunha/dotclaude` and you
+package: **it is.** Install via `npm i -D @dotclaude/dotclaude` and you
 never see `bootstrap.sh` — only `node_modules/.../plugins/dotclaude/`.

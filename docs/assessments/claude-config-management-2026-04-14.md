@@ -1,4 +1,4 @@
-# Claude Config Management (`@kaiohenricunha/dotclaude`) — Assessment — 2026-04-14
+# Claude Config Management (`@dotclaude/dotclaude`) — Assessment — 2026-04-14
 
 Assessment of the dual-purpose `dotclaude` repository: a portable npm package + Claude Code plugin that bootstraps SDD governance into consumer repos, and Kaio's personal global Claude Code dotfiles symlinked into `~/.claude/` via `bootstrap.sh`.
 
@@ -32,7 +32,7 @@ Excluded: downstream consumers of the harness package, the MCP server ecosystem 
 
 The three-layer split (`src/` pure logic → `bin/` thin CLI wrappers → `scripts/` + `hooks/` shell tooling → `templates/` consumer payload) is clean and each layer has a single responsibility. `createHarnessContext` at `plugins/dotclaude/src/spec-harness-lib.mjs:5-21` is a well-designed ambient context object reused across every validator. Helpers `readJson` / `readText` / `pathExists` / `git` / `loadFacts` / `listSpecDirs` / `listRepoPaths` / `toPosix` at `:33-98` form a coherent fs-and-git toolkit.
 
-The hard flaws are productization, not design. `package.json:6` `"main": "plugins/dotclaude/src/index.mjs"` points at a file that does not exist — any `require('@kaiohenricunha/dotclaude')` throws `MODULE_NOT_FOUND`. There is no barrel export; consumers must deep-import validator files individually, which the READMEs get wrong (see Documentation dimension). The dual-persona nature (library + dotfiles) is load-bearing but undocumented; `bootstrap.sh`/`sync.sh` live at repo root with no ADR explaining why.
+The hard flaws are productization, not design. `package.json:6` `"main": "plugins/dotclaude/src/index.mjs"` points at a file that does not exist — any `require('@dotclaude/dotclaude')` throws `MODULE_NOT_FOUND`. There is no barrel export; consumers must deep-import validator files individually, which the READMEs get wrong (see Documentation dimension). The dual-persona nature (library + dotfiles) is load-bearing but undocumented; `bootstrap.sh`/`sync.sh` live at repo root with no ADR explaining why.
 
 **To raise this score:** add `plugins/dotclaude/src/index.mjs` barrel (24 exports); fix `"main"` + add `"exports"` field; ADR-0001 documenting dual-persona layout; umbrella `dotclaude` dispatcher bin.
 

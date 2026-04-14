@@ -33,7 +33,7 @@ const SUBCOMMANDS = [
 function printUsage() {
   process.stdout.write(
     [
-      "harness — structured-error-emitting CLI for @kaiohenricunha/dotclaude",
+      "harness — structured-error-emitting CLI for @dotclaude/dotclaude",
       "",
       "Usage:",
       "  harness <subcommand> [options]",

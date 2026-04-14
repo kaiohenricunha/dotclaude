@@ -1,10 +1,10 @@
-# Spec — @kaiohenricunha/dotclaude core
+# Spec — @dotclaude/dotclaude core
 
 Status: **done** (v0.2.0 productization landing across PRs 1–7)
 
 ## Context
 
-`@kaiohenricunha/dotclaude` is a portable npm package + Claude Code plugin that
+`@dotclaude/dotclaude` is a portable npm package + Claude Code plugin that
 bootstraps spec-driven-development governance into consumer repos. It ships a
 CLI surface (`dotclaude`, `dotclaude-doctor`, `dotclaude-validate-skills`, …), a
 programmatic Node API (`import { validateSpecs, createHarnessContext, … }`),

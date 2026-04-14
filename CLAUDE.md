@@ -2,7 +2,7 @@
 
 > **Persona note.** This file is the global rule floor for the dotfile
 > user's Claude Code environment — it gets symlinked into `~/.claude/CLAUDE.md`
-> by `bootstrap.sh`. **Consumers of `@kaiohenricunha/dotclaude` do NOT
+> by `bootstrap.sh`. **Consumers of `@dotclaude/dotclaude` do NOT
 > inherit it.** The plugin's behavior is defined by its own docs under
 > `plugins/dotclaude/` and [docs/](./docs/). Contributors to this repo
 > should read [CONTRIBUTING.md](./CONTRIBUTING.md) first; this file
@@ -110,7 +110,7 @@ Scope `--allowedTools` tightly — prefer `Bash(gh:*)` over `Bash(*)`. Combine w
 
 ## Protected paths (dogfood)
 
-This repository governs itself with `@kaiohenricunha/dotclaude`. The authoritative
+This repository governs itself with `@dotclaude/dotclaude`. The authoritative
 list of protected paths lives in `docs/repo-facts.json` and every entry must
 be documented here — `dotclaude-check-instruction-drift` enforces this invariant.
 

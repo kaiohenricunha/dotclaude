@@ -26,10 +26,10 @@ from a checked-out development copy of `0.1.x`, the migration surface is:
 
   ```js
   // before
-  import { validateSpecs } from "@kaiohenricunha/dotclaude/plugins/dotclaude/src/validate-specs.mjs";
+  import { validateSpecs } from "@dotclaude/dotclaude/plugins/dotclaude/src/validate-specs.mjs";
 
   // after
-  import { validateSpecs } from "@kaiohenricunha/dotclaude";
+  import { validateSpecs } from "@dotclaude/dotclaude";
   ```
 
   The subpath exports `./errors` and `./exit-codes` are supported; any
@@ -87,9 +87,9 @@ git commit:
 
 ```json
 "devDependencies": {
-  "@kaiohenricunha/dotclaude": "github:kaiohenricunha/dotclaude#v0.2.0"
+  "@dotclaude/dotclaude": "github:kaiohenricunha/dotclaude#v0.2.0"
 }
 ```
 
-Swap to the published version once `npm view @kaiohenricunha/dotclaude@0.2.0`
+Swap to the published version once `npm view @dotclaude/dotclaude@0.2.0`
 returns a hit.

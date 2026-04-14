@@ -35,7 +35,7 @@ import {
   getPullRequestContext,
   isBotActor,
   getChangedFiles,
-} from "@kaiohenricunha/dotclaude";
+} from "@dotclaude/dotclaude";
 ```
 
 **Every symbol is documented with JSDoc in-source.** Run
@@ -45,7 +45,7 @@ assert coverage is complete.
 ## Typical usage
 
 ```js
-import { createHarnessContext, validateSpecs, formatError } from "@kaiohenricunha/dotclaude";
+import { createHarnessContext, validateSpecs, formatError } from "@dotclaude/dotclaude";
 
 const ctx = createHarnessContext(); // resolves repo root via git or DOTCLAUDE_REPO_ROOT
 const { ok, errors } = validateSpecs(ctx);
@@ -106,8 +106,8 @@ A few commonly-reached-for modules are also exposed as sub-paths in
 `package.json.exports`:
 
 ```js
-import { ValidationError, ERROR_CODES } from "@kaiohenricunha/dotclaude/errors";
-import { EXIT_CODES } from "@kaiohenricunha/dotclaude/exit-codes";
+import { ValidationError, ERROR_CODES } from "@dotclaude/dotclaude/errors";
+import { EXIT_CODES } from "@dotclaude/dotclaude/exit-codes";
 ```
 
 Deep imports beyond these three subpaths are **not** part of the public
@@ -119,7 +119,7 @@ contract; any reshuffle inside `src/` can happen in a minor bump.
 `package.json`). Consumers can gate on it:
 
 ```js
-import { version } from "@kaiohenricunha/dotclaude";
+import { version } from "@dotclaude/dotclaude";
 if (!version.startsWith("0.2.")) throw new Error(`unsupported harness: ${version}`);
 ```
 

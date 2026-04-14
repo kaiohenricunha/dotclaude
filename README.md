@@ -1,6 +1,6 @@
-# `@kaiohenricunha/dotclaude`
+# `@dotclaude/dotclaude`
 
-[![npm](https://img.shields.io/npm/v/@kaiohenricunha/dotclaude.svg)](https://www.npmjs.com/package/@kaiohenricunha/dotclaude)
+[![npm](https://img.shields.io/npm/v/@dotclaude/dotclaude.svg)](https://www.npmjs.com/package/@dotclaude/dotclaude)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![changelog](https://img.shields.io/badge/changelog-keep--a--changelog-orange.svg)](./CHANGELOG.md)
 
@@ -22,7 +22,7 @@ If you're installing the package, ignore the top-level scripts —
 ## Consumer quickstart
 
 ```bash
-npm i -D @kaiohenricunha/dotclaude
+npm i -D @dotclaude/dotclaude
 npx dotclaude-init --project-name my-project --project-type node
 npx dotclaude-doctor          # self-diagnostic
 npx dotclaude-validate-specs  # every bin works standalone or via `npx dotclaude <sub>`
@@ -43,7 +43,7 @@ import {
   ValidationError,
   ERROR_CODES,
   EXIT_CODES,
-} from "@kaiohenricunha/dotclaude";
+} from "@dotclaude/dotclaude";
 
 const ctx = createHarnessContext(); // resolves repo root via git
 const { ok, errors } = validateSpecs(ctx); // errors are ValidationError instances

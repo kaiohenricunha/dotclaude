@@ -1,4 +1,4 @@
-# `@kaiohenricunha/dotclaude`
+# `@dotclaude/dotclaude`
 
 Portable Claude Code plugin + zero-dependency npm package for
 spec-driven-development governance. Installs seven CLI bins, a Node API
@@ -11,7 +11,7 @@ This README is the npm tarball's entry point. **The full docs set lives at
 ## Install
 
 ```bash
-npm i -D @kaiohenricunha/dotclaude
+npm i -D @dotclaude/dotclaude
 ```
 
 Zero runtime dependencies. Engines: Node `>=20`.
@@ -37,7 +37,7 @@ import {
   ValidationError,
   ERROR_CODES,
   EXIT_CODES,
-} from "@kaiohenricunha/dotclaude";
+} from "@dotclaude/dotclaude";
 
 const ctx = createHarnessContext();
 const { ok, errors } = validateSpecs(ctx); // errors are ValidationError instances

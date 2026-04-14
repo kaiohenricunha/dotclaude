@@ -1,4 +1,4 @@
-# `@kaiohenricunha/dotclaude` — docs
+# `@dotclaude/dotclaude` — docs
 
 The harness is a portable npm package + Claude Code plugin that bootstraps
 spec-driven-development governance into consumer repos. It ships a

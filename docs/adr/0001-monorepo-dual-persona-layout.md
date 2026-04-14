@@ -8,7 +8,7 @@ The work Kaio needs this repo to do splits into two distinct audiences:
 
 1. **Personal dotfiles** — `commands/`, `skills/`, `CLAUDE.md`, bootstrapped
    into `~/.claude/` via `bootstrap.sh`.
-2. **`@kaiohenricunha/dotclaude` npm package** — a reusable plugin other repos
+2. **`@dotclaude/dotclaude` npm package** — a reusable plugin other repos
    install via `npm i -D`. Lives under `plugins/dotclaude/`.
 
 The overlap is large: both surfaces define slash commands, skills, hooks,

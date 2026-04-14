@@ -1,7 +1,7 @@
-# Contributing to `@kaiohenricunha/dotclaude`
+# Contributing to `@dotclaude/dotclaude`
 
 Thanks for considering a contribution. This repo is a dual-purpose checkout
-— a portable npm package (`@kaiohenricunha/dotclaude`) **and** Kaio's personal
+— a portable npm package (`@dotclaude/dotclaude`) **and** Kaio's personal
 global Claude Code config. Most contributions land in the former. See
 `docs/personas.md` for the distinction.
 

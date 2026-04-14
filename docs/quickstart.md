@@ -4,7 +4,7 @@
 
 ```bash
 cd your-project
-npm install --save-dev @kaiohenricunha/dotclaude
+npm install --save-dev @dotclaude/dotclaude
 ```
 
 The package has **zero runtime dependencies**. It registers seven bins under

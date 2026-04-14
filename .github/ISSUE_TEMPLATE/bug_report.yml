@@ -39,7 +39,7 @@ body:
       label: Reproduction
       description: Minimal steps + the exact command you ran. A link to a tiny repo is gold.
       placeholder: |
-        1. npm i -D @kaiohenricunha/dotclaude
+        1. npm i -D @dotclaude/dotclaude
         2. npx dotclaude-init
         3. npx dotclaude-validate-specs
       render: bash
