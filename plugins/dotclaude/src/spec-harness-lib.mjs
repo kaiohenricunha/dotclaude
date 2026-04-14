@@ -293,7 +293,7 @@ export function extractTemplateSection(body, heading) {
 }
 
 function stripHtmlComments(input) {
-  let out = "";
+  const parts = [];
   let i = 0;
   while (i < input.length) {
     if (input.startsWith("<!--", i)) {
@@ -301,10 +301,10 @@ function stripHtmlComments(input) {
       if (end === -1) break; // unterminated: drop remainder
       i = end + 3;
     } else {
-      out += input[i++];
+      parts.push(input[i++]);
     }
   }
-  return out;
+  return parts.join("");
 }
 
 /**

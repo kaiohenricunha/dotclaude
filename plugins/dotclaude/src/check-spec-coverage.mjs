@@ -11,12 +11,15 @@ import { ValidationError, ERROR_CODES } from "./lib/errors.mjs";
 
 const COVERAGE_STATUSES = new Set(["approved", "implementing", "done"]);
 
-const SPECID_TRIM_CHARS = new Set(["`", "'", '"', "#"]);
+// Leading trim includes '#' (e.g. "##spec-id" → "spec-id"); trailing does not,
+// matching the original regex behaviour: /^[`'"#]+|[`'"]+$/.
+const SPECID_LEADING_TRIM = new Set(["`", "'", '"', "#"]);
+const SPECID_TRAILING_TRIM = new Set(["`", "'", '"']);
 function normalizeSpecId(v) {
   let start = 0;
   let end = v.length;
-  while (start < end && SPECID_TRIM_CHARS.has(v[start])) start++;
-  while (end > start && (v[end - 1] === "`" || v[end - 1] === "'" || v[end - 1] === '"')) end--;
+  while (start < end && SPECID_LEADING_TRIM.has(v[start])) start++;
+  while (end > start && SPECID_TRAILING_TRIM.has(v[end - 1])) end--;
   return v.slice(start, end).trim();
 }
 

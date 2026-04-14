@@ -60,13 +60,15 @@ describe("checkSpecCoverage", () => {
     const input = {
       changedFiles: [],
       isPullRequest: false,
-      body: `Spec ID: ${ '"'.repeat(10_000) }`,
+      // Use the proper ## Spec ID section so normalizeSpecId is actually exercised.
+      // After trimming 10_000 quote chars, the spec ID becomes "" → filtered out → ok=true.
+      body: `## Spec ID\n${'"'.repeat(10_000)}`,
       actor: "human",
     };
     const start = Date.now();
-    // changedFiles is empty so result.ok is true regardless — just verify no hang
-    let result = null;
-    try { result = checkSpecCoverage(ctx, input); } catch (_) {}
+    const result = checkSpecCoverage(ctx, input);
     expect(Date.now() - start).toBeLessThan(100);
+    expect(result).not.toBeNull();
+    expect(result.ok).toBe(true);
   });
 });
