@@ -3,14 +3,38 @@
 #
 # Idempotent: safe to re-run after pulling new commits.
 # Backs up pre-existing real files (not symlinks) to <name>.bak-<timestamp>.
+#
+# Flags:
+#   --quiet   suppress per-file progress output; only warnings + the final
+#             one-line summary are printed.
 
 set -euo pipefail
+
+QUIET=0
+for arg in "$@"; do
+  case "$arg" in
+    --quiet) QUIET=1 ;;
+    --help|-h)
+      grep -E '^# ' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *)
+      echo "bootstrap.sh: unknown argument '$arg' (try --help)" >&2
+      exit 64
+      ;;
+  esac
+done
 
 DOTCLAUDE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="$HOME/.claude"
 TS=$(date +%Y%m%d-%H%M%S)
 
 mkdir -p "$TARGET"
+
+say() {
+  [ "$QUIET" = "1" ] && return 0
+  echo "$@"
+}
 
 link_one() {
   local src="$1"
@@ -21,32 +45,32 @@ link_one() {
     if [ "$(readlink "$dst")" != "$src" ]; then
       rm "$dst"
       ln -s "$src" "$dst"
-      echo "  updated: $dst -> $src"
+      say "  updated: $dst -> $src"
     else
-      echo "  ok:      $dst"
+      say "  ok:      $dst"
     fi
   elif [ -e "$dst" ]; then
     # Real file/dir — back it up before linking.
     mv "$dst" "${dst}.bak-${TS}"
     ln -s "$src" "$dst"
-    echo "  backed up + linked: $dst (old at ${dst}.bak-${TS})"
+    say "  backed up + linked: $dst (old at ${dst}.bak-${TS})"
   else
     ln -s "$src" "$dst"
-    echo "  linked:  $dst -> $src"
+    say "  linked:  $dst -> $src"
   fi
 }
 
-echo "==> linking CLAUDE.md"
+say "==> linking CLAUDE.md"
 [ -f "$DOTCLAUDE/CLAUDE.md" ] && link_one "$DOTCLAUDE/CLAUDE.md" "$TARGET/CLAUDE.md"
 
-echo "==> linking commands/"
+say "==> linking commands/"
 mkdir -p "$TARGET/commands"
 for f in "$DOTCLAUDE/commands"/*.md; do
   [ -e "$f" ] || continue
   link_one "$f" "$TARGET/commands/$(basename "$f")"
 done
 
-echo "==> linking skills/"
+say "==> linking skills/"
 mkdir -p "$TARGET/skills"
 for d in "$DOTCLAUDE/skills"/*/; do
   [ -e "$d" ] || continue
@@ -54,7 +78,18 @@ for d in "$DOTCLAUDE/skills"/*/; do
   link_one "${d%/}" "$TARGET/skills/$name"
 done
 
-echo ""
-echo "bootstrap complete."
-echo "dotclaude: $DOTCLAUDE"
-echo "target:    $TARGET"
+if [ "$QUIET" = "1" ]; then
+  echo "bootstrap complete — target: $TARGET"
+else
+  echo ""
+  echo "bootstrap complete."
+  echo "dotclaude: $DOTCLAUDE"
+  echo "target:    $TARGET"
+fi
+
+# Tail hint — only when harness-doctor is discoverable on PATH so first-time
+# bootstrappers are not confused by a broken reference.
+if command -v harness-doctor >/dev/null 2>&1 && [ "$QUIET" != "1" ]; then
+  echo ""
+  echo "next: run 'harness-doctor' to verify install."
+fi

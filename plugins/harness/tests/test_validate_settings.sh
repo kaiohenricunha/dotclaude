@@ -26,8 +26,8 @@ run_test() {
   local tmp; tmp=$(mktemp --suffix=.json)
   printf '%s' "$fixture" > "$tmp"
 
-  local out; out=$("$VALIDATOR" "$tmp" 2>&1)
-  local rc=$?
+  local out rc
+  out=$("$VALIDATOR" "$tmp" 2>&1) && rc=$? || rc=$?
 
   if [ "$rc" -eq "$expected_exit" ] && echo "$out" | grep -qE "$expected_pattern"; then
     echo "  PASS: $name"
@@ -73,7 +73,7 @@ run_test "fails_on_unknown_enabled_plugin" \
 '{"enabledPlugins":{"nope-fake-plugin-does-not-exist@unknown-marketplace":true},"mcpServers":{}}' \
 1 "NOT installed"
 
-# --- 7. Missing absolute-path MCP command fails ---
+# --- 7. Missing absolute-path MCP command fails (OPS-1) ---
 run_test "fails_on_missing_mcp_binary" \
 '{"mcpServers":{"foo":{"command":"/nonexistent/binary-path","args":[]}}}' \
 1 "MCP command missing"
@@ -81,13 +81,43 @@ run_test "fails_on_missing_mcp_binary" \
 # --- 8. Malformed JSON fails ---
 RUN=$((RUN+1))
 tmp=$(mktemp --suffix=.json); printf '{ not valid json ' > "$tmp"
-out=$("$VALIDATOR" "$tmp" 2>&1); rc=$?
+out=$("$VALIDATOR" "$tmp" 2>&1) && rc=$? || rc=$?
 if [ "$rc" -eq 1 ] && echo "$out" | grep -q "JSON malformed"; then
   echo "  PASS: fails_on_malformed_json"; PASS=$((PASS+1))
 else
   echo "  FAIL: fails_on_malformed_json (rc=$rc output=$out)"; FAIL=$((FAIL+1))
 fi
 rm -f "$tmp"
+
+# --- 9. set -euo pipefail: a failure in a subshell pipeline doesn't silently pass ---
+# Feed an input that would make `jq` exit non-zero inside SECRET_LEAKS's
+# sub-pipeline but the validator must still run to completion (the `|| true`
+# guard keeps `set -e` from aborting). We assert we reach the "Summary" line.
+run_test "set_e_does_not_short_circuit_on_jq_failure" \
+'{"mcpServers":{"foo":{"command":"bash","env":{"WEIRD":null}}}}' \
+0 "Summary:"
+
+# --- 10. --json emits parseable JSON with events + counts ---
+RUN=$((RUN+1))
+tmp=$(mktemp --suffix=.json)
+printf '{"env":{},"enabledPlugins":{},"mcpServers":{},"effortLevel":"high"}' > "$tmp"
+out=$("$VALIDATOR" --json "$tmp" 2>&1) && rc=$? || rc=$?
+if [ "$rc" -eq 0 ] && echo "$out" | jq -e '.events | type == "array"' >/dev/null 2>&1; then
+  echo "  PASS: json_mode_emits_structured_output"; PASS=$((PASS+1))
+else
+  echo "  FAIL: json_mode_emits_structured_output (rc=$rc output=$out)"; FAIL=$((FAIL+1))
+fi
+rm -f "$tmp"
+
+# --- 11. OPS-1 missing hook target fails ---
+run_test "fails_on_missing_hook_target" \
+'{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/absolutely/does/not/exist.sh"}]}]},"mcpServers":{}}' \
+1 "hook/statusLine target missing"
+
+# --- 12. SEC-1 low-entropy value does NOT trigger (under 20 chars) ---
+run_test "passes_on_short_key_value" \
+'{"mcpServers":{"foo":{"command":"echo","env":{"FOO_API_KEY":"short"}}}}' \
+0 "SEC-1 no secret"
 
 echo
 echo "Tests: $RUN  Passed: $PASS  Failed: $FAIL"

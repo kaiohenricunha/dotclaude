@@ -5,6 +5,7 @@
 # Usage:
 #   validate-settings.sh                      # validates ~/.claude/settings.json
 #   validate-settings.sh <path-to-settings>   # validates an alternative file
+#   validate-settings.sh --json [<path>]      # emit JSON events on stdout
 #
 # Exit codes:
 #   0 — all hard checks pass
@@ -23,41 +24,51 @@
 # Soft checks (warn, exit 0):
 #   OPS-2  ~/.claude/projects/ ≤ 1.5 GB, ~/.claude/file-history/ ≤ 100 MB
 
-set -u
+set -euo pipefail
 
-SETTINGS=${1:-$HOME/.claude/settings.json}
-PLUGINS_REG=$HOME/.claude/plugins/installed_plugins.json
-CREDS=$HOME/.claude/.credentials.json
-PROJECTS_DIR=$HOME/.claude/projects
-FILE_HISTORY_DIR=$HOME/.claude/file-history
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=plugins/harness/scripts/lib/output.sh
+source "$SCRIPT_DIR/lib/output.sh"
 
-FAIL=0
-WARN=0
+# Argv: --json flag is order-independent but must precede the positional path.
+HARNESS_JSON=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --json)  HARNESS_JSON=1; shift ;;
+    --help|-h)
+      grep -E '^# ' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *) break ;;
+  esac
+done
+export HARNESS_JSON
 
-if [ -t 1 ]; then
-  G=$'\033[32m'; R=$'\033[31m'; Y=$'\033[33m'; N=$'\033[0m'
-else
-  G=""; R=""; Y=""; N=""
+SETTINGS="${1:-$HOME/.claude/settings.json}"
+PLUGINS_REG="$HOME/.claude/plugins/installed_plugins.json"
+CREDS="$HOME/.claude/.credentials.json"
+PROJECTS_DIR="$HOME/.claude/projects"
+FILE_HISTORY_DIR="$HOME/.claude/file-history"
+
+out_init
+
+if [ "$HARNESS_JSON" != "1" ]; then
+  echo "Validating $SETTINGS"
+  echo
 fi
 
-pass() { printf '  %s✓%s %s\n' "$G" "$N" "$1"; }
-fail() { printf '  %s✗%s %s\n' "$R" "$N" "$1"; FAIL=$((FAIL+1)); }
-warn() { printf '  %s⚠%s %s\n' "$Y" "$N" "$1"; WARN=$((WARN+1)); }
-
-echo "Validating $SETTINGS"
-echo
-
 # --- JSON validity (blocking) ---
+CATEGORY=OPS-1
 if jq -e . < "$SETTINGS" > /dev/null 2>&1; then
   pass "JSON well-formed"
 else
   fail "JSON malformed"
-  echo
-  echo "Summary: 1 failure"
+  out_summary
   exit 1
 fi
 
 # --- SEC-2: no skipDangerousModePermissionPrompt ---
+CATEGORY=SEC-2
 if jq -e 'has("skipDangerousModePermissionPrompt")' < "$SETTINGS" > /dev/null 2>&1; then
   fail "SEC-2 skipDangerousModePermissionPrompt is set"
 else
@@ -65,6 +76,7 @@ else
 fi
 
 # --- SEC-1: no secret literals ---
+CATEGORY=SEC-1
 SECRET_LEAKS=$(jq -r '
   . as $root
   | [paths(scalars)] as $ps
@@ -75,7 +87,7 @@ SECRET_LEAKS=$(jq -r '
   | select(($v | type) == "string")
   | select($v | test("^[A-Za-z0-9_-]{20,}$"))
   | ($p | map(tostring) | join("."))
-' < "$SETTINGS")
+' < "$SETTINGS" || true)
 
 if [ -z "$SECRET_LEAKS" ]; then
   pass "SEC-1 no secret literals in *_KEY/*_TOKEN/*_SECRET fields"
@@ -84,13 +96,14 @@ else
 fi
 
 # --- SEC-3: no @latest in MCP args ---
+CATEGORY=SEC-3
 LATEST_REFS=$(jq -r '
   .mcpServers // {} | to_entries[]
   | . as $s
   | ($s.value.args // [])[]
   | select(. | test("@latest$"))
-  | $s.key + " → " + .
-' < "$SETTINGS")
+  | $s.key + " -> " + .
+' < "$SETTINGS" || true)
 
 if [ -z "$LATEST_REFS" ]; then
   pass "SEC-3 no @latest in MCP args"
@@ -99,6 +112,7 @@ else
 fi
 
 # --- MCP command resolvable ---
+CATEGORY=OPS-1
 while IFS= read -r cmd; do
   [ -z "$cmd" ] && continue
   if [[ "$cmd" == /* ]]; then
@@ -117,6 +131,7 @@ while IFS= read -r cmd; do
 done < <(jq -r '.mcpServers // {} | to_entries[] | .value.command' < "$SETTINGS")
 
 # --- hooks + statusLine target paths ---
+CATEGORY=OPS-1
 while IFS= read -r cmd; do
   [ -z "$cmd" ] && continue
   script=$(echo "$cmd" | awk '{for(i=1;i<=NF;i++) if($i ~ /^\//) {print $i; exit}}')
@@ -134,6 +149,7 @@ done < <(jq -r '
 ' < "$SETTINGS")
 
 # --- enabledPlugins installed? ---
+CATEGORY=OPS-1
 if [ -f "$PLUGINS_REG" ]; then
   while IFS= read -r plugin; do
     [ -z "$plugin" ] && continue
@@ -148,8 +164,9 @@ else
 fi
 
 # --- SEC-4: .credentials.json mode 600 ---
+CATEGORY=SEC-4
 if [ -f "$CREDS" ]; then
-  MODE=$(stat -c '%a' "$CREDS" 2>/dev/null)
+  MODE=$(stat -c '%a' "$CREDS" 2>/dev/null || echo "?")
   if [ "$MODE" = "600" ]; then
     pass "SEC-4 .credentials.json mode 600"
   else
@@ -160,9 +177,11 @@ else
 fi
 
 # --- OPS-2 disk budgets (soft) ---
+CATEGORY=OPS-2
 if [ -d "$PROJECTS_DIR" ]; then
   PROJECTS_MB=$(du -sm "$PROJECTS_DIR" 2>/dev/null | awk '{print $1}')
   if [ "$PROJECTS_MB" -gt 1536 ]; then
+    # shellcheck disable=SC2088  # literal ~ is user-readable text, not a filesystem path
     warn "~/.claude/projects/ is ${PROJECTS_MB} MB (budget: 1536 MB). Prune: find ~/.claude/projects -mindepth 2 -maxdepth 2 -type f -mtime +60 -delete"
   else
     pass "projects/ size OK (${PROJECTS_MB} MB / 1536)"
@@ -172,12 +191,12 @@ fi
 if [ -d "$FILE_HISTORY_DIR" ]; then
   FH_MB=$(du -sm "$FILE_HISTORY_DIR" 2>/dev/null | awk '{print $1}')
   if [ "$FH_MB" -gt 100 ]; then
+    # shellcheck disable=SC2088  # literal ~ is user-readable text, not a filesystem path
     warn "~/.claude/file-history/ is ${FH_MB} MB (budget: 100 MB)"
   else
     pass "file-history/ size OK (${FH_MB} MB / 100)"
   fi
 fi
 
-echo
-echo "Summary: $FAIL failure(s), $WARN warning(s)"
+out_summary
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

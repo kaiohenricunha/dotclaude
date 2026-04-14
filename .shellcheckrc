@@ -1,0 +1,6 @@
+shell=bash
+enable=all
+disable=SC2250
+# SC2250: Prefer ${var} over $var — noisy for simple cases; we still use ${} for
+# disambiguation where it matters, but forcing it everywhere is churn without
+# value. Every other shellcheck rule is on.
