@@ -8,6 +8,9 @@ on:
     - cron: "0 9 * * 1" # weekly Monday 09:00 UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   lychee:
     runs-on: ubuntu-latest
@@ -30,4 +33,5 @@ jobs:
             --no-progress \
             --max-retries 2 \
             --exclude '^https?://(www\.)?npmjs\.com/' \
-            'docs/**/*.md' '*.md' 'plugins/harness/**/*.md'
+            --exclude '^https?://(www\.)?contributor-covenant\.org/' \
+            'docs/**/*.md' '*.md' 'plugins/dotclaude/**/*.md'
