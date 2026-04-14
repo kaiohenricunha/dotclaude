@@ -54,4 +54,21 @@ describe("checkSpecCoverage", () => {
     expect(r.errors[0].code).toBe(ERROR_CODES.COVERAGE_UNKNOWN_SPEC_ID);
     expect(r.errors[0].message).toMatch(/unknown Spec ID/);
   });
+
+  it("handles pathological spec-id with many quotes without hanging", () => {
+    const ctx = createHarnessContext({ repoRoot: iso() });
+    const input = {
+      changedFiles: [],
+      isPullRequest: false,
+      // Use the proper ## Spec ID section so normalizeSpecId is actually exercised.
+      // After trimming 10_000 quote chars, the spec ID becomes "" → filtered out → ok=true.
+      body: `## Spec ID\n${'"'.repeat(10_000)}`,
+      actor: "human",
+    };
+    const start = Date.now();
+    const result = checkSpecCoverage(ctx, input);
+    expect(Date.now() - start).toBeLessThan(100);
+    expect(result).not.toBeNull();
+    expect(result.ok).toBe(true);
+  });
 });
