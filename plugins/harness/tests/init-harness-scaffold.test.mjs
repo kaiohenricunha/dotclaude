@@ -37,9 +37,12 @@ describe("scaffoldHarness", () => {
       ".claude/settings.headless.json",
       ".claude/settings.json",
       ".claude/skills-manifest.json",
+      ".github/workflows/ai-review.yml",
+      ".github/workflows/detect-drift.yml",
       ".github/workflows/validate-skills.yml",
       "docs/repo-facts.json",
       "docs/specs/README.md",
+      "githooks/pre-commit",
     ];
 
     // All expected files exist on disk

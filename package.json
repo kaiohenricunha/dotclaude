@@ -1,0 +1,37 @@
+{
+  "name": "@kaiohenricunha/harness",
+  "version": "0.1.0",
+  "description": "Portable harness + SDD validators for Claude Code projects.",
+  "type": "module",
+  "main": "plugins/harness/src/index.mjs",
+  "bin": {
+    "harness-validate-skills": "./plugins/harness/bin/harness-validate-skills.mjs",
+    "harness-check-spec-coverage": "./plugins/harness/bin/harness-check-spec-coverage.mjs",
+    "harness-validate-specs": "./plugins/harness/bin/harness-validate-specs.mjs",
+    "harness-check-instruction-drift": "./plugins/harness/bin/harness-check-instruction-drift.mjs",
+    "harness-init": "./plugins/harness/bin/harness-init.mjs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "files": [
+    "plugins/harness/src/",
+    "plugins/harness/bin/",
+    "plugins/harness/templates/",
+    "plugins/harness/hooks/",
+    "plugins/harness/README.md",
+    "plugins/harness/.claude-plugin/"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaiohenricunha/dotclaude.git"
+  },
+  "license": "MIT"
+}
