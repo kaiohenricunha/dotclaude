@@ -11,8 +11,13 @@ import { ValidationError, ERROR_CODES } from "./lib/errors.mjs";
 
 const COVERAGE_STATUSES = new Set(["approved", "implementing", "done"]);
 
+const SPECID_TRIM_CHARS = new Set(["`", "'", '"', "#"]);
 function normalizeSpecId(v) {
-  return v.replace(/^[`'"#]+|[`'"]+$/g, "").trim();
+  let start = 0;
+  let end = v.length;
+  while (start < end && SPECID_TRIM_CHARS.has(v[start])) start++;
+  while (end > start && (v[end - 1] === "`" || v[end - 1] === "'" || v[end - 1] === '"')) end--;
+  return v.slice(start, end).trim();
 }
 
 /**

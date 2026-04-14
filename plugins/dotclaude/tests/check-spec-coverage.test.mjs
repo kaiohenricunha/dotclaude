@@ -54,4 +54,19 @@ describe("checkSpecCoverage", () => {
     expect(r.errors[0].code).toBe(ERROR_CODES.COVERAGE_UNKNOWN_SPEC_ID);
     expect(r.errors[0].message).toMatch(/unknown Spec ID/);
   });
+
+  it("handles pathological spec-id with many quotes without hanging", () => {
+    const ctx = createHarnessContext({ repoRoot: iso() });
+    const input = {
+      changedFiles: [],
+      isPullRequest: false,
+      body: `Spec ID: ${ '"'.repeat(10_000) }`,
+      actor: "human",
+    };
+    const start = Date.now();
+    // changedFiles is empty so result.ok is true regardless — just verify no hang
+    let result = null;
+    try { result = checkSpecCoverage(ctx, input); } catch (_) {}
+    expect(Date.now() - start).toBeLessThan(100);
+  });
 });
