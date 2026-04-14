@@ -21,16 +21,16 @@ Every bin honors the **harness-wide flag set** in addition to its own:
 | 2    | `ENV`        | Misconfigured environment (missing file, bad git repo, unreadable facts)                      |
 | 64   | `USAGE`      | Bad CLI invocation (unknown flag, missing positional). `64` matches BSD `sysexits.h EX_USAGE` |
 
-**The umbrella `dotclaude`** forwards to each `harness-<sub>` bin:
+**The umbrella `dotclaude`** forwards to each `dotclaude-<sub>` bin:
 
 ```
-harness validate-specs [OPTIONS]
-harness validate-skills [OPTIONS]
-harness check-spec-coverage [OPTIONS]
-harness check-instruction-drift [OPTIONS]
-harness detect-drift [OPTIONS]
-harness doctor [OPTIONS]
-harness init [OPTIONS]
+dotclaude validate-specs [OPTIONS]
+dotclaude validate-skills [OPTIONS]
+dotclaude check-spec-coverage [OPTIONS]
+dotclaude check-instruction-drift [OPTIONS]
+dotclaude detect-drift [OPTIONS]
+dotclaude doctor [OPTIONS]
+dotclaude init [OPTIONS]
 ```
 
 Each subcommand also exists standalone — `npx dotclaude-doctor` and

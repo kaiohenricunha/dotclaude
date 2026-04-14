@@ -1,4 +1,4 @@
-name: Detect harness drift
+name: Detect dotclaude drift
 on:
   schedule:
     - cron: "0 12 * * 1"
