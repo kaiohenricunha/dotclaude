@@ -1,15 +1,91 @@
 # dotclaude
 
-Kaio's global Claude Code configuration.
+Global Claude Code configuration + a portable harness plugin for spec-driven development.
 
-## What lives here
+Two things live here:
 
-- `CLAUDE.md` — global rule floor, symlinked to `~/.claude/CLAUDE.md`
-- `commands/` — global slash commands (e.g. `/commit`, `/create-audit`), symlinked to `~/.claude/commands/`
-- `skills/` — global directory-form skills, symlinked to `~/.claude/skills/`
-- `plugins/harness/` — the portable harness: validators, hooks, templates. Dual-purpose Claude plugin + npm package.
+1. **`@kaiohenricunha/harness`** — a dual-purpose Claude Code plugin + npm package for SDD governance, skills-manifest validation, and drift detection. Designed to be installed in any repo, not just this one. [Skip to usage →](#harness-plugin-usage)
+2. **Kaio's personal dotfiles** — the global `CLAUDE.md`, slash commands, and skills symlinked into `~/.claude/`. Clone, bootstrap, use. [Skip to dotfiles →](#personal-dotfiles-usage)
 
-## Fresh distro setup
+---
+
+## Harness plugin usage
+
+The harness gives you four CLI validators and a scaffolder:
+
+| Tool | Purpose |
+|---|---|
+| `harness-validate-skills` | Enforces checksums on `.claude/skills-manifest.json` — catches skill files drifting from their inventory entry |
+| `harness-validate-specs` | Validates `docs/specs/<slug>/spec.json` schema + `status` enum + `id/dir-name` match |
+| `harness-check-spec-coverage` | PR-time gate: changes to protected paths must be covered by an approved spec or a `## No-spec rationale` section |
+| `harness-check-instruction-drift` | Cross-checks `CLAUDE.md` ↔ `README.md` ↔ `.github/copilot-instructions.md` ↔ `docs/repo-facts.json` for drift |
+| `harness-init` | Scaffolds the full harness into a fresh repo — `.claude/`, `docs/specs/`, CI workflow, hooks |
+
+### Install
+
+```bash
+# In any repo:
+npm install -D github:kaiohenricunha/dotclaude#main
+```
+
+### Scaffold a fresh repo
+
+```bash
+# In an empty git repo (must have an initial commit):
+npx harness-init --project-name my-project --project-type node
+```
+
+You get:
+- `.claude/{settings.json, settings.headless.json, skills-manifest.json, hooks/guard-destructive-git.sh}`
+- `docs/{repo-facts.json, specs/README.md}`
+- `.github/workflows/{validate-skills.yml, detect-drift.yml, ai-review.yml}`
+- `githooks/pre-commit` (opt-in via `git config core.hooksPath githooks`)
+
+### Wire into CI
+
+Add to `package.json`:
+
+```json
+{
+  "scripts": {
+    "verify:harness": "harness-validate-skills && harness-validate-specs && harness-check-instruction-drift && harness-check-spec-coverage"
+  }
+}
+```
+
+The scaffolded `.github/workflows/validate-skills.yml` runs the chain on every PR + weekly cron.
+
+### Contract your repo must follow
+
+- `docs/repo-facts.json` — canonical source of truth (team count, protected paths, verification commands)
+- `docs/specs/<slug>/spec.json` — spec metadata: `id`, `title`, `status` (one of `draft | approved | implementing | done`), `owners`, `linked_paths`, `acceptance_commands`, `depends_on_specs`, `active_prs`
+- `.claude/skills-manifest.json` — SHA256-checksummed inventory of `.claude/commands/*.md` and `.claude/skills/*/SKILL.md`
+
+### Node API
+
+```javascript
+import { createHarnessContext } from "@kaiohenricunha/harness";
+import { validateManifest } from "@kaiohenricunha/harness/plugins/harness/src/validate-skills-inventory.mjs";
+
+const ctx = createHarnessContext({ repoRoot: "/path/to/repo" });
+const { ok, errors } = validateManifest(ctx);
+```
+
+All validators accept an explicit `repoRoot` or fall back to `process.env.HARNESS_REPO_ROOT`, then to `git rev-parse --show-toplevel`.
+
+### Self-healing scripts (advanced)
+
+- `plugins/harness/scripts/refresh-worktrees.sh` — FF-merges clean worktrees with `origin/main`, skips dirty ones
+- `plugins/harness/scripts/detect-branch-drift.mjs` — flags `.claude/commands/*.md` that diverge from main for more than 14 days
+- `plugins/harness/templates/githooks/pre-commit` — auto-refreshes `skills-manifest.json` checksums when commands/skills change
+
+---
+
+## Personal dotfiles usage
+
+This is the owner's workflow — only relevant if you want to fork-then-adapt this repo for your own setup.
+
+### Fresh distro setup
 
 ```bash
 git clone git@github.com:kaiohenricunha/dotclaude.git ~/Projects/kaiohenricunha/dotclaude
@@ -17,16 +93,36 @@ cd ~/Projects/kaiohenricunha/dotclaude
 ./bootstrap.sh
 ```
 
-`bootstrap.sh` creates symlinks from this repo into `~/.claude/`. Run it again after pulling new commits.
+`bootstrap.sh` creates idempotent symlinks from this repo into `~/.claude/`:
+- `CLAUDE.md` → `~/.claude/CLAUDE.md` (global rule floor)
+- `commands/*.md` → `~/.claude/commands/*.md` (slash commands like `/create-audit`, `/merge-pr`, `/commit`)
+- `skills/*/` → `~/.claude/skills/*/` (directory-form skills like `spec/`, `validate-spec/`)
 
-## Sync between machines
+Pre-existing real files get backed up to `<name>.bak-<timestamp>` before being replaced — so first run on a populated `~/.claude/` is non-destructive.
 
-- `./sync.sh pull` — fetch + rebase from origin.
-- `./sync.sh push` — add all tracked changes, commit, push.
+### Sync between machines
 
-## Adding a new global command
+```bash
+./sync.sh pull    # fetch + rebase + re-run bootstrap
+./sync.sh push    # stage + commit + push
+./sync.sh status  # git status --short
+```
 
-Drop the `.md` file in `commands/`, re-run `./bootstrap.sh`, commit, push.
+### Adding a new global command or skill
+
+Drop the file at its real home (`commands/new-thing.md` or `skills/new-thing/SKILL.md`), re-run `./bootstrap.sh`, commit, push. No `~/.claude/` editing required.
+
+---
+
+## What ships in the public npm package
+
+The root `package.json` declares `@kaiohenricunha/harness`. Its `files` field ships only the portable subset:
+
+- `plugins/harness/{src,bin,templates,hooks,README.md,.claude-plugin}/**`
+
+Personal config (`CLAUDE.md`, `commands/`, `skills/`, `bootstrap.sh`, `sync.sh`) is present in the repo but **not** in the published package — consumers installing via `npm install -D github:kaiohenricunha/dotclaude#main` get only the harness.
+
+---
 
 ## Configuration decisions (2026-04-13 hardening)
 
@@ -44,7 +140,7 @@ Full context: [spec](docs/specs/claude-hardening/) · [audit](docs/audits/claude
 | **`.credentials.json` mode 600** | Token file must never widen. | Validator SEC-4 |
 | **`context7` runs globally, not per-project** | Library docs lookup is cross-project value; used to be pinned to a single project scope. | Global `enabledPlugins` |
 
-### Validator
+### Settings validator
 
 `plugins/harness/scripts/validate-settings.sh` encodes every decision above as a hard or soft check. Also symlinked at `~/.claude/scripts/validate-settings.sh`.
 
@@ -55,8 +151,6 @@ Full context: [spec](docs/specs/claude-hardening/) · [audit](docs/audits/claude
 
 Exit 0 = pass, 1 = hard failure. Warnings don't fail exit code. Tests: `plugins/harness/tests/test_validate_settings.sh` (8 fixtures covering positive + negative cases).
 
-Run the validator after every settings.json edit. The harness system prompt's PostToolUse `validate-edit.sh` hook already invokes it for Edit/Write events on settings files.
-
 ### Pre-flight rollback snapshot
 
 Before the 2026-04-13 hardening run, the previous state was captured at `~/.claude/settings.json.preflight-2026-04-13`. Restore with `cp` if anything breaks.
@@ -65,3 +159,9 @@ Before the 2026-04-13 hardening run, the previous state was captured at `~/.clau
 
 - `~/.claude/projects/` is 1.85 GB (validator warns; soft limit 1.5 GB). Most transcripts are recent (< 60 days); the retention policy will reclaim space over time. For immediate relief, prune stale worktree sessions manually.
 - `frontend-design`, `skill-creator`, `security-guidance`, `context7` show `version: "unknown"` in the install registry. Cosmetic; the marketplace manifest doesn't expose versions for these plugins. `claude plugins update` is a no-op.
+
+---
+
+## License
+
+MIT. See [LICENSE](LICENSE) if present; otherwise the MIT terms apply to the plugin code. Personal config files (CLAUDE.md, commands/, skills/) are provided as-is.
