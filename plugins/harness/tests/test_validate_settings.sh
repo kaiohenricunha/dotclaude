@@ -69,9 +69,23 @@ run_test "fails_on_at_latest_in_args" \
 1 "SEC-3 @latest"
 
 # --- 6. Unknown enabled plugin fails ---
+# The validator only runs the installed-plugins cross-check when
+# $HOME/.claude/plugins/installed_plugins.json exists (otherwise it just
+# warns). Seed an empty registry so the check actually runs in CI where the
+# file is absent by default.
+_test6_reg="$HOME/.claude/plugins/installed_plugins.json"
+_test6_reg_existed=1
+if [ ! -f "$_test6_reg" ]; then
+  _test6_reg_existed=0
+  mkdir -p "$(dirname "$_test6_reg")"
+  printf '{"plugins":{}}' > "$_test6_reg"
+fi
 run_test "fails_on_unknown_enabled_plugin" \
 '{"enabledPlugins":{"nope-fake-plugin-does-not-exist@unknown-marketplace":true},"mcpServers":{}}' \
 1 "NOT installed"
+if [ "$_test6_reg_existed" = "0" ]; then
+  rm -f "$_test6_reg"
+fi
 
 # --- 7. Missing absolute-path MCP command fails (OPS-1) ---
 run_test "fails_on_missing_mcp_binary" \

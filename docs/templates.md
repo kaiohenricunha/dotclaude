@@ -12,11 +12,11 @@ is at
 
 ## Placeholders
 
-| Token | Source | Default |
-|---|---|---|
-| `{{project_name}}` | `harness-init --project-name` | `basename(cwd)` |
-| `{{project_type}}` | `harness-init --project-type` | `"unknown"` |
-| `{{today}}` | `new Date().toISOString().slice(0,10)` (scaffold time) | — |
+| Token              | Source                                                 | Default         |
+| ------------------ | ------------------------------------------------------ | --------------- |
+| `{{project_name}}` | `harness-init --project-name`                          | `basename(cwd)` |
+| `{{project_type}}` | `harness-init --project-type`                          | `"unknown"`     |
+| `{{today}}`        | `new Date().toISOString().slice(0,10)` (scaffold time) | —               |
 
 Tokens not listed above pass through unchanged. That's intentional — a
 consumer template can reference e.g. `{{custom_marker}}` knowing the
@@ -48,7 +48,7 @@ templates/
 
 - **`claude/hooks/guard-destructive-git.sh`** — PreToolUse hook that blocks
   destructive git calls. Exit 2 per Claude Code hook protocol. See
-  [ADR-0014](../../../docs/adr/) for the ✓/✗/⚠ format inheritance.
+  [ADR-0014](./adr/0014-cli-tick-cross-warn-format.md) for the ✓/✗/⚠ format inheritance.
 - **`claude/skills-manifest.json`** — minimal `{version:1, skills:[]}`
   seed. Run `npx harness-validate-skills --update` after adding skills to
   populate checksums.
