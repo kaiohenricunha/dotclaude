@@ -337,7 +337,7 @@ export function getPullRequestContext() {
   const event = process.env.GITHUB_EVENT_NAME ?? "";
   const isPullRequest = event === "pull_request";
   const body = process.env.PR_BODY ?? "";
-  const actor = process.env.GITHUB_ACTOR ?? "";
+  const actor = process.env.PR_ACTOR ?? process.env.GITHUB_ACTOR ?? "";
   return { isPullRequest, body, actor };
 }
 
