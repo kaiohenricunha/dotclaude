@@ -46,6 +46,10 @@ export { checkInstructionDrift } from "./check-instruction-drift.mjs";
 export { checkSpecCoverage } from "./check-spec-coverage.mjs";
 export { scaffoldHarness } from "./init-harness-scaffold.mjs";
 
+// --- bootstrap + sync (global ~/.claude/ lifecycle) ---
+export { bootstrapGlobal, resolveSource } from "./bootstrap-global.mjs";
+export { syncGlobal, resolveMode } from "./sync-global.mjs";
+
 // --- error taxonomy + exit codes ---
 export { ValidationError, ERROR_CODES, formatError } from "./lib/errors.mjs";
 export { EXIT_CODES } from "./lib/exit-codes.mjs";
