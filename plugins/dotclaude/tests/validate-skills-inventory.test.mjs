@@ -369,10 +369,11 @@ key = sk-abcdef123456
 
 describe("validateAgents — shipped template agents", () => {
   it("returns 0 errors for all 8 agents in templates/claude/agents/", () => {
-    const repoRoot = resolve(__dirname, "..", "..", "..", "..");
+    const repoRoot = resolve(__dirname, "..", "..", "..");
     const agentsDir = resolve(repoRoot, "plugins", "dotclaude", "templates", "claude");
     const result = validateAgents(agentsDir);
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
+    expect(result.warnings).toEqual([]);
   });
 });

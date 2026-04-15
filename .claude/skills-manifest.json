@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-04-15T12:57:15.915Z",
+  "generatedAt": "2026-04-15T13:05:51.300Z",
   "skills": [
     {
       "name": "audit-and-fix",
@@ -68,7 +68,7 @@
     {
       "name": "markdown",
       "path": ".claude/commands/markdown.md",
-      "checksum": "sha256:7fcab3e2a92c8a0a68a8c0670b4ce3b33c0ecbb6bbcdd56863451628d74a2ca5",
+      "checksum": "sha256:914196385b12a0bf9db3234411c07203255afccf13daf45feb02aafd91d507dc",
       "dependencies": [],
       "lastValidated": "2026-04-15"
     },
@@ -96,14 +96,14 @@
     {
       "name": "security-review",
       "path": ".claude/commands/security-review.md",
-      "checksum": "sha256:8e93dde57c4fb2fd2c1e7acc1310372ba72c1d8efb70f7577bf2a39d1e8a6231",
+      "checksum": "sha256:007ea80c772015841e260af5f82cf993fbe339a2293373104ec4d4579ddef3fb",
       "dependencies": [],
       "lastValidated": "2026-04-15"
     },
     {
       "name": "agents-search",
       "path": ".claude/skills/agents-search/SKILL.md",
-      "checksum": "sha256:772dfdfd60e34d0bfbc781fd94940f261b11e82b5c4f6ec5c19cbc69c23850c0",
+      "checksum": "sha256:ca85f38c70fa88e1447e3ad335b0d111236e718d634d058a28cabf88e95a1d5a",
       "dependencies": [],
       "lastValidated": "2026-04-15"
     },

@@ -8,7 +8,7 @@ import { ValidationError, ERROR_CODES } from "./lib/errors.mjs";
 // ---------------------------------------------------------------------------
 
 const VALID_MODELS = new Set(["opus", "sonnet", "haiku", "inherit"]);
-const READONLY_PATTERNS = [/auditor/i, /reviewer/i, /inspector/i];
+const READONLY_PATTERNS = [/(^|-)auditor$/i, /(^|-)reviewer$/i, /(^|-)inspector$/i];
 const WRITE_TOOLS = ["Write", "Edit"];
 const SECRET_PATTERNS = [
   { pattern: /ghp_/, label: "ghp_" },

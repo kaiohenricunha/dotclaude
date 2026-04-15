@@ -57,7 +57,7 @@ Find installed agents whose name or description matches a query string.
    No agents found matching '<query>'
    ```
 
-6. If Glob returns no results (no agents installed), check `~/.claude/cache/agents-catalog.md` — if it exists and is less than 12 hours old (use `Bash(stat -c %Y ~/.claude/cache/agents-catalog.md 2>/dev/null || echo 0)` to check mtime), display results from the catalog instead and note they are from the cached remote catalog.
+6. If Glob returns no results (no agents installed), check `~/.claude/cache/agents-catalog.md` — if it exists and is less than 12 hours old (use `Bash(stat -c %Y ~/.claude/cache/agents-catalog.md 2>/dev/null || stat -f %m ~/.claude/cache/agents-catalog.md 2>/dev/null || echo 0)` to check mtime), display results from the catalog instead and note they are from the cached remote catalog.
 
 ---
 
@@ -90,7 +90,7 @@ List all installed agents grouped by model tier.
    No agents installed. Run `/agents:search fetch <name>` to install one.
    ```
 
-6. If Glob returns no results (no agents installed), check `~/.claude/cache/agents-catalog.md` — if it exists and is less than 12 hours old (use `Bash(stat -c %Y ~/.claude/cache/agents-catalog.md 2>/dev/null || echo 0)` to check mtime), display results from the catalog instead and note they are from the cached remote catalog.
+6. If Glob returns no results (no agents installed), check `~/.claude/cache/agents-catalog.md` — if it exists and is less than 12 hours old (use `Bash(stat -c %Y ~/.claude/cache/agents-catalog.md 2>/dev/null || stat -f %m ~/.claude/cache/agents-catalog.md 2>/dev/null || echo 0)` to check mtime), display results from the catalog instead and note they are from the cached remote catalog.
 
 ---
 
@@ -130,7 +130,7 @@ Clear the local agent catalog cache, optionally refreshing it from GitHub.
 
 1. **If `--fetch` flag is present:** Read the mtime of `~/.claude/cache/agents-catalog.md`
    now (before deleting anything) using
-   `Bash(stat -c %Y ~/.claude/cache/agents-catalog.md 2>/dev/null || echo 0)`.
+   `Bash(stat -c %Y ~/.claude/cache/agents-catalog.md 2>/dev/null || stat -f %m ~/.claude/cache/agents-catalog.md 2>/dev/null || echo 0)`.
    Store the result for informational use later.
 
 2. Check whether `~/.claude/cache/agents-catalog.md` exists via `Read`.
@@ -174,7 +174,7 @@ Clear the local agent catalog cache, optionally refreshing it from GitHub.
 Whenever `search` or `list` falls back to `~/.claude/cache/agents-catalog.md` for data,
 check whether the cache is stale before using it:
 
-1. Run `Bash(stat -c %Y ~/.claude/cache/agents-catalog.md 2>/dev/null || echo 0)` to get mtime.
+1. Run `Bash(stat -c %Y ~/.claude/cache/agents-catalog.md 2>/dev/null || stat -f %m ~/.claude/cache/agents-catalog.md 2>/dev/null || echo 0)` to get mtime.
 2. If `(now - mtime) > 43200` seconds (12 hours), display an inline notice:
 
    ```
@@ -189,16 +189,16 @@ check whether the cache is stale before using it:
 
 All file I/O uses Claude Code built-in tools — this is a skill, not a shell script:
 
-| Operation                       | Tool                      |
-| ------------------------------- | ------------------------- |
-| Enumerate agents                | `Glob`                    |
-| Read file content / frontmatter | `Read`                    |
-| Search catalog content          | `Grep`                    |
-| Write / install agent           | `Write`                   |
-| Delete cache file               | `Bash(rm <path>)`         |
-| Create cache directory          | `Bash(mkdir -p <path>)`   |
-| Check file mtime                | `Bash(stat -c %Y <path>)` |
-| Fetch remote catalog            | `WebFetch`                |
+| Operation                       | Tool                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------- |
+| Enumerate agents                | `Glob`                                                                  |
+| Read file content / frontmatter | `Read`                                                                  |
+| Search catalog content          | `Grep`                                                                  |
+| Write / install agent           | `Write`                                                                 |
+| Delete cache file               | `Bash(rm <path>)`                                                       |
+| Create cache directory          | `Bash(mkdir -p <path>)`                                                 |
+| Check file mtime                | `Bash(stat -c %Y <path>)` (GNU) / `Bash(stat -f %m <path>)` (BSD/macOS) |
+| Fetch remote catalog            | `WebFetch`                                                              |
 
 ---
 

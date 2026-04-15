@@ -1,8 +1,8 @@
 ---
 name: markdown
 description: >
-  dir]"|Fix markdown formatting and structure across a file or directory. Normalizes headings, tables, code blocks, link references.
-argument-hint: "[file
+  Fix markdown formatting and structure across a file or directory. Normalizes headings, tables, code blocks, link references.
+argument-hint: "[file | dir]"
 model: haiku
 ---
 
