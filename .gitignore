@@ -1,4 +1,5 @@
 # Local-only Claude state — never commit.
+.claude/worktrees/
 settings.local.json
 **/settings.local.json
 *.local.json
