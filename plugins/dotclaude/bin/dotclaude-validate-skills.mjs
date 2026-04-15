@@ -13,10 +13,12 @@ import { createOutput } from "../src/lib/output.mjs";
 import { EXIT_CODES } from "../src/lib/exit-codes.mjs";
 import { formatError } from "../src/lib/errors.mjs";
 import { version } from "../src/index.mjs";
+import { resolve } from "node:path";
 import {
   createHarnessContext,
   validateManifest,
   refreshChecksums,
+  validateAgents,
 } from "../src/index.mjs";
 
 const META = {
@@ -81,12 +83,37 @@ try {
 
 if (result.ok) {
   out.pass(`manifest valid (${result.manifest.skills.length} skills)`);
-  out.flush();
-  process.exit(EXIT_CODES.OK);
+} else {
+  for (const err of result.errors) {
+    out.fail(formatError(err, { verbose: argv.verbose }), err.toJSON ? err.toJSON() : undefined);
+  }
 }
 
-for (const err of result.errors) {
-  out.fail(formatError(err, { verbose: argv.verbose }), err.toJSON ? err.toJSON() : undefined);
+// --- agents validation ---
+const agentsDir = resolve(ctx.repoRoot, "plugins", "dotclaude", "templates", "claude");
+let agentsResult;
+try {
+  agentsResult = validateAgents(agentsDir);
+} catch (err) {
+  out.fail(`agents validation failed: ${err.message}`);
+  out.flush();
+  process.exit(EXIT_CODES.ENV);
 }
+
+if (agentsResult.ok && agentsResult.warnings.length === 0) {
+  out.pass(`agents valid (${agentsResult.errors.length === 0 ? "no errors" : ""})`);
+} else {
+  if (agentsResult.ok) {
+    out.pass(`agents valid (warnings: ${agentsResult.warnings.length})`);
+  }
+  for (const err of agentsResult.errors) {
+    out.fail(formatError(err, { verbose: argv.verbose }), err.toJSON ? err.toJSON() : undefined);
+  }
+}
+for (const warn of agentsResult.warnings) {
+  out.warn(formatError(warn, { verbose: argv.verbose }), warn.toJSON ? warn.toJSON() : undefined);
+}
+
 out.flush();
-process.exit(EXIT_CODES.VALIDATION);
+const hasErrors = !result.ok || !agentsResult.ok;
+process.exit(hasErrors ? EXIT_CODES.VALIDATION : EXIT_CODES.OK);

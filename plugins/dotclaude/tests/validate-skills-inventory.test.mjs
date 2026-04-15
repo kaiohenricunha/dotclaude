@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { fileURLToPath } from "url";
-import path from "path";
+import path, { resolve } from "path";
 import { readFileSync, writeFileSync, mkdtempSync, cpSync, unlinkSync, mkdirSync } from "fs";
 import { tmpdir } from "os";
 import { createHarnessContext } from "../src/spec-harness-lib.mjs";
@@ -360,5 +360,19 @@ key = sk-abcdef123456
     writeAgent(dir, "clean-agent.md", VALID_AGENT);
     const result = validateAgents(dir);
     expect(result.warnings).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateAgents — shipped template agents
+// ---------------------------------------------------------------------------
+
+describe("validateAgents — shipped template agents", () => {
+  it("returns 0 errors for all 8 agents in templates/claude/agents/", () => {
+    const repoRoot = resolve(__dirname, "..", "..", "..", "..");
+    const agentsDir = resolve(repoRoot, "plugins", "dotclaude", "templates", "claude");
+    const result = validateAgents(agentsDir);
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
   });
 });

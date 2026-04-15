@@ -88,7 +88,7 @@ if [ -d "$AGENTS_SRC" ]; then
     agent_name=$(basename "$agent_file")
     dst_file="$AGENTS_DST/$agent_name"
     if [ -e "$dst_file" ]; then
-      say "  skipped (exists): $agent_name"
+      say "  skipped (exists): $agent_name — delete to reinstall on next bootstrap"
     else
       cp "$agent_file" "$dst_file"
       say "  installed agent: $agent_name"
