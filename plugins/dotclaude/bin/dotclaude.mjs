@@ -8,7 +8,8 @@
  *
  * Known subcommands mirror the bin/* entries shipped by the package:
  *   validate-skills, validate-specs, check-spec-coverage,
- *   check-instruction-drift, detect-drift, doctor, init.
+ *   check-instruction-drift, detect-drift, doctor, init,
+ *   bootstrap, sync.
  *
  * Exits: 0 ok, 1 delegated failure, 2 env error, 64 usage error.
  */
@@ -28,6 +29,8 @@ const SUBCOMMANDS = [
   "detect-drift",
   "doctor",
   "init",
+  "bootstrap",
+  "sync",
 ];
 
 function printUsage() {

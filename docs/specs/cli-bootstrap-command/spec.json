@@ -1,0 +1,31 @@
+{
+  "id": "cli-bootstrap-command",
+  "title": "dotclaude bootstrap + sync CLI commands",
+  "status": "draft",
+  "owners": ["dotclaude maintainers"],
+  "linked_paths": [
+    "package.json",
+    "bootstrap.sh",
+    "sync.sh",
+    "commands/**",
+    "skills/**",
+    "CLAUDE.md",
+    "plugins/dotclaude/src/bootstrap-global.mjs",
+    "plugins/dotclaude/src/sync-global.mjs",
+    "plugins/dotclaude/src/index.mjs",
+    "plugins/dotclaude/bin/dotclaude-bootstrap.mjs",
+    "plugins/dotclaude/bin/dotclaude-sync.mjs",
+    "plugins/dotclaude/bin/dotclaude.mjs",
+    "plugins/dotclaude/bin/dotclaude-doctor.mjs",
+    "plugins/dotclaude/tests/bootstrap-global.test.mjs",
+    "plugins/dotclaude/tests/sync-global.test.mjs"
+  ],
+  "acceptance_commands": [
+    "npm test",
+    "node plugins/dotclaude/bin/dotclaude-bootstrap.mjs --help",
+    "node plugins/dotclaude/bin/dotclaude-sync.mjs --help",
+    "npx dotclaude-validate-specs"
+  ],
+  "depends_on_specs": ["dotclaude-core"],
+  "active_prs": []
+}

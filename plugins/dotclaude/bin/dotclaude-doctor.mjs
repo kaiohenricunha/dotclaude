@@ -12,13 +12,15 @@
  *   specs        docs/specs/ scanned; validateSpecs clean
  *   drift        checkInstructionDrift clean
  *   hook         plugins/dotclaude/hooks/guard-destructive-git.sh present + exec bit
+ *   bootstrap    ~/.claude/CLAUDE.md symlink present (informational — warn only)
  *
  * Exit codes: 0 all green, 1 one or more checks failed (validation), 2 env error.
  */
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync, lstatSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { parse, helpText } from "../src/lib/argv.mjs";
 import { createOutput } from "../src/lib/output.mjs";
 import { EXIT_CODES } from "../src/lib/exit-codes.mjs";
@@ -138,6 +140,19 @@ if (existsSync(hookPath)) {
   else out.fail("guard-destructive-git.sh present but NOT executable (chmod +x)");
 } else {
   out.warn("guard-destructive-git.sh missing — destructive git commands are unguarded");
+}
+
+// bootstrap: is ~/.claude/ wired up? (informational — warn only)
+const globalClaudeMd = join(homedir(), ".claude", "CLAUDE.md");
+try {
+  const l = lstatSync(globalClaudeMd);
+  if (l.isSymbolicLink()) {
+    out.pass(`~/.claude/CLAUDE.md is a symlink (bootstrap active)`);
+  } else {
+    out.warn(`~/.claude/CLAUDE.md exists but is not a symlink — run 'dotclaude bootstrap' to wire it up`);
+  }
+} catch {
+  out.warn(`~/.claude/CLAUDE.md missing — run 'dotclaude bootstrap' to install global config`);
 }
 
 out.flush();
