@@ -183,4 +183,57 @@ describe("syncGlobal", () => {
     expect(result.mode).toBe("npm");
     expect(result.summary).toMatch(/clone mode/i);
   });
+
+  // -------------------------------------------------------------------------
+  // Test 9 — push (clone mode) happy path
+  // -------------------------------------------------------------------------
+
+  it("push (clone mode) commits and pushes when no secrets detected", async () => {
+    const source = "/home/user/dotclaude";
+    // git add -A
+    spawnSync.mockReturnValueOnce({ stdout: "", stderr: "", status: 0 });
+    // git diff --cached --quiet → non-zero means there ARE staged changes
+    spawnSync.mockReturnValueOnce({ stdout: "", stderr: "", status: 1 });
+    // git diff --cached --name-only → returns staged filenames
+    spawnSync.mockReturnValueOnce({ stdout: "CLAUDE.md\n", stderr: "", status: 0 });
+    // git show :CLAUDE.md → clean content (no secrets)
+    spawnSync.mockReturnValueOnce({ stdout: "# CLAUDE\n", stderr: "", status: 0 });
+    // git commit
+    spawnSync.mockReturnValueOnce({ stdout: "", stderr: "", status: 0 });
+    // git push
+    spawnSync.mockReturnValueOnce({ stdout: "", stderr: "", status: 0 });
+
+    const result = await syncGlobal("push", { source });
+
+    expect(result.ok).toBe(true);
+    expect(result.mode).toBe("clone");
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 10 — push (clone mode) aborts when secret detected
+  // -------------------------------------------------------------------------
+
+  it("push (clone mode) aborts when a secret is detected in staged files", async () => {
+    const source = "/home/user/dotclaude";
+    // git add -A
+    spawnSync.mockReturnValueOnce({ stdout: "", stderr: "", status: 0 });
+    // git diff --cached --quiet → non-zero means staged changes exist
+    spawnSync.mockReturnValueOnce({ stdout: "", stderr: "", status: 1 });
+    // git diff --cached --name-only
+    spawnSync.mockReturnValueOnce({ stdout: "config.js\n", stderr: "", status: 0 });
+    // git show :config.js → contains a secret-shaped value
+    spawnSync.mockReturnValueOnce({
+      stdout: "const API_KEY = 'AKIAIOSFODNN7EXAMPLE123456789012';\n",
+      stderr: "",
+      status: 0,
+    });
+
+    const result = await syncGlobal("push", { source });
+
+    expect(result.ok).toBe(false);
+    expect(result.mode).toBe("clone");
+    // commit and push must NOT have been called
+    const calls = spawnSync.mock.calls.map((c) => c.slice(0, 2));
+    expect(calls).not.toContainEqual(["git", ["-C", source, "commit", expect.any(String), expect.any(String)]]);
+  });
 });

@@ -116,6 +116,10 @@ async function statusNpm(out) {
 
 async function statusClone(out, source) {
   const res = run("git", ["-C", source, "status", "--short"]);
+  if (res.status !== 0) {
+    out.fail(`git status failed: ${trim(res.stderr || res.stdout)}`);
+    return { ok: false, mode: "clone", summary: "git status failed" };
+  }
   out.info(trim(res.stdout));
   return { ok: true, mode: "clone", summary: "git status shown" };
 }
