@@ -66,7 +66,7 @@ Universal behavior for every Claude Code session in every repo. Project-level `C
 - Required sections in every PR body:
   - `## Summary` — 1–3 bullets describing the change.
   - `## Test plan` — bulleted markdown checklist.
-  - `Spec ID: <id>` — if the project uses spec IDs (check for `specs/` or `docs/specs/`).
+  - `## Spec ID` heading followed by the spec id — if the project uses spec IDs (check for `specs/` or `docs/specs/`). Must be an H2 heading; `dotclaude-check-spec-coverage` extracts it via H2 regex.
 - Never merge a PR with failing CI without explicit user approval.
 
 ## Shell & Scripting
