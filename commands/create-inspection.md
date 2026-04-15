@@ -3,6 +3,7 @@ name: create-inspection
 description: >
   Investigate a specific problem and surface viable fix paths with trade-offs, saved to docs/inspections/. Use when the user needs to understand *how* to fix something before committing to an approach. Sits between /create-audit (find problems) and /fix-with-evidence (implement the fix).
 argument-hint: "[problem or subject]"
+model: sonnet
 ---
 
 Investigate a specific problem and produce a structured fix-path document saved to the project's `docs/inspections/` directory.

@@ -2,6 +2,7 @@
 name: dependabot-sweep
 description: >
   Batch-triage all open Dependabot PRs in the current repo using parallel subagents. Produces a risk-annotated table and merges only safe bumps.
+model: sonnet
 ---
 
 Batch-triage all open Dependabot PRs in the current repo using parallel subagents. Produce a risk-annotated table and merge only safe bumps.

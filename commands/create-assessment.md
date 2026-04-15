@@ -3,6 +3,7 @@ name: create-assessment
 description: >
   Create a structured assessment document grading a target on a 0-10 scale with a weighted rubric, saved to docs/assessments/. Use for numeric grades; use /create-audit for issue-triage.
 argument-hint: "[target]"
+model: sonnet
 ---
 
 Create a structured assessment document that grades a target on a 0-10 scale using a weighted rubric and save it to the project's `docs/assessments/` directory.

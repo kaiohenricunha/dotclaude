@@ -3,6 +3,7 @@ name: detect-flaky
 description: >
   Detect, diagnose, and fix flaky tests in Python, Go, or JavaScript/TypeScript codebases by repeated execution + root-cause analysis.
 argument-hint: "[test-command]"
+model: sonnet
 ---
 
 # /detect-flaky — Flaky Test Detection and Diagnosis Agent

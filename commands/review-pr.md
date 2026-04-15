@@ -3,6 +3,7 @@ name: review-pr
 description: >
   Review a pull request: fetch comments, validate, apply fixes, resolve conflicts, and close out all threads.
 argument-hint: "[PR#]"
+model: sonnet
 ---
 
 Review a pull request: fetch comments, validate, apply fixes, resolve conflicts, and close out all threads.

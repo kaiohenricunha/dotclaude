@@ -3,6 +3,7 @@ name: audit-and-fix
 description: >
   Run an audit-then-implement pipeline: produce an audit, cluster findings into PR-sized chunks, and spawn parallel subagents to implement fixes as draft PRs. Trigger: user asks to "audit and fix" or kicks off an overnight cleanup run.
 argument-hint: "[domain]"
+model: opus
 ---
 
 Run a long-horizon audit-then-implement pipeline: produce a structured audit, cluster findings into PR-sized chunks, and spawn parallel subagents to implement fixes as draft PRs.

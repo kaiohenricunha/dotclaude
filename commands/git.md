@@ -3,6 +3,7 @@ name: git
 description: >
   Project-aware git workflow: conventional commits, PR creation, safe pushes, PR merges, and branch naming suggestions.
 argument-hint: "[subcommand]"
+model: sonnet
 ---
 
 # /git

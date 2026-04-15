@@ -8,6 +8,7 @@ description: >
   Works for greenfield and brownfield projects. Outputs to docs/specs/.
 argument-hint: "[spec-name] [description] [--brownfield]"
 effort: max
+model: opus
 ---
 
 # Spec-Driven Design
