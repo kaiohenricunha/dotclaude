@@ -144,7 +144,7 @@ export async function bootstrapGlobal(opts = {}) {
   const target = opts.target ?? path.join(os.homedir(), ".claude");
 
   const out = createOutput({
-    noColor: opts.noColor ?? true,
+    noColor: opts.noColor ?? false,
     json: opts.json ?? false,
   });
 
@@ -154,16 +154,14 @@ export async function bootstrapGlobal(opts = {}) {
     return { ok: false, linked: 0, skipped: 0, backed_up: 0 };
   }
 
+  // Build YYYYMMDD-HHmmss timestamp matching bootstrap.sh's date +%Y%m%d-%H%M%S.
+  // After replace(/[-:T]/g, "") the ISO string becomes "YYYYMMDDHHmmss.mmmZ",
+  // so datePart is slice(0,8) and timePart is slice(8,14) — no T separator remains.
   const ts = new Date()
     .toISOString()
     .replace(/[-:T]/g, "")
-    .replace(/\..+$/, "")
-    .slice(0, 15); // YYYYMMDDTHHmmss → "20260415T113000"
-
-  // Reformat to match bootstrap.sh: YYYYMMDD-HHmmss
-  const datePart = ts.slice(0, 8);
-  const timePart = ts.slice(9, 15);
-  const timestamp = `${datePart}-${timePart}`;
+    .replace(/\..+$/, ""); // → "YYYYMMDDHHmmss"
+  const timestamp = `${ts.slice(0, 8)}-${ts.slice(8, 14)}`;
 
   fs.mkdirSync(target, { recursive: true });
 
