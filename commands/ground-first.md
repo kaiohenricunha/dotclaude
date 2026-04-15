@@ -3,6 +3,7 @@ name: ground-first
 description: >
   Produce a code-grounded analysis before any edit is proposed. Use when the user asks for a fix/change/investigation and has not yet confirmed you understand current behavior.
 argument-hint: "[subject]"
+model: opus
 ---
 
 Produce a code-grounded analysis of a subject before any edits are proposed.

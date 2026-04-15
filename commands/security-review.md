@@ -1,8 +1,9 @@
 ---
 name: security-review
 description: >
-  path|staged]"|Analyze a diff or changed files for common security vulnerabilities (injection, XSS, SSRF, secrets). Defaults to staged changes.
-argument-hint: "[PR#
+  Analyze a diff or changed files for common security vulnerabilities (injection, XSS, SSRF, secrets). Defaults to staged changes.
+argument-hint: "[PR# | path | staged]"
+model: opus
 ---
 
 Analyze a diff or set of changed files for common security vulnerabilities.

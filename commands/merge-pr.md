@@ -3,6 +3,7 @@ name: merge-pr
 description: >
   Merge a pull request only after full local verification, with a data-regression gate for PRs touching data/calibration/rankings.
 argument-hint: "[PR#]"
+model: sonnet
 ---
 
 Merge a pull request only after full local verification, with a data-regression gate for PRs touching data/calibration/rankings.

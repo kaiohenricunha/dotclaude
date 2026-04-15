@@ -3,6 +3,7 @@ name: create-audit
 description: >
   Create an evidence-based audit document and save it to docs/audits/. Trigger: user asks for an audit, review, or assessment of any system, feature, or component.
 argument-hint: "[subject]"
+model: opus
 ---
 
 Create a structured audit document and save it to the project's `docs/audits/` directory.

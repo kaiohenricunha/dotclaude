@@ -14,7 +14,7 @@
  * @property {string} [expected] Text describing what the validator expected.
  * @property {string} [got]      Text describing what was observed.
  * @property {string} [hint]     Actionable remediation suggestion.
- * @property {'spec'|'skill'|'manifest'|'coverage'|'drift'|'scaffold'|'settings'|'env'|'usage'} [category]
+ * @property {'spec'|'skill'|'manifest'|'coverage'|'drift'|'scaffold'|'settings'|'env'|'usage'|'agent'} [category]
  */
 
 /**
@@ -56,6 +56,11 @@ export const ERROR_CODES = Object.freeze({
   SETTINGS_SEC_4: 'SETTINGS_SEC_4',
   SETTINGS_OPS_1: 'SETTINGS_OPS_1',
   SETTINGS_OPS_2: 'SETTINGS_OPS_2',
+  // agent frontmatter
+  AGENT_MISSING_FIELD: 'AGENT_MISSING_FIELD',
+  AGENT_INVALID_MODEL: 'AGENT_INVALID_MODEL',
+  AGENT_WRITE_TOOL_IN_READONLY: 'AGENT_WRITE_TOOL_IN_READONLY',
+  AGENT_SECRET_PATTERN: 'AGENT_SECRET_PATTERN',
   // env / usage
   ENV_REPO_ROOT_UNKNOWN: 'ENV_REPO_ROOT_UNKNOWN',
   ENV_FACTS_MISSING: 'ENV_FACTS_MISSING',

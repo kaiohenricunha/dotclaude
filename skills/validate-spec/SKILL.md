@@ -11,6 +11,7 @@ description: >
   spec itself.
 argument-hint: "[spec-id] [--no-run]"
 effort: max
+model: sonnet
 ---
 
 # Validate Spec — Implementation Audit

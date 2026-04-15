@@ -3,6 +3,7 @@ name: fix-with-evidence
 description: >
   Fix a bug using a strict Reproduce -> Fix -> Verify -> PR loop where each phase gates on the previous. Trigger: any bug-fix request.
 argument-hint: "[issue]"
+model: sonnet
 ---
 
 Fix a bug using a strict four-phase evidence loop: Reproduce → Fix → Verify → PR. Each phase gates on the previous.

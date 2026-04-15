@@ -3,6 +3,82 @@ import { createHash } from "crypto";
 import path from "path";
 import { ValidationError, ERROR_CODES } from "./lib/errors.mjs";
 
+// ---------------------------------------------------------------------------
+// Agent validation helpers
+// ---------------------------------------------------------------------------
+
+const VALID_MODELS = new Set(["opus", "sonnet", "haiku", "inherit"]);
+const READONLY_PATTERNS = [/(^|-)auditor$/i, /(^|-)reviewer$/i, /(^|-)inspector$/i];
+const WRITE_TOOLS = ["Write", "Edit"];
+const SECRET_PATTERNS = [
+  { pattern: /ghp_/, label: "ghp_" },
+  { pattern: /sk-/, label: "sk-" },
+  { pattern: /AKIA/, label: "AKIA" },
+  { pattern: /-----BEGIN/, label: "-----BEGIN" },
+  { pattern: /password\s*=/, label: "password=" },
+  { pattern: /token\s*=/, label: "token=" },
+];
+
+/**
+ * Parse YAML frontmatter from a markdown file string.
+ * Returns { fields: Map<string,string>, bodyStartLine: number } where
+ * bodyStartLine is the 1-indexed line after the closing `---`.
+ *
+ * Returns null when no valid frontmatter block is found.
+ *
+ * @param {string} content
+ * @returns {{ fields: Map<string,string>, bodyStartLine: number } | null}
+ */
+function parseFrontmatter(content) {
+  const lines = content.split("\n");
+  if (lines[0].trim() !== "---") return null;
+  const closeIdx = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
+  if (closeIdx === -1) return null;
+
+  const fields = new Map();
+  let currentKey = null;
+  let currentValue = [];
+
+  function flushCurrent() {
+    if (currentKey !== null) {
+      fields.set(currentKey, currentValue.join("\n").trim());
+      currentKey = null;
+      currentValue = [];
+    }
+  }
+
+  for (let i = 1; i < closeIdx; i++) {
+    const line = lines[i];
+    // Key: value (possibly multiline with ">")
+    const kvMatch = line.match(/^(\w[\w-]*):\s*(.*)/);
+    if (kvMatch) {
+      flushCurrent();
+      currentKey = kvMatch[1];
+      currentValue = [kvMatch[2]];
+    } else if (currentKey !== null && /^\s+/.test(line)) {
+      // Continuation of a multiline value
+      currentValue.push(line.trim());
+    }
+  }
+  flushCurrent();
+
+  return { fields, bodyStartLine: closeIdx + 2 }; // 1-indexed
+}
+
+/**
+ * List all .md files in <agentsDir>/agents/
+ *
+ * @param {string} agentsDir  absolute path to the directory containing an `agents/` sub-folder
+ * @returns {string[]}        absolute paths to every .md file
+ */
+function listAgentFiles(agentsDir) {
+  const dir = path.join(agentsDir, "agents");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => path.join(dir, f));
+}
+
 function sha256(content) {
   return "sha256:" + createHash("sha256").update(content).digest("hex");
 }
@@ -145,4 +221,138 @@ export function refreshChecksums(ctx) {
   manifest.generatedAt = new Date().toISOString();
   writeFileSync(ctx.manifestPath, JSON.stringify(manifest, null, 2) + "\n");
   return manifest;
+}
+
+/**
+ * Validate agent `.md` files found under `<agentsDir>/agents/*.md`.
+ *
+ * Each agent file must have YAML frontmatter with four required fields:
+ *   - `name`        non-empty string
+ *   - `description` non-empty string
+ *   - `tools`       non-empty string
+ *   - `model`       one of: opus | sonnet | haiku | inherit
+ *
+ * Security checks:
+ *   - SEC-1: warn on common secret patterns in the file body
+ *   - SEC-2: agents whose name contains auditor/reviewer/inspector must not
+ *             list Write or Edit in `tools:`
+ *
+ * @param {string} agentsDir  Absolute path to the directory that contains an
+ *                            `agents/` sub-folder (e.g. the repo root or a
+ *                            `.claude/` dir).
+ * @returns {{ ok: boolean, errors: ValidationError[], warnings: ValidationError[] }}
+ */
+export function validateAgents(agentsDir) {
+  const errors = [];
+  const warnings = [];
+
+  const agentFiles = listAgentFiles(agentsDir);
+
+  for (const absPath of agentFiles) {
+    const relPath = path.relative(agentsDir, absPath);
+    const content = readFileSync(absPath, "utf8");
+    const lines = content.split("\n");
+
+    // --- frontmatter ---
+    const fm = parseFrontmatter(content);
+    if (!fm) {
+      errors.push(new ValidationError({
+        code: ERROR_CODES.AGENT_MISSING_FIELD,
+        category: "agent",
+        file: relPath,
+        line: 1,
+        message: `missing YAML frontmatter (no --- block found)`,
+        hint: "add --- frontmatter with name, description, tools, and model fields",
+      }));
+      continue;
+    }
+
+    // Required fields
+    for (const field of ["name", "description", "tools", "model"]) {
+      const val = fm.fields.get(field);
+      if (!val || val.trim() === "") {
+        // Compute the line number of the field (or default to 1)
+        let fieldLine = 1;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].trim() === "---" && i > 0) break;
+          if (lines[i].match(new RegExp(`^${field}\\s*:`))) {
+            fieldLine = i + 1;
+            break;
+          }
+        }
+        errors.push(new ValidationError({
+          code: ERROR_CODES.AGENT_MISSING_FIELD,
+          category: "agent",
+          file: relPath,
+          line: fieldLine,
+          message: `missing required field: ${field}`,
+          hint: `add \`${field}:\` to the frontmatter`,
+        }));
+      }
+    }
+
+    // model value validation (only if model field is present)
+    const modelVal = fm.fields.get("model");
+    if (modelVal && modelVal.trim() !== "" && !VALID_MODELS.has(modelVal.trim())) {
+      let modelLine = 1;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(/^model\s*:/)) { modelLine = i + 1; break; }
+      }
+      errors.push(new ValidationError({
+        code: ERROR_CODES.AGENT_INVALID_MODEL,
+        category: "agent",
+        file: relPath,
+        line: modelLine,
+        got: modelVal.trim(),
+        expected: "opus|sonnet|haiku|inherit",
+        message: `model value "${modelVal.trim()}" is not valid (must be opus|sonnet|haiku|inherit)`,
+        hint: `change model to one of: opus, sonnet, haiku, inherit`,
+      }));
+    }
+
+    // SEC-2: read-only agents must not have Write or Edit in tools
+    const nameVal = (fm.fields.get("name") ?? "").trim();
+    const toolsVal = (fm.fields.get("tools") ?? "").trim();
+    const isReadonly = READONLY_PATTERNS.some((p) => p.test(nameVal));
+    if (isReadonly) {
+      const toolsList = toolsVal.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
+      const badTools = WRITE_TOOLS.filter((t) => toolsList.includes(t));
+      if (badTools.length > 0) {
+        let toolsLine = 1;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].match(/^tools\s*:/)) { toolsLine = i + 1; break; }
+        }
+        errors.push(new ValidationError({
+          code: ERROR_CODES.AGENT_WRITE_TOOL_IN_READONLY,
+          category: "agent",
+          file: relPath,
+          line: toolsLine,
+          got: badTools.join(", "),
+          message: `read-only agent has write tools: ${badTools.join(", ")}`,
+          hint: `remove ${badTools.join(", ")} from tools: — this agent is designated read-only (name matches auditor/reviewer/inspector)`,
+        }));
+      }
+    }
+
+    // SEC-1: scan body lines for secret patterns (body starts after frontmatter)
+    const bodyStart = fm.bodyStartLine - 1; // convert to 0-indexed
+    for (let i = bodyStart; i < lines.length; i++) {
+      const line = lines[i];
+      for (const { pattern, label } of SECRET_PATTERNS) {
+        if (pattern.test(line)) {
+          warnings.push(new ValidationError({
+            code: ERROR_CODES.AGENT_SECRET_PATTERN,
+            category: "agent",
+            file: relPath,
+            line: i + 1,
+            message: `possible secret pattern: "${label}"`,
+            hint: "remove or redact the secret; never commit credentials in agent files",
+          }));
+          break; // one warning per line is enough
+        }
+      }
+    }
+  }
+
+  return { ok: errors.length === 0, errors, warnings };
 }
