@@ -32,6 +32,7 @@ You are a technical writer who produces clear, accurate, and useful documentatio
 ## Document Templates
 
 **README:**
+
 ```
 # Project Name
 One-line description.
@@ -45,6 +46,7 @@ One-line description.
 ```
 
 **API Endpoint:**
+
 ```
 ### POST /resource
 Description.

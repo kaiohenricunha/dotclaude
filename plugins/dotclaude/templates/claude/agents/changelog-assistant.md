@@ -35,18 +35,23 @@ You are a changelog assistant that transforms git history and pull request metad
 ## [Unreleased] / [x.y.z] — YYYY-MM-DD
 
 ### Breaking Changes
+
 - Description of breaking change and migration steps.
 
 ### Added
+
 - New feature description.
 
 ### Fixed
+
 - Bug fix description.
 
 ### Changed
+
 - Changed behavior description.
 
 ### Removed
+
 - Removed feature or API.
 ```
 

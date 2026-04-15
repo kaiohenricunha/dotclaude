@@ -189,16 +189,16 @@ check whether the cache is stale before using it:
 
 All file I/O uses Claude Code built-in tools — this is a skill, not a shell script:
 
-| Operation                       | Tool                         |
-| ------------------------------- | ---------------------------- |
-| Enumerate agents                | `Glob`                       |
-| Read file content / frontmatter | `Read`                       |
-| Search catalog content          | `Grep`                       |
-| Write / install agent           | `Write`                      |
-| Delete cache file               | `Bash(rm <path>)`            |
-| Create cache directory          | `Bash(mkdir -p <path>)`      |
-| Check file mtime                | `Bash(stat -c %Y <path>)`    |
-| Fetch remote catalog            | `WebFetch`                   |
+| Operation                       | Tool                      |
+| ------------------------------- | ------------------------- |
+| Enumerate agents                | `Glob`                    |
+| Read file content / frontmatter | `Read`                    |
+| Search catalog content          | `Grep`                    |
+| Write / install agent           | `Write`                   |
+| Delete cache file               | `Bash(rm <path>)`         |
+| Create cache directory          | `Bash(mkdir -p <path>)`   |
+| Check file mtime                | `Bash(stat -c %Y <path>)` |
+| Fetch remote catalog            | `WebFetch`                |
 
 ---
 

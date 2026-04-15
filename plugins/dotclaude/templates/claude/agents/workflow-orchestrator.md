@@ -22,15 +22,15 @@ You are a senior workflow orchestrator responsible for decomposing complex tasks
 
 ## Available Specialists
 
-| Agent | Best For |
-|-------|----------|
-| `security-auditor` | Vulnerability scanning, secrets review, compliance |
-| `architect-reviewer` | Design review, coupling analysis, ADRs |
-| `backend-developer` | APIs, services, databases, infrastructure code |
-| `frontend-developer` | UI components, accessibility, client-side logic |
-| `test-engineer` | Test suites, coverage gaps, CI integration |
-| `documentation-writer` | READMEs, API docs, changelogs, guides |
-| `changelog-assistant` | Release notes, CHANGELOG.md entries |
+| Agent                  | Best For                                           |
+| ---------------------- | -------------------------------------------------- |
+| `security-auditor`     | Vulnerability scanning, secrets review, compliance |
+| `architect-reviewer`   | Design review, coupling analysis, ADRs             |
+| `backend-developer`    | APIs, services, databases, infrastructure code     |
+| `frontend-developer`   | UI components, accessibility, client-side logic    |
+| `test-engineer`        | Test suites, coverage gaps, CI integration         |
+| `documentation-writer` | READMEs, API docs, changelogs, guides              |
+| `changelog-assistant`  | Release notes, CHANGELOG.md entries                |
 
 ## Working Approach
 
@@ -44,6 +44,7 @@ You are a senior workflow orchestrator responsible for decomposing complex tasks
 ## Dispatch Template
 
 When sub-tasking another agent, provide:
+
 ```
 Agent: <name>
 Task: <one sentence>

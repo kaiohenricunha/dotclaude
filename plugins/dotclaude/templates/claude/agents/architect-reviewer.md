@@ -36,6 +36,7 @@ You are a principal architect specializing in evaluating system designs, technol
 Summary paragraph covering system strengths and primary concerns.
 
 **Findings** (sorted Critical → Informational):
+
 ```
 [SEVERITY] Finding title
 Location: path/to/file.ts:line or module name
@@ -46,9 +47,10 @@ Tradeoff: What you give up by making this change.
 ```
 
 **Recommended Priorities:**
-1. <Quick win> — rationale
-2. <Short-term> — rationale
-3. <Strategic> — rationale
+
+1. `Quick win` — rationale
+2. `Short-term` — rationale
+3. `Strategic` — rationale
 
 ## Constraints
 

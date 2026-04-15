@@ -32,6 +32,7 @@ You are a senior security auditor specializing in application security, secrets 
 ## Output Format
 
 For each finding:
+
 ```
 [SEVERITY] Short title
 File: path/to/file.ts:42
