@@ -7,7 +7,7 @@
 - **BigQuery** — serverless data warehouse. On-demand vs Slots (capacity-based) pricing. Partitioning + clustering critical for cost.
 - **Cloud SQL** — managed relational (PostgreSQL/MySQL/SQL Server). Regional vs HA config.
 - **Spanner** — globally consistent SQL. Expensive; use only when multi-region strong consistency required.
-- **Firestore** — document database. Native mode (newer, Datastore-compatible) vs Datastore mode (older).
+- **Firestore** — document database. Native mode (default/newer) vs Datastore mode (Datastore-compatible legacy mode).
 
 ## Common Patterns
 

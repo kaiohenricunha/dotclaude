@@ -5,7 +5,7 @@
 - **Identity-based policies** — attached to users, groups, roles. Define what the principal can do.
 - **Resource-based policies** — attached to resources (S3 buckets, SQS queues, Lambda). Define who can access the resource.
 - **Permission boundaries** — cap the maximum permissions a role/user can have, regardless of attached policies.
-- **Service Control Policies (SCPs)** — Organization-level policies. Deny-only at the top-level, override nothing, apply to all principals in an account.
+- **Service Control Policies (SCPs)** — Organization-level guardrails that define the maximum permissions principals in an account can have. Can contain both Allow and Deny statements, but do not grant permissions by themselves.
 - **Role chaining** — assume role A, then assume role B from A. Each assumption has a max session duration.
 - **IRSA (IAM Roles for Service Accounts)** — EKS pod identity via OIDC provider trust.
 
