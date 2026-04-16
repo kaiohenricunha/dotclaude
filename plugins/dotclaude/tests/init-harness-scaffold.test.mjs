@@ -35,6 +35,8 @@ describe("scaffoldHarness", () => {
 
     const expected = [
       ".claude/agents/architect-reviewer.md",
+      ".claude/agents/aws-engineer.md",
+      ".claude/agents/azure-engineer.md",
       ".claude/agents/backend-developer.md",
       ".claude/agents/changelog-assistant.md",
       ".claude/agents/container-engineer.md",
@@ -42,6 +44,7 @@ describe("scaffoldHarness", () => {
       ".claude/agents/devops-engineer.md",
       ".claude/agents/documentation-writer.md",
       ".claude/agents/frontend-developer.md",
+      ".claude/agents/gcp-engineer.md",
       ".claude/agents/iac-engineer.md",
       ".claude/agents/kubernetes-specialist.md",
       ".claude/agents/platform-engineer.md",
