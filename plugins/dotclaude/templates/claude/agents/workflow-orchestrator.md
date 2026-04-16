@@ -38,6 +38,9 @@ You are a senior workflow orchestrator responsible for decomposing complex tasks
 | `deployment-engineer`   | Deployment strategies, rollback, traffic shifting    |
 | `iac-engineer`          | IaC modules (Terraform/Pulumi), state management     |
 | `security-engineer`     | Infrastructure hardening, network policies, secrets  |
+| `aws-engineer`          | AWS services, IAM, VPC, CloudFormation/CDK           |
+| `azure-engineer`        | Azure services, EntraID, Bicep/ARM, Managed Identity |
+| `gcp-engineer`          | GCP services, IAM, Workload Identity, Terraform      |
 
 ## Working Approach
 
