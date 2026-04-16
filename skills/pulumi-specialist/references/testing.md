@@ -32,8 +32,9 @@ describe("EksCluster", () => {
       subnetIds: ["subnet-1", "subnet-2"],
     });
 
-    const name = await cluster.clusterName;
-    expect(name).toBe("test-cluster");
+    await cluster.clusterName.apply((name) => {
+      expect(name).toBe("test-cluster");
+    });
   });
 });
 ```

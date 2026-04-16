@@ -2,7 +2,7 @@
 
 ## Key Concepts
 
-- **`before_hook`**: runs a shell command before Terraform executes; use for formatting, validation, secret injection
+- **`before_hook`**: runs a shell command before Terraform executes; use for formatting, validation, pre-flight checks
 - **`after_hook`**: runs after Terraform exits (success or failure); use for notifications, cleanup, artifact upload
 - **`error_hook`**: runs only when Terraform exits with a non-zero code; use for incident alerting or rollback scripts
 - **`commands`**: list of Terraform sub-commands that activate the hook (e.g., `["apply", "plan"]`); hooks only fire for listed commands
@@ -19,14 +19,16 @@ before_hook "validate" {
 }
 ```
 
-**Secret injection before apply**:
+**Pre-apply script (non-credential)**:
 
 ```hcl
-before_hook "inject_secrets" {
+before_hook "format_check" {
   commands = ["apply"]
-  execute  = ["bash", "-c", "eval $(aws-vault exec $VAULT_PROFILE -- env | grep AWS_)"]
+  execute  = ["terraform", "fmt", "-check", "-recursive"]
 }
 ```
+
+> **Credential injection note**: inject cloud credentials at the Terragrunt invocation level, not via `before_hook`. Run `aws-vault exec $VAULT_PROFILE -- terragrunt run-all apply` so credentials are scoped to the full process, rather than using `eval $(...)` in a hook (which executes arbitrary subshell output and creates a security risk). For CI, prefer IRSA, Workload Identity, or OIDC-federated credentials that need no injection at all.
 
 **Notify on error**:
 
@@ -53,7 +55,7 @@ after_hook "save_plan" {
 - [ ] Hooks scoped to the correct `commands` list (not left as `["*"]`)
 - [ ] `before_hook` validation runs on both `plan` and `apply`
 - [ ] `error_hook` does not retry apply — only alerts or rolls back
-- [ ] Secret injection hooks use short-lived credentials, not long-lived keys
+- [ ] Credentials injected at the Terragrunt invocation level (e.g., `aws-vault exec ... -- terragrunt`), not via `eval` in hooks
 - [ ] Hook scripts are idempotent — safe to run multiple times
 - [ ] No sensitive values echoed or logged in hook `execute` commands
 

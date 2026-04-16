@@ -5,7 +5,7 @@
 - **`terraform validate`**: syntax and schema check; catches typos and missing required fields; fast and always run first
 - **`terraform test` (`.tftest.hcl`)**: native test framework; runs real applies in ephemeral workspaces; supports `run` blocks with `assert` conditions
 - **Terratest (Go)**: integration test library that provisions real infrastructure and asserts on outputs; slower but more flexible
-- **Mock providers**: `provider "aws" { mock_resource "aws_s3_bucket" { defaults { ... } } }` for plan-only unit tests without credentials
+- **Mock providers**: in `.tftest.hcl`, use `mock_provider "aws" { mock_resource "aws_s3_bucket" { defaults { ... } } }` for plan-only unit tests without credentials
 - **Checkov / tfsec / Trivy**: static analysis for security misconfigurations; run in CI on every PR
 
 ## Common Patterns

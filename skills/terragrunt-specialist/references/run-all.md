@@ -4,7 +4,7 @@
 
 - **`run-all`**: executes a Terraform command across all modules in a directory tree, respecting `dependency` ordering
 - **Dependency graph**: Terragrunt infers execution order from `dependency` blocks; independent modules run in parallel
-- **`--terragrunt-non-interactive`**: suppresses prompts — required for CI; never use in interactive sessions where you need to review plan output
+- **`--terragrunt-non-interactive`**: suppresses confirmation prompts — recommended for CI on both `plan` and `apply`; does not suppress plan output (capture it with `tee`); the real risk is running `apply` without first reviewing the plan, not the flag itself
 - **`--terragrunt-include-dir`**: scopes `run-all` to specific subtrees; use to apply a single environment without touching others
 - **`--terragrunt-ignore-dependency-errors`**: continues past module failures — use with caution, can leave infra in a partial state
 
@@ -37,7 +37,7 @@ terragrunt run-all graph-dependencies
 
 - [ ] `run-all plan` reviewed before any `run-all apply`
 - [ ] Plan output checked for unexpected destroys (`-` lines)
-- [ ] `--terragrunt-non-interactive` set in CI, absent in interactive review sessions
+- [ ] `--terragrunt-non-interactive` set in CI; `run-all apply` never run without a prior `run-all plan` review
 - [ ] `--terragrunt-include-dir` used when targeting a single environment
 - [ ] Dependency graph verified to match intended execution order
 - [ ] No `--terragrunt-ignore-dependency-errors` in production pipelines
