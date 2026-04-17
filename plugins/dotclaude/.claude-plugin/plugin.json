@@ -6,13 +6,26 @@
     "email": "kaiohenricunha@example.com"
   },
   "agents": [
-    "./templates/claude/agents/security-auditor.md",
     "./templates/claude/agents/architect-reviewer.md",
-    "./templates/claude/agents/workflow-orchestrator.md",
+    "./templates/claude/agents/aws-engineer.md",
+    "./templates/claude/agents/azure-engineer.md",
     "./templates/claude/agents/backend-developer.md",
-    "./templates/claude/agents/frontend-developer.md",
-    "./templates/claude/agents/test-engineer.md",
+    "./templates/claude/agents/changelog-assistant.md",
+    "./templates/claude/agents/container-engineer.md",
+    "./templates/claude/agents/crossplane-engineer.md",
+    "./templates/claude/agents/deployment-engineer.md",
+    "./templates/claude/agents/devops-engineer.md",
     "./templates/claude/agents/documentation-writer.md",
-    "./templates/claude/agents/changelog-assistant.md"
+    "./templates/claude/agents/frontend-developer.md",
+    "./templates/claude/agents/gcp-engineer.md",
+    "./templates/claude/agents/iac-engineer.md",
+    "./templates/claude/agents/kubernetes-specialist.md",
+    "./templates/claude/agents/platform-engineer.md",
+    "./templates/claude/agents/pulumi-engineer.md",
+    "./templates/claude/agents/security-auditor.md",
+    "./templates/claude/agents/security-engineer.md",
+    "./templates/claude/agents/terragrunt-engineer.md",
+    "./templates/claude/agents/test-engineer.md",
+    "./templates/claude/agents/workflow-orchestrator.md"
   ]
 }
