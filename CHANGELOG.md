@@ -41,7 +41,7 @@ and a broad set of provider and IaC agents.
   - Phase 1: schemas + index builder + non-breaking CLI (#34).
   - Phase 2: frontmatter backfill + schema tightening (#36).
   - Phase 3: `dotclaude search`, `dotclaude list`, `dotclaude show`
-    + governance docs + CI gate (#37).
+    - governance docs + CI gate (#37).
   - Phase 4: `build-plugin` script + generated plugin templates (#38).
 - **Slash commands** — generic `/review-pr` (#22) and `/create-inspection`
   (#23), plus strengthened branch-health gates and mandatory test plans
