@@ -80,7 +80,7 @@ done
 
 say "==> linking hooks/"
 mkdir -p "$TARGET/hooks"
-for f in "$DOTCLAUDE/.claude/hooks"/*.sh; do
+for f in "$DOTCLAUDE/plugins/dotclaude/hooks"/*.sh; do
   [ -e "$f" ] || continue
   link_one "$f" "$TARGET/hooks/$(basename "$f")"
 done
