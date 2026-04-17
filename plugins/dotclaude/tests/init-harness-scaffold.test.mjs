@@ -6,6 +6,36 @@ import os from "os";
 import { scaffoldHarness } from "../src/init-harness-scaffold.mjs";
 import { ValidationError, ERROR_CODES } from "../src/lib/errors.mjs";
 
+/** Prefix mapping applied by scaffoldHarness (mirrors init-harness-scaffold.mjs). */
+const PREFIX_MAP = [
+  { from: "claude/", to: ".claude/" },
+  { from: "docs/", to: "docs/" },
+  { from: "workflows/", to: ".github/workflows/" },
+];
+function applyPrefixMap(rel) {
+  for (const { from, to } of PREFIX_MAP) {
+    if (rel.startsWith(from)) return to + rel.slice(from.length);
+  }
+  return rel;
+}
+
+/** Walk templates dir, apply prefix map, sort — mirrors expected filesWritten. */
+function expectedFromTemplates(templatesDir) {
+  const results = [];
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile()) {
+        const rel = path.relative(templatesDir, full);
+        results.push(applyPrefixMap(rel));
+      }
+    }
+  }
+  walk(templatesDir);
+  return results.sort();
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = path.join(__dirname, "..", "templates");
 
@@ -33,64 +63,8 @@ describe("scaffoldHarness", () => {
       placeholders: DEFAULT_PLACEHOLDERS,
     });
 
-    const expected = [
-      ".claude/agents/architect-reviewer.md",
-      ".claude/agents/aws-engineer.md",
-      ".claude/agents/azure-engineer.md",
-      ".claude/agents/backend-developer.md",
-      ".claude/agents/changelog-assistant.md",
-      ".claude/agents/container-engineer.md",
-      ".claude/agents/crossplane-engineer.md",
-      ".claude/agents/deployment-engineer.md",
-      ".claude/agents/devops-engineer.md",
-      ".claude/agents/documentation-writer.md",
-      ".claude/agents/frontend-developer.md",
-      ".claude/agents/gcp-engineer.md",
-      ".claude/agents/iac-engineer.md",
-      ".claude/agents/kubernetes-specialist.md",
-      ".claude/agents/platform-engineer.md",
-      ".claude/agents/pulumi-engineer.md",
-      ".claude/agents/security-auditor.md",
-      ".claude/agents/security-engineer.md",
-      ".claude/agents/terragrunt-engineer.md",
-      ".claude/agents/test-engineer.md",
-      ".claude/agents/workflow-orchestrator.md",
-      ".claude/commands/audit-and-fix.md",
-      ".claude/commands/changelog.md",
-      ".claude/commands/create-assessment.md",
-      ".claude/commands/create-audit.md",
-      ".claude/commands/create-inspection.md",
-      ".claude/commands/dependabot-sweep.md",
-      ".claude/commands/detect-flaky.md",
-      ".claude/commands/fix-with-evidence.md",
-      ".claude/commands/git.md",
-      ".claude/commands/ground-first.md",
-      ".claude/commands/markdown.md",
-      ".claude/commands/merge-pr.md",
-      ".claude/commands/review-pr.md",
-      ".claude/commands/security-review.md",
-      ".claude/hooks/guard-destructive-git.sh",
-      ".claude/settings.headless.json",
-      ".claude/settings.json",
-      ".claude/skills-manifest.json",
-      ".claude/skills/agents-search/SKILL.md",
-      ".claude/skills/aws-specialist/SKILL.md",
-      ".claude/skills/azure-specialist/SKILL.md",
-      ".claude/skills/crossplane-specialist/SKILL.md",
-      ".claude/skills/gcp-specialist/SKILL.md",
-      ".claude/skills/kubernetes-specialist/SKILL.md",
-      ".claude/skills/pulumi-specialist/SKILL.md",
-      ".claude/skills/spec/SKILL.md",
-      ".claude/skills/terraform-specialist/SKILL.md",
-      ".claude/skills/terragrunt-specialist/SKILL.md",
-      ".claude/skills/validate-spec/SKILL.md",
-      ".github/workflows/ai-review.yml",
-      ".github/workflows/detect-drift.yml",
-      ".github/workflows/validate-skills.yml",
-      "docs/repo-facts.json",
-      "docs/specs/README.md",
-      "githooks/pre-commit",
-    ];
+    // Derived dynamically so the test stays in sync as build-plugin adds files.
+    const expected = expectedFromTemplates(TEMPLATES_DIR);
 
     // All expected files exist on disk
     for (const rel of expected) {
@@ -100,7 +74,7 @@ describe("scaffoldHarness", () => {
       ).toBe(true);
     }
 
-    // filesWritten matches the expected set (sorted)
+    // filesWritten matches the expected set exactly (sorted)
     expect(filesWritten).toEqual(expected);
   });
 

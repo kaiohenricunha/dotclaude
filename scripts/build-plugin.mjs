@@ -29,7 +29,7 @@
 import { parse, helpText } from "../plugins/dotclaude/src/lib/argv.mjs";
 import { EXIT_CODES } from "../plugins/dotclaude/src/lib/exit-codes.mjs";
 import { createOutput } from "../plugins/dotclaude/src/lib/output.mjs";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -141,6 +141,21 @@ function buildExpected() {
       const stripped = stripAuthoringFields(raw);
       const destPath = join(templateRoot, "skills", artifact.id, "SKILL.md");
       files.set(destPath, stripped);
+
+      // Copy references/ subdir so relative links in SKILL.md resolve in templates.
+      const refsDir = join(repoRoot, "skills", artifact.id, "references");
+      if (existsSync(refsDir)) {
+        for (const refFile of readdirSync(refsDir).sort()) {
+          const refSrc = join(refsDir, refFile);
+          if (statSync(refSrc).isFile()) {
+            files.set(
+              join(templateRoot, "skills", artifact.id, "references", refFile),
+              readFileSync(refSrc, "utf8"),
+            );
+          }
+        }
+      }
+
       manifestEntries.push({
         name: artifact.id,
         path: `.claude/skills/${artifact.id}/SKILL.md`,
