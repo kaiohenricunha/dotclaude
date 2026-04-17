@@ -14,7 +14,7 @@ spec-driven-development governance into consumer repos.
 | What you want                                     | How                                                                                              |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Skills & commands library wired into `~/.claude/` | **[Clone & bootstrap](#clone--bootstrap)** — 30 seconds, no npm required                         |
-| Spec-governance CLI for your own repos            | **[Install the CLI](#install-the-cli)** — `curl -fsSL …/install.sh \| bash` (Node ≥ 20 required) |
+| Spec-governance CLI for your own repos            | **[Install the CLI](#install-the-cli)** — see install section (Node ≥ 20 required)               |
 
 Both paths are independent. You can use one or both.
 
@@ -79,8 +79,8 @@ The one-liner installs the package globally and runs `dotclaude bootstrap` to
 wire `~/.claude/` automatically. To pin a version or skip the bootstrap step:
 
 ```bash
-DOTCLAUDE_VERSION=0.4.0 curl -fsSL https://raw.githubusercontent.com/kaiohenricunha/dotclaude/main/install.sh | bash
-DOTCLAUDE_SKIP_BOOTSTRAP=1 curl -fsSL https://raw.githubusercontent.com/kaiohenricunha/dotclaude/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kaiohenricunha/dotclaude/main/install.sh | DOTCLAUDE_VERSION=0.4.0 bash
+curl -fsSL https://raw.githubusercontent.com/kaiohenricunha/dotclaude/main/install.sh | DOTCLAUDE_SKIP_BOOTSTRAP=1 bash
 ```
 
 Then use the umbrella dispatcher or standalone bins interchangeably:

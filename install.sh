@@ -38,6 +38,20 @@ fi
 info "Installing @dotclaude/dotclaude@${DOTCLAUDE_VERSION} ..."
 npm install -g "@dotclaude/dotclaude@${DOTCLAUDE_VERSION}"
 
+npm_prefix="$(npm prefix -g 2>/dev/null || true)"
+npm_bin_dir=""
+if [[ -n "$npm_prefix" ]]; then
+  npm_bin_dir="${npm_prefix%/}/bin"
+fi
+
+if ! command -v dotclaude >/dev/null 2>&1; then
+  if [[ -n "$npm_bin_dir" ]]; then
+    error "'dotclaude' was installed but is not on your PATH. Add '${npm_bin_dir}' to PATH and re-run. For example: export PATH=\"${npm_bin_dir}:\$PATH\""
+  else
+    error "'dotclaude' was installed but is not on your PATH. Add npm's global bin directory to PATH and re-run."
+  fi
+fi
+
 # ── 3. Bootstrap ~/.claude/ ───────────────────────────────────────────────────
 
 if [[ -z "$DOTCLAUDE_SKIP_BOOTSTRAP" ]]; then
