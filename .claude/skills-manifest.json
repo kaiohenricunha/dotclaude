@@ -178,9 +178,9 @@
       "lastValidated": "2026-04-17"
     },
     {
-      "name": "squadranks-veracity",
-      "path": ".claude/skills/squadranks-veracity/SKILL.md",
-      "checksum": "sha256:b2d0571ae6ef7cecb6986feca4db44d0cd3ec1683b3bb38b71cc69211bf09386",
+      "name": "veracity-audit",
+      "path": ".claude/skills/veracity-audit/SKILL.md",
+      "checksum": "sha256:c48eeceedbda78a5cf204458f60c057d4c30d1d6a754e7141da62d0ee2272896",
       "dependencies": [],
       "lastValidated": "2026-04-17"
     }
