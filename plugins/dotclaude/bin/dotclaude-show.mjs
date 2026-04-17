@@ -50,6 +50,11 @@ function resolveRepoRoot() {
   return process.cwd();
 }
 
+if (argv.positional.length === 0) {
+  process.stderr.write("usage: dotclaude-show <id> [OPTIONS]\n");
+  process.exit(EXIT_CODES.USAGE);
+}
+
 const repoRoot = resolveRepoRoot();
 const indexPath = join(repoRoot, "index", "artifacts.json");
 

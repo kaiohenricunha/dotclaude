@@ -184,6 +184,14 @@ describe("dotclaude-search", () => {
     expect(r.status).toBe(2);
     expect(r.stderr).toContain("index not found");
   });
+
+  it("exits 64 when called without a query argument", () => {
+    const r = spawnSync(process.execPath, [SEARCH_BIN, "--no-color"], {
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(64);
+    expect(r.stderr).toContain("usage:");
+  });
 });
 
 describe("dotclaude-list", () => {
@@ -334,6 +342,14 @@ describe("dotclaude-show", () => {
       { encoding: "utf8" },
     );
     expect(r.status).toBe(2);
+  });
+
+  it("exits 64 when called without an id argument", () => {
+    const r = spawnSync(process.execPath, [SHOW_BIN, "--no-color"], {
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(64);
+    expect(r.stderr).toContain("usage:");
   });
 });
 
