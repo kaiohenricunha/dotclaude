@@ -163,6 +163,8 @@ Throws `ValidationError(SCAFFOLD_CONFLICT)` when
 Shell validator for `~/.claude/settings.json`. Enforces the hardening
 contract:
 
+### Hardening contract
+
 - **SEC-1** no secret literals in `*_KEY`/`*_TOKEN`/`*_SECRET` fields
 - **SEC-2** `skipDangerousModePermissionPrompt` must not be present
 - **SEC-3** no `@latest` in MCP args
