@@ -89,7 +89,7 @@
     {
       "name": "review-pr",
       "path": ".claude/commands/review-pr.md",
-      "checksum": "sha256:d0bc84f956c0ee8c176cf76a79374e8defb0bd2487c8340a2e2a1d9e04d8a1cc",
+      "checksum": "sha256:8472f04eafafe81915e4e1dd8756a115747381464cf1c0bb8c5dd00a95dd4ecc",
       "dependencies": [],
       "lastValidated": "2026-04-17"
     },
