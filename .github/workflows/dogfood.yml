@@ -30,6 +30,7 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
         run: node plugins/dotclaude/bin/dotclaude-check-spec-coverage.mjs
       - run: node plugins/dotclaude/bin/dotclaude-doctor.mjs
+      - run: node plugins/dotclaude/bin/dotclaude-index.mjs --check
 
   example:
     name: example (examples/minimal-consumer)

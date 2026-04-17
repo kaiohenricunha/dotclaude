@@ -40,6 +40,7 @@ const META = {
   flags: {
     "repo-root": { type: "string" },
     check: { type: "boolean" },
+    strict: { type: "boolean" },
   },
 };
 
@@ -102,6 +103,12 @@ try {
 }
 
 for (const w of warnings) out.warn(w);
+
+if (argv.flags.strict && warnings.length > 0) {
+  out.fail(`strict mode: ${warnings.length} warning${warnings.length === 1 ? "" : "s"} — fix schema issues before indexing`);
+  out.flush();
+  process.exit(EXIT_CODES.VALIDATION);
+}
 
 const bundle = buildIndex(artifacts);
 

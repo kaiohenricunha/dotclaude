@@ -8,3 +8,7 @@
 /.github/workflows/             @kaiohenricunha
 /docs/specs/harness-core/       @kaiohenricunha
 /docs/repo-facts.json           @kaiohenricunha
+/schemas/                       @kaiohenricunha
+/docs/taxonomy.md               @kaiohenricunha
+/docs/facet-definitions.md      @kaiohenricunha
+/docs/governance.md             @kaiohenricunha
