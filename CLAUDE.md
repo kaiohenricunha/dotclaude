@@ -58,6 +58,7 @@ Universal behavior for every Claude Code session in every repo. Project-level `C
 ## Version control discipline
 
 - **Never push to `main` (or any branch) without explicit user instruction.** Commit locally and wait for the user to say "push".
+- **Never merge a PR without explicit user instruction.** Do not use `--auto`, `gh pr merge`, or any merge path unless the user says "merge" for that specific PR.
 - **Never force-push, force-rebase, or `git reset --hard` a branch that is not yours.** If conflict resolution is ambiguous, stop and ask.
 - **Never undo or revert another session's committed work.** Prior session commits are authoritative. If a merge conflict arises with prior session work, stop and ask.
 - Before pushing any commit, review staged files for sensitive content (.env, credentials, API keys). Use `.gitignore` proactively.
