@@ -11,10 +11,10 @@ spec-driven-development governance into consumer repos.
 
 ## TL;DR — pick your path
 
-| What you want                                     | How                                                                       |
-| ------------------------------------------------- | ------------------------------------------------------------------------- |
-| Skills & commands library wired into `~/.claude/` | **[Clone & bootstrap](#clone--bootstrap)** — 30 seconds, no npm required  |
-| Spec-governance CLI for your own repos            | **[Install the CLI](#install-the-cli)** — `npm i -g @dotclaude/dotclaude` |
+| What you want                                     | How                                                                                |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Skills & commands library wired into `~/.claude/` | **[Clone & bootstrap](#clone--bootstrap)** — 30 seconds, no npm required           |
+| Spec-governance CLI for your own repos            | **[Install the CLI](#install-the-cli)** — see install section (Node ≥ 20 required) |
 
 Both paths are independent. You can use one or both.
 
@@ -61,11 +61,26 @@ Need spec-governance gates, CI integration, drift detection, or programmatic
 validation in your own projects? Install the CLI:
 
 ```bash
+# One-liner (requires Node ≥ 20)
+curl -fsSL https://raw.githubusercontent.com/kaiohenricunha/dotclaude/main/install.sh | bash
+```
+
+Or install manually:
+
+```bash
 # Global — use dotclaude anywhere
 npm install -g @dotclaude/dotclaude
 
 # Per-project — pin it to a repo (useful for CI)
 npm install -D @dotclaude/dotclaude
+```
+
+The one-liner installs the package globally and runs `dotclaude bootstrap` to
+wire `~/.claude/` automatically. To pin a version or skip the bootstrap step:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kaiohenricunha/dotclaude/main/install.sh | DOTCLAUDE_VERSION=0.4.0 bash
+curl -fsSL https://raw.githubusercontent.com/kaiohenricunha/dotclaude/main/install.sh | DOTCLAUDE_SKIP_BOOTSTRAP=1 bash
 ```
 
 Then use the umbrella dispatcher or standalone bins interchangeably:
