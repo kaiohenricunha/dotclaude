@@ -1,6 +1,6 @@
 {
-  "$schema": "https://dotclaude.dev/schemas/index-entry.schema.json",
-  "generatedAt": "2026-04-17T00:45:40.258Z",
+  "$schema": "https://dotclaude.dev/schemas/index.schema.json",
+  "generatedAt": "2026-04-17T01:16:26.634Z",
   "version": "0.4.0",
   "artifacts": [
     {

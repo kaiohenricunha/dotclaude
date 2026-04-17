@@ -38,11 +38,12 @@ import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
 import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import { version as pkgVersion } from "./index.mjs";
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DEFAULT_SCHEMAS_DIR = resolve(__dirname, "..", "..", "..", "schemas");
+const { version: pkgVersion } = JSON.parse(
+  readFileSync(resolve(__dirname, "..", "..", "..", "package.json"), "utf8"),
+);
 
 /** @type {ArtifactType[]} */
 const ARTIFACT_TYPES = ["agent", "skill", "command", "hook", "template"];
@@ -229,7 +230,7 @@ function loadTemplateArtifact(repoRoot, absPath) {
   try {
     const parsed = yaml.load(content);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      frontmatter = parsed;
+      frontmatter = normalizeDates(parsed);
     } else if (parsed !== null && parsed !== undefined) {
       warnings.push("template.yaml is not a YAML mapping");
     }
@@ -275,12 +276,15 @@ function inferId(art) {
  * @returns {string}
  */
 function slugify(input) {
-  return String(input)
+  const s = String(input)
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "");
+    .replace(/[^a-z0-9]+/g, "-");
+  let lo = 0;
+  let hi = s.length;
+  while (lo < hi && s[lo] === "-") lo++;
+  while (hi > lo && s[hi - 1] === "-") hi--;
+  return s.slice(lo, hi);
 }
 
 /**
@@ -392,7 +396,7 @@ export function buildIndex(artifacts) {
   for (const type of ARTIFACT_TYPES) byType[type].sort();
 
   const artifactsJson = {
-    $schema: "https://dotclaude.dev/schemas/index-entry.schema.json",
+    $schema: "https://dotclaude.dev/schemas/index.schema.json",
     generatedAt: new Date(0).toISOString(), // deterministic placeholder; CLI overwrites
     version: pkgVersion,
     artifacts: entries,
