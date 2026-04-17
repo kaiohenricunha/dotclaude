@@ -21,7 +21,10 @@
     "dotclaude-check-instruction-drift": "./plugins/dotclaude/bin/dotclaude-check-instruction-drift.mjs",
     "dotclaude-init": "./plugins/dotclaude/bin/dotclaude-init.mjs",
     "dotclaude-sync": "./plugins/dotclaude/bin/dotclaude-sync.mjs",
-    "dotclaude-index": "./plugins/dotclaude/bin/dotclaude-index.mjs"
+    "dotclaude-index": "./plugins/dotclaude/bin/dotclaude-index.mjs",
+    "dotclaude-search": "./plugins/dotclaude/bin/dotclaude-search.mjs",
+    "dotclaude-list": "./plugins/dotclaude/bin/dotclaude-list.mjs",
+    "dotclaude-show": "./plugins/dotclaude/bin/dotclaude-show.mjs"
   },
   "scripts": {
     "test": "vitest run",
