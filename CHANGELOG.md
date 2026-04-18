@@ -13,6 +13,41 @@ All notable changes to `@dotclaude/dotclaude` land here. Format follows
 - `.d.ts` shipping for stronger type inference (via hand-authored declarations
   — TypeScript migration is out of scope per ADR-0002).
 
+## [0.5.0] — 2026-04-18
+
+No breaking changes. This release adds cross-machine session handoff via GitHub
+Gists, a `docker-engineer` agent, a curl-pipe-bash installer, and a refactored
+agent build pipeline.
+
+### Added
+
+- **Cross-machine handoff transport** — `/handoff push`, `pull`, `remote-list`,
+  and `doctor` sub-commands let a session started on one machine (Windows/WSL)
+  be resumed on another (PopOS / macOS / CI). Default transport uses
+  `gh gist`; `--via gist-token` (curl + PAT) and `--via git-fallback` (raw
+  git) are documented workarounds for hosts where `gh` is unavailable or
+  blocked. Includes a push-side secret-scrubbing pass covering eight token
+  patterns, a `handoff-doctor.sh` preflight with per-transport remediation
+  blocks, and 80 bats unit tests plus an e2e gist round-trip harness (#46,
+  #49).
+- **`docker-engineer` agent** — Compose orchestration and runtime ops; covers
+  multi-service health, volume binding, network bridge configuration, and
+  registry operations (#47).
+- **curl-pipe-bash installer** — `curl -sSL .../install.sh | bash` path for
+  users who prefer not to use npm. Idempotent, supports `--quiet` (#44).
+
+### Changed
+
+- **Agent build pipeline alignment** — all agents consistently use the
+  build-plugin script for template generation; scale-foundation tooling
+  refactored to be purely generic (no project-specific references) (#48).
+
+### Documentation
+
+- README surfaces the skills catalog, a quick-taste section, and a revised
+  persona framing (quality score raised from 6.1 → 9.6/10 per the README
+  assessment) (#45).
+
 ## [0.4.0] — 2026-04-17
 
 No breaking changes. This release adds the global-lifecycle CLI
