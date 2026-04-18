@@ -4,6 +4,26 @@ All notable changes to `@dotclaude/dotclaude` land here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/kaiohenricunha/dotclaude/compare/v0.5.0...v0.6.0) (2026-04-18)
+
+
+### Added
+
+* /pre-pr and /review-prs commands + CLAUDE.md rule refinements ([#51](https://github.com/kaiohenricunha/dotclaude/issues/51)) ([4e300ca](https://github.com/kaiohenricunha/dotclaude/commit/4e300ca399555d9b2fc8f018d30fe55fcbe977f4))
+* **ci:** automate semantic versioning with release-please ([#52](https://github.com/kaiohenricunha/dotclaude/issues/52)) ([67e7949](https://github.com/kaiohenricunha/dotclaude/commit/67e79491a190c6dfa51188de55daf80169be7436))
+
+
+### Fixed
+
+* **ci:** allow release-please CHANGELOG formatting in lint checks ([#55](https://github.com/kaiohenricunha/dotclaude/issues/55)) ([7b0c048](https://github.com/kaiohenricunha/dotclaude/commit/7b0c0484425b508d0e15373725f3710963adadca))
+* **ci:** fix release-please config — drop ### prefix, add include-component-in-tag: false ([#54](https://github.com/kaiohenricunha/dotclaude/issues/54)) ([e7ae3e3](https://github.com/kaiohenricunha/dotclaude/commit/e7ae3e3495f8fd76dedd47213d46458bc6211d28))
+* remove squadranks vocabulary from project-agnostic surface ([#57](https://github.com/kaiohenricunha/dotclaude/issues/57)) ([59b5c63](https://github.com/kaiohenricunha/dotclaude/commit/59b5c6314861ad45150f5fa1c9087c057fc39175))
+
+
+### Documentation
+
+* close v0.4-v0.5 coverage gaps + automate version stamps ([#56](https://github.com/kaiohenricunha/dotclaude/issues/56)) ([6e121c7](https://github.com/kaiohenricunha/dotclaude/commit/6e121c7721b5a504fe84cf65ea0539c2cf0f3f4e))
+
 ## [Unreleased]
 
 ## [0.5.0] — 2026-04-18
