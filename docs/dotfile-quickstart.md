@@ -1,5 +1,7 @@
 # Dotfile quickstart — skills & commands in every Claude Code session
 
+_Last updated: v0.5.0_
+
 Bootstrap dotclaude into `~/.claude/` in under 30 seconds. No npm, no Node required.
 
 **Who this is for:** anyone who wants `/pre-pr`, `/dependabot-sweep`, `/review-prs`,
@@ -15,8 +17,9 @@ git clone https://github.com/kaiohenricunha/dotclaude.git ~/projects/dotclaude
 cd ~/projects/dotclaude
 ```
 
-> **Windows:** symlinks require elevated permissions. Use WSL or Git Bash, or install
-> via npm and run `dotclaude bootstrap` instead (see [quickstart.md](./quickstart.md)).
+> **Windows:** symlinks require elevated permissions. Use WSL (where the CLI works),
+> or run `./bootstrap.sh` from Git Bash instead of using `dotclaude bootstrap`
+> natively on Windows.
 
 ## 2. Bootstrap
 

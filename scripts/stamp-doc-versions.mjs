@@ -37,15 +37,24 @@ const mdFiles = readdirSync(docsDir)
   .map((f) => join(docsDir, f));
 
 let staleCount = 0;
+let missingCount = 0;
 
 for (const filePath of mdFiles) {
   const original = readFileSync(filePath, "utf8");
+  const rel = filePath.slice(repoRoot.length + 1);
+
+  const matches = original.match(STAMP_RE);
+  if (!matches) {
+    missingCount++;
+    process.stderr.write(`missing stamp: ${rel}\n`);
+    continue;
+  }
+
   const updated = original.replace(STAMP_RE, CURRENT_STAMP);
 
   if (updated === original) continue;
 
   staleCount++;
-  const rel = filePath.slice(repoRoot.length + 1);
 
   if (checkOnly) {
     process.stderr.write(`stale stamp: ${rel}\n`);
@@ -56,9 +65,12 @@ for (const filePath of mdFiles) {
 }
 
 if (checkOnly) {
-  if (staleCount > 0) {
+  if (staleCount > 0 || missingCount > 0) {
+    const parts = [];
+    if (staleCount > 0) parts.push(`${staleCount} stale`);
+    if (missingCount > 0) parts.push(`${missingCount} missing`);
     process.stderr.write(
-      `\n${staleCount} doc(s) have stale version stamps. Run: npm run docs:stamp\n`,
+      `\n${parts.join(", ")} stamp(s). Run: npm run docs:stamp (then add missing stamps manually)\n`,
     );
     process.exit(1);
   }
@@ -68,9 +80,14 @@ if (checkOnly) {
 } else {
   if (staleCount > 0) {
     process.stdout.write(`\nstamped ${staleCount} doc(s) with v${version}\n`);
-  } else {
+  } else if (missingCount === 0) {
     process.stdout.write(
       `✓ all ${mdFiles.length} docs already stamped with v${version}\n`,
+    );
+  }
+  if (missingCount > 0) {
+    process.stdout.write(
+      `\n⚠ ${missingCount} doc(s) have no stamp line — add one manually then re-run.\n`,
     );
   }
 }

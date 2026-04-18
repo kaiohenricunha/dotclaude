@@ -239,7 +239,7 @@ git checkout, activated with `--source`).
 
 | Subcommand | Description |
 |------------|-------------|
-| `pull` | npm mode: fetch latest from registry and re-bootstrap. Clone mode: `git fetch` + `git rebase origin/main` + re-bootstrap. Defaults to `pull` if no subcommand given. |
+| `pull` | npm mode: fetch latest from registry and re-bootstrap. Clone mode: `git fetch` + `git rebase origin/main` + re-bootstrap. |
 | `push` | Clone mode only: secret-scan staged files, commit, and push to origin. Set `HARNESS_SYNC_SKIP_SECRET_SCAN=1` to bypass the scan. |
 | `status` | npm mode: print current version. Clone mode: `git status --short`. |
 
