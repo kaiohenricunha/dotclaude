@@ -19,8 +19,10 @@
 
 load helpers
 
-# grep exits 0 when matches are found (bad) and 1 when none are found (good).
-# `! grep ...` inverts: pass when grep finds nothing, fail when it finds something.
+# grep exits 0 when matches are found (bad), 1 when none found (good),
+# 2 on error (also bad). Use `run grep` + `[ "$status" -eq 1 ]` so that
+# both a positive match (exit 0) and a scan error (exit 2, e.g. missing
+# path) cause the test to fail rather than silently pass.
 
 DENYLIST_OPTS=(
   -e "squadranks"
@@ -30,30 +32,35 @@ DENYLIST_OPTS=(
 )
 
 @test "CLAUDE.md contains no project-specific vocabulary" {
-  ! grep -ni "${DENYLIST_OPTS[@]}" \
+  run grep -ni "${DENYLIST_OPTS[@]}" \
     "$REPO_ROOT/CLAUDE.md"
+  [ "$status" -eq 1 ]
 }
 
 @test "bootstrap commands contain no project-specific vocabulary" {
-  ! grep -rni "${DENYLIST_OPTS[@]}" \
+  run grep -rni "${DENYLIST_OPTS[@]}" \
     --include="*.md" \
     "$REPO_ROOT/.claude/commands/"
+  [ "$status" -eq 1 ]
 }
 
 @test "bootstrap skills contain no project-specific vocabulary" {
-  ! grep -rni "${DENYLIST_OPTS[@]}" \
+  run grep -rni "${DENYLIST_OPTS[@]}" \
     --include="*.md" --include="*.yaml" --include="*.yml" \
     "$REPO_ROOT/skills/"
+  [ "$status" -eq 1 ]
 }
 
 @test "scaffolding templates contain no project-specific vocabulary" {
-  ! grep -rni "${DENYLIST_OPTS[@]}" \
+  run grep -rni "${DENYLIST_OPTS[@]}" \
     --include="*.md" --include="*.json" --include="*.sh" \
     "$REPO_ROOT/plugins/dotclaude/templates/"
+  [ "$status" -eq 1 ]
 }
 
 @test "plugin source mjs files contain no project-specific vocabulary" {
-  ! grep -rni "${DENYLIST_OPTS[@]}" \
+  run grep -rni "${DENYLIST_OPTS[@]}" \
     --include="*.mjs" \
     "$REPO_ROOT/plugins/dotclaude/src/"
+  [ "$status" -eq 1 ]
 }

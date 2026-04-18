@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-04-18T17:50:44.739Z",
+  "generatedAt": "2026-04-18T22:03:06.828Z",
   "skills": [
     {
       "name": "audit-and-fix",
@@ -26,7 +26,7 @@
     {
       "name": "create-audit",
       "path": ".claude/commands/create-audit.md",
-      "checksum": "sha256:fdb8f057e6a1d553183c69d03ebb89aea896d4fadd03d8087789ac0ac59490f7",
+      "checksum": "sha256:cabbf4bfe2deff3a328f15e025dfc0d63369825c0c32574790251f2793e62aeb",
       "dependencies": [],
       "lastValidated": "2026-04-18"
     },
@@ -61,7 +61,7 @@
     {
       "name": "ground-first",
       "path": ".claude/commands/ground-first.md",
-      "checksum": "sha256:d8f898a09ce979e92838db9537c452d0b3ed4d4fec8d1d4409defefe93e94650",
+      "checksum": "sha256:7d888f6964725d82687fb61b68ff961f041f95d2c9eef7b5282061229499ca90",
       "dependencies": [],
       "lastValidated": "2026-04-18"
     },
@@ -75,7 +75,7 @@
     {
       "name": "merge-pr",
       "path": ".claude/commands/merge-pr.md",
-      "checksum": "sha256:170cdf18695a83727c335d9a6570fe7e6997a98436626bdb36d83e409aa75cd4",
+      "checksum": "sha256:a008eb234eebabeebda81dca533b62421455a1e7126ef207444a809f39aa32b1",
       "dependencies": [],
       "lastValidated": "2026-04-18"
     },
