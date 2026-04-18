@@ -100,6 +100,23 @@ jq -c 'select(.type == "tool.execution_start") | .data | {tool, input}' <file>
 jq -c 'select(.type == "session.model_change") | .data' <file>
 ```
 
+## Content search (clean pass)
+
+For `/handoff search`, raw `rg` matches JSON escapes and
+`transformedContent` boilerplate. Extract clean text first:
+
+```bash
+jq -r '
+  if .type == "user.message" then "user:\t" + (.data.content // "")
+  elif .type == "assistant.message" then
+    "asst:\t" + (.data.text // .data.content // (.data | tostring))
+  else empty end
+' <file> | rg -i -m 1 '<query>'
+```
+
+Do not search `.data.transformedContent` — it wraps the raw prompt with
+system-reminder boilerplate and produces false positives.
+
 ## Notes
 
 - Copilot sessions can span multiple model changes in one transcript;

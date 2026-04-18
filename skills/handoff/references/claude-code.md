@@ -91,6 +91,37 @@ jq -r 'select(.type == "assistant") | .message.content[]
   | .input | (.file_path // .path // empty)' <file> | sort -u
 ```
 
+## Content search (clean pass)
+
+For `/handoff search`, raw `rg` over the JSONL gives a superset — JSON
+escapes and system-reminder boilerplate match noisily. Re-filter by
+extracting user+assistant text first:
+
+```bash
+jq -r '
+  select((.type == "user" or .type == "assistant") and (.isSidechain | not))
+  | .message.content
+  | if type == "string" then "\(.type)\t\(.)" end // empty,
+    ( if type == "array" then
+        (map(select(.type == "text") | .text) | join("\n"))
+          | if length > 0 then "\(input_filename)\t\(.)" end
+      else empty end )
+' <file> | rg -i -m 1 '<query>' && echo <file>
+```
+
+A simpler working form (role-prefixed lines, pipe to `rg`):
+
+```bash
+jq -r '
+  select((.type == "user" or .type == "assistant") and (.isSidechain | not))
+  | "\(.type):\t" +
+    ( .message.content
+      | if type == "string" then .
+        else (map(select(.type == "text") | .text) | join("\n"))
+        end )
+' <file> | rg -i -m 1 '<query>'
+```
+
 ## Notes
 
 - The first few records of a session are `summary`, `system`, or an
@@ -98,4 +129,5 @@ jq -r 'select(.type == "assistant") | .message.content[]
   from record 2 onward.
 - `isSidechain: true` records come from sub-agents (the `Agent` tool).
   Filter them out if you only want the top-level conversation:
-  add `and (.isSidechain | not)` to the filter.
+  add `and (.isSidechain | not)` to the filter. The search clean-pass
+  already does this.

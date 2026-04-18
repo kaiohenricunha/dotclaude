@@ -18,8 +18,9 @@ description: >
   Triggers on: "handoff", "transfer context", "continue in codex",
   "continue in claude", "continue in copilot", "switch to codex",
   "switch to claude", "what was that session about",
-  "claude --resume", "copilot --resume", "codex resume".
-argument-hint: "<sub-cmd> <source-cli> <uuid|latest> [--to <target-cli>]"
+  "claude --resume", "copilot --resume", "codex resume",
+  "find the session where", "search sessions", "which session did I".
+argument-hint: "<sub-cmd> [<source-cli>] <uuid|latest|query> [--to <target-cli>] [--cli <cli>]"
 tools: Glob, Read, Grep, Bash, Write
 effort: medium
 model: sonnet
@@ -35,15 +36,21 @@ into the target agent.
 
 ## Arguments
 
-- `$0` — sub-command: `describe`, `digest`, `file`, or `list`. If not
-  provided and the skill is auto-triggered, default to `describe`.
-- `$1` — source CLI: `claude`, `copilot`, `codex`. Required for all
-  sub-commands.
+- `$0` — sub-command: `describe`, `digest`, `file`, `list`, or `search`.
+  If not provided and the skill is auto-triggered, default to `describe`.
+- `$1` — positional varies by sub-command:
+  - `describe` / `digest` / `file` / `list` → source CLI
+    (`claude`, `copilot`, `codex`).
+  - `search` → the query string (regex).
 - `$2` — session identifier: a UUID or the literal `latest`. Required for
-  `describe`, `digest`, `file`. Ignored for `list`.
+  `describe`, `digest`, `file`. Ignored for `list` and `search`.
 - `--to <target-cli>` — optional; tunes the digest voice for the target
   agent. Defaults to `claude` since that is the most common consumer in
   this repo.
+- `--cli <cli>` — `search` only; restrict the scan to one CLI.
+- `--since <ISO>` — `search` only; skip sessions older than this date.
+  Default: 30 days ago.
+- `--limit <N>` — `search` only; max rows in the hit table. Default: 20.
 
 ---
 
@@ -149,6 +156,71 @@ List sessions for the given CLI, newest first.
    No <cli> sessions found
    ```
 
+### `search <query> [--cli <cli>] [--since <ISO>] [--limit <N>]`
+
+Scan transcripts across one or all CLIs for a substring/regex match and
+return a ranked list of candidate sessions. Use when you remember what a
+session was about but not its UUID. Chain into `describe <cli> <uuid>`
+on the chosen row.
+
+**Steps:**
+
+1. Resolve the search roots. If `--cli` is given, use only the matching
+   root; otherwise scan all three:
+   - `claude` → `~/.claude/projects/`
+   - `copilot` → `~/.copilot/session-state/`
+   - `codex` → `~/.codex/sessions/`
+2. Compute the `--since` cutoff. Default: 30 days ago. Use
+   `find <root> -name '<pattern>' -newermt "<cutoff>"` to pre-filter by
+   mtime. Per-CLI patterns:
+   - claude: `*.jsonl` under `~/.claude/projects/*/`
+   - copilot: `events.jsonl` under `~/.copilot/session-state/*/`
+   - codex: `rollout-*.jsonl` under `~/.codex/sessions/*/*/*/`
+3. **Raw pass (fast filter).** Run
+   `rg -l -i --no-messages -e '<query>' <file-list>` to get the
+   candidate-file list. This hits JSON-escaped content too; that's
+   fine — it's a superset we refine in the next step.
+4. **Clean pass (snippet extraction).** For each candidate file, apply
+   the CLI's user+assistant `jq` filter from the corresponding reference
+   in `references/` (see `claude-code.md`, `copilot.md`, `codex.md`),
+   then `rg -i -m 1 -o -C 0 '<query>'` over the extracted text. If the
+   clean pass yields no hit, **drop the file** — the raw match was in
+   tool-use payloads or metadata (almost always noise). For codex, drop
+   any snippet whose source turn is an `<environment_context>` block.
+5. For each surviving candidate, extract:
+   - `cli` (inferred from root)
+   - short UUID (first 8 chars; for claude/codex parse from filename,
+     for copilot parse from the parent dir name)
+   - `cwd` (from session meta using the per-CLI filter)
+   - `mtime` (from `stat`)
+   - snippet — prefer the first user-prompt match; else first
+     assistant match. Prefix with `user: ` or `asst: `. Truncate to 80
+     chars with `…`.
+6. Sort by `mtime` desc. Truncate to `--limit` (default 20).
+7. Render:
+
+   ```markdown
+   | CLI     | Short UUID | cwd                          | Last modified      | Match               |
+   | ------- | ---------- | ---------------------------- | ------------------ | ------------------- |
+   | copilot | 1be89762   | /home/kaioh                  | 2026-04-17 20:21   | user: "copilot --resume=…" |
+
+   Drill in with `/handoff describe <cli> <uuid>`.
+   ```
+
+8. If no candidates survive, output exactly:
+
+   ```
+   No sessions matching '<query>'
+   ```
+
+**Query-handling rules:**
+
+- `<query>` is passed to `rg` as a regex. Shell-special characters the
+  user typed verbatim should be single-quoted when shelling out.
+- Case-insensitive by default (`-i`). The caller can opt out with an
+  explicit `(?-i)` inline flag in the regex.
+- Do not expand `~` inside the query — only inside the root paths.
+
 ---
 
 ## Error handling
@@ -164,6 +236,8 @@ List sessions for the given CLI, newest first.
 
 - Invoking the target CLI directly. The skill prints, the user pastes.
 - Secret redaction. The caller is responsible for not passing sensitive
-  transcripts through `file`.
-- Content-based session search (e.g. "find the session where I worked
-  on foo"). Identifier must be UUID or `latest`.
+  transcripts through `file` or `search` output.
+- Fuzzy or semantic search. `search` is substring/regex only. If a user
+  wants semantic retrieval, direct them to the raw transcripts.
+- Persistent indexing. Grep-at-query-time is fast enough for local
+  session volumes; revisit only if p95 exceeds ~2s.

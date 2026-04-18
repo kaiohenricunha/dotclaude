@@ -110,6 +110,29 @@ jq -c 'select(.type == "response_item" and .payload.type != "message")
 jq -c 'select(.type == "event_msg") | .payload | {type, turn_id}' <file>
 ```
 
+## Content search (clean pass)
+
+For `/handoff search`, raw `rg` over rollouts matches inside
+`base_instructions.text` (the entire Codex system prompt, ~10k chars)
+and tool-call payloads. Always extract clean turn text first:
+
+```bash
+jq -r '
+  select(.type == "response_item"
+         and .payload.type == "message"
+         and (.payload.role == "user" or .payload.role == "assistant"))
+  | .payload.role as $r
+  | .payload.content[0].text
+  | select(test("^<environment_context>") | not)
+  | "\($r):\t" + .
+' <file> | rg -i -m 1 '<query>'
+```
+
+The `<environment_context>` filter is important: every Codex session's
+first user turn is an auto-generated block with cwd/shell/timezone, and
+searching for common words like `bash` or a username matches every
+session without it.
+
 ## Notes
 
 - Codex sessions routinely exceed 100k lines because tool-call output
