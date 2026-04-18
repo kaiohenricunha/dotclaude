@@ -53,7 +53,9 @@
     "ground-first",
     "markdown",
     "merge-pr",
+    "pre-pr",
     "review-pr",
+    "review-prs",
     "security-review"
   ],
   "hook": [],

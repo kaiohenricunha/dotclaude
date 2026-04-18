@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-04-18T13:18:08.253Z",
+  "generatedAt": "2026-04-18T17:50:44.739Z",
   "skills": [
     {
       "name": "audit-and-fix",
@@ -188,6 +188,20 @@
       "name": "handoff",
       "path": ".claude/skills/handoff/SKILL.md",
       "checksum": "sha256:7f77ded161157a0ea6e5d2d2a1b62d563f9e4a81350569af6f7f866a73b02d0a",
+      "dependencies": [],
+      "lastValidated": "2026-04-18"
+    },
+    {
+      "name": "review-prs",
+      "path": ".claude/commands/review-prs.md",
+      "checksum": "sha256:e01a0432cd1a6cf6fe4a60cfc2b02f7cab3cde418062ca85beadc5491548bc71",
+      "dependencies": [],
+      "lastValidated": "2026-04-18"
+    },
+    {
+      "name": "pre-pr",
+      "path": ".claude/commands/pre-pr.md",
+      "checksum": "sha256:347be395b0f8003816b4f3ed3bb777a63a3f9f7ae300d6f050b499ff66cfd3b0",
       "dependencies": [],
       "lastValidated": "2026-04-18"
     }

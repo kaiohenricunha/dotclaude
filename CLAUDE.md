@@ -32,6 +32,13 @@ Universal behavior for every Claude Code session in every repo. Project-level `C
 - **Surface assumptions before coding.** If a request has multiple valid interpretations, list them explicitly. In interactive sessions, ask before picking one. In autonomous/headless mode, state the chosen interpretation and proceed. "Make it faster" → clarify which dimension (latency, throughput, perceived UX) before writing code.
 - **Surgical orphan cleanup.** When your changes make an import or variable unused, remove it. Remove a function only after verifying it is not part of a public/exported API and has no remaining references (use a repo-wide search); otherwise keep it or deprecate it. Don't remove pre-existing dead code your changes didn't create — mention it instead.
 
+## Root Cause Before Fix
+
+- For any bug or data discrepancy, perform a grounded audit (read the actual code paths, check deployment state, verify data sources) BEFORE proposing a fix or plan. Do not accept the first plausible hypothesis.
+- State evidence (file:line, log snippet, commit sha) for each claim in the diagnosis.
+- Present at least two candidate root causes with evidence for and against each before settling on one.
+- **Do not write code until the user approves the audit.** In interactive sessions, wait for explicit sign-off. In autonomous/headless mode, emit the audit and state the chosen root cause before proceeding.
+
 ## Testing
 
 - Run the project's **full** test suite locally before merging any PR that modifies `/data`, calibration, rankings, fixtures, or anything consumed by downstream pipelines.
@@ -55,6 +62,11 @@ Universal behavior for every Claude Code session in every repo. Project-level `C
 - **When editing Go files, run `gofmt -w <file>` immediately after editing.** Never leave Go files with formatting issues.
 - **When reporting status or roadmap progress, verify each item against actual code or config before marking it complete.** Do not assume completion — show the evidence.
 
+## Test Plan Verification
+
+- Run every command in the test plan verbatim, in order. Paste the **last 10 lines of output** for each.
+- If any command was skipped or inferred rather than run, say so explicitly. Never claim completion based on partial runs.
+
 ## Version control discipline
 
 - **Never push to `main` (or any branch) without explicit user instruction.** Commit locally and wait for the user to say "push".
@@ -70,6 +82,12 @@ Universal behavior for every Claude Code session in every repo. Project-level `C
 - The main checkout is effectively read-only for agentic work unless the user says "do it on main" for this specific task. A one-line typo fix they want committed directly is fine; anything larger is not.
 - Never use `gh pr checkout`, `git checkout <other-branch>`, `git switch`, or `git stash` in the main checkout as a way to swap contexts; those operations silently corrupt any concurrent session editing the same checkout.
 - **Respect other sessions' worktrees and branches.** Multiple agents and humans work concurrently. Before creating a worktree, run `git worktree list` and scan for anything that looks active (recent HEAD, branch name matching your intent). Never remove, rename, or force-overwrite a worktree you did not create in this session.
+
+## Worktree & Sandbox Conventions
+
+- Before starting work in a worktree, verify it is clean (`git status`) and not already claimed by a concurrent headless worker (check for lockfiles/PID files).
+- Use `$CLAUDE_PROJECT_DIR` in hooks and scripts rather than relative paths.
+- When sandbox blocks writes to `/tmp` or the worktree path, emit results to stdout as a fallback and flag the limitation explicitly.
 
 ## PR Conventions
 
@@ -146,8 +164,10 @@ Quick-invoke disciplines for recurring friction:
 | ------------------------------ | ----------------------------------------------------------------------------------------- |
 | `/ground-first <subject>`      | Before any non-trivial fix — forces code-inspection analysis before edits                 |
 | `/merge-pr <N>`                | Before merging a PR that touches data/calibration/rankings — runs full local verification |
+| `/pre-pr [base-branch]`        | Quality gate before opening a PR — simplify, security-review, full test suite             |
 | `/fix-with-evidence <issue>`   | For any bug fix — enforces Reproduce → Fix → Verify → PR loop                             |
 | `/dependabot-sweep`            | Batch-triage all open Dependabot PRs with parallel subagents                              |
+| `/review-prs <N1> [N2 ...]`    | Batch-review multiple PRs in parallel — one sub-agent per PR, aggregated summary table    |
 | `/audit-and-fix <domain>`      | Long-running audit-then-implement pipeline across many PRs                                |
 | `/create-audit <subject>`      | Evidence-based audit doc to `docs/audits/`                                                |
 | `/create-assessment <target>`  | 0–10 graded assessment doc to `docs/assessments/`                                         |
