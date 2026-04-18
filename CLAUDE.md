@@ -41,7 +41,7 @@ Universal behavior for every Claude Code session in every repo. Project-level `C
 
 ## Testing
 
-- Run the project's **full** test suite locally before merging any PR that modifies `/data`, calibration, rankings, fixtures, or anything consumed by downstream pipelines.
+- Run the project's **full** test suite locally before merging any PR that modifies files listed in `regression_paths` (see `docs/repo-facts.json`) or anything consumed by downstream consumers.
 - Never claim a test failure is "pre-existing" without proving it. Required proof:
   ```bash
   git stash && <test-command> ; git stash pop
@@ -160,16 +160,16 @@ or a `## No-spec rationale` section in its body.
 
 Quick-invoke disciplines for recurring friction:
 
-| Command                        | When                                                                                      |
-| ------------------------------ | ----------------------------------------------------------------------------------------- |
-| `/ground-first <subject>`      | Before any non-trivial fix — forces code-inspection analysis before edits                 |
-| `/merge-pr <N>`                | Before merging a PR that touches data/calibration/rankings — runs full local verification |
-| `/pre-pr [base-branch]`        | Quality gate before opening a PR — simplify, security-review, full test suite             |
-| `/fix-with-evidence <issue>`   | For any bug fix — enforces Reproduce → Fix → Verify → PR loop                             |
-| `/dependabot-sweep`            | Batch-triage all open Dependabot PRs with parallel subagents                              |
-| `/review-prs <N1> [N2 ...]`    | Batch-review multiple PRs in parallel — one sub-agent per PR, aggregated summary table    |
-| `/audit-and-fix <domain>`      | Long-running audit-then-implement pipeline across many PRs                                |
-| `/create-audit <subject>`      | Evidence-based audit doc to `docs/audits/`                                                |
-| `/create-assessment <target>`  | 0–10 graded assessment doc to `docs/assessments/`                                         |
-| `/create-inspection <problem>` | Investigate a problem and surface viable fix options to `docs/inspections/`               |
-| `/spec <subject>`              | Only when a spec/design doc is explicitly requested                                       |
+| Command                        | When                                                                                                      |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `/ground-first <subject>`      | Before any non-trivial fix — forces code-inspection analysis before edits                                 |
+| `/merge-pr <N>`                | Before merging any PR — full local verification with optional data-regression gate via `regression_paths` |
+| `/pre-pr [base-branch]`        | Quality gate before opening a PR — simplify, security-review, full test suite                             |
+| `/fix-with-evidence <issue>`   | For any bug fix — enforces Reproduce → Fix → Verify → PR loop                                             |
+| `/dependabot-sweep`            | Batch-triage all open Dependabot PRs with parallel subagents                                              |
+| `/review-prs <N1> [N2 ...]`    | Batch-review multiple PRs in parallel — one sub-agent per PR, aggregated summary table                    |
+| `/audit-and-fix <domain>`      | Long-running audit-then-implement pipeline across many PRs                                                |
+| `/create-audit <subject>`      | Evidence-based audit doc to `docs/audits/`                                                                |
+| `/create-assessment <target>`  | 0–10 graded assessment doc to `docs/assessments/`                                                         |
+| `/create-inspection <problem>` | Investigate a problem and surface viable fix options to `docs/inspections/`                               |
+| `/spec <subject>`              | Only when a spec/design doc is explicitly requested                                                       |

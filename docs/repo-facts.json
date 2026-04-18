@@ -13,5 +13,6 @@
     "plugins/dotclaude/bin/**",
     "plugins/dotclaude/templates/**"
   ],
-  "instruction_files": ["CLAUDE.md", "README.md"]
+  "instruction_files": ["CLAUDE.md", "README.md"],
+  "regression_paths": []
 }

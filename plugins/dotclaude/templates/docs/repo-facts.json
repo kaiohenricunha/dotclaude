@@ -13,5 +13,6 @@
     "docs/repo-facts.json",
     "docs/specs/**/spec.json"
   ],
-  "verification_commands": []
+  "verification_commands": [],
+  "regression_paths": []
 }

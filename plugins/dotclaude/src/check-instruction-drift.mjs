@@ -16,9 +16,8 @@ import { ValidationError, ERROR_CODES } from "./lib/errors.mjs";
  *  - each entry in protected_paths appears literally in CLAUDE.md (so docs don't drift from facts)
  *  - protected_paths entries are non-empty strings
  *
- * The port omits the loadSourceFacts() cross-check from squadranks (which reads src/data.js
- * and src/i18n.js — project-specific to wc-squad-rankings). The harness treats repo-facts.json
- * itself as the authoritative source and checks that instruction files stay in sync with it.
+ * The harness treats repo-facts.json as the authoritative source and checks that instruction
+ * files stay in sync with it.
  *
  * @param {object} ctx  Harness context from createHarnessContext().
  * @returns {{ ok: boolean, errors: ValidationError[] }}

@@ -22,9 +22,9 @@ setup() {
 @test "encode: with tag produces 7-segment string" {
   run "$DESC" encode \
     --cli codex --short-id 1be89762 \
-    --project squadranks --hostname win-desktop --tag evening
+    --project example-app --hostname win-desktop --tag evening
   [ "$status" -eq 0 ]
-  [ "$output" = "handoff:v1:codex:1be89762:squadranks:win-desktop:evening" ]
+  [ "$output" = "handoff:v1:codex:1be89762:example-app:win-desktop:evening" ]
 }
 
 @test "encode: slugifies mixed-case project with spaces and punctuation" {
