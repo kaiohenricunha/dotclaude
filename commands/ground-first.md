@@ -20,7 +20,7 @@ Produce a code-grounded analysis of a subject before any edits are proposed.
 
 Trigger: when the user asks for a fix, change, or investigation on non-trivial code and has not yet confirmed you understand current behavior. Also triggered directly via `/ground-first`.
 
-Arguments: `$ARGUMENTS` — a description of what to analyze (e.g. "calibration drift in wc-squad-rankings", "why ingest job retries forever", "issue #140").
+Arguments: `$ARGUMENTS` — a description of what to analyze (e.g. "auth token refresh race condition", "why ingest job retries forever", "issue #140").
 
 ## Steps
 

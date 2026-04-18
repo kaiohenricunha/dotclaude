@@ -11,14 +11,14 @@ owner: "@kaiohenricunha"
 created: 2025-01-01
 updated: 2026-04-17
 description: >
-  Merge a pull request only after full local verification, with a data-regression gate for PRs touching data/calibration/rankings.
+  Merge a pull request only after full local verification, with an optional data-regression gate for paths configured in docs/repo-facts.json.
 argument-hint: "[PR#]"
 model: sonnet
 ---
 
-Merge a pull request only after full local verification, with a data-regression gate for PRs touching data/calibration/rankings.
+Merge a pull request only after full local verification, with an optional data-regression gate for paths configured in `docs/repo-facts.json`.
 
-Trigger: when the user asks to merge a PR, especially one that modifies data files, calibration logic, or ranking output. Also triggered directly via `/merge-pr <N>`.
+Trigger: when the user asks to merge a PR. Also triggered directly via `/merge-pr <N>`.
 
 Arguments: `$ARGUMENTS` — the PR number (e.g. `125`). If missing, ask the user which PR.
 
@@ -56,7 +56,9 @@ Arguments: `$ARGUMENTS` — the PR number (e.g. `125`). If missing, ask the user
 
    Paste the tail of output (last ~40 lines) regardless of pass/fail.
 
-5. **Data-regression gate.** If any changed file matches `data/**`, `**/calibration/**`, `**/rankings/**`, `**/fixtures/**`:
+5. **Data-regression gate.** Read `docs/repo-facts.json` and check for a `regression_paths` array.
+   If the file is absent or `regression_paths` is empty, skip this step and note: "no `regression_paths` configured — skipping data-regression gate".
+   If present, for any changed file that matches a glob in `regression_paths`:
 
    ```bash
    git diff origin/<baseRefName>...HEAD -- <matched-paths>

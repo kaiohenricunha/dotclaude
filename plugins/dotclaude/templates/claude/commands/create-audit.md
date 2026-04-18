@@ -17,7 +17,7 @@ Create a structured audit document and save it to the project's `docs/audits/` d
 
 Trigger: when the user asks for an audit, review, or assessment of any system, feature, data quality, process, or component. Also triggered directly via `/create-audit`.
 
-Arguments: `$ARGUMENTS` — a description of what to audit (e.g. "data quality for squad ratings", "API endpoint security", "deployment pipeline reliability").
+Arguments: `$ARGUMENTS` — a description of what to audit (e.g. "data quality for user profiles", "API endpoint security", "deployment pipeline reliability").
 
 ## Steps
 

@@ -58,7 +58,7 @@ handoff:v1:<cli>:<short-uuid>:<project-slug>:<hostname>[:<tag>]
 Examples:
 
 - `handoff:v1:claude:3564b8c0:dotclaude:thinkpad-pop`
-- `handoff:v1:codex:1be89762:squadranks:win-desktop:evening`
+- `handoff:v1:codex:1be89762:myapp:win-desktop:evening`
 
 Rules:
 

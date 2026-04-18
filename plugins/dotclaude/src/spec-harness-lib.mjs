@@ -271,7 +271,7 @@ export function anyPathMatches(pattern, paths) {
   return paths.some((c) => rx.test(c));
 }
 
-// ---- PR context helpers (unchanged from squadranks) ----
+// ---- PR context helpers ----
 
 /**
  * Extract the body of a markdown H2 section named `heading` (e.g.
