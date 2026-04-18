@@ -59,7 +59,7 @@ without explicit sub-command, run `describe` by default:
 - Literal resume-command fragments: `claude --resume <uuid>`,
   `copilot --resume=<uuid>`, `codex resume <uuid>`.
 - Natural-language: "what was that session about", "continue in
-  <cli>", "switch to <cli>", "handoff".
+  \<cli\>", "switch to \<cli\>", "handoff".
 
 Extract `<cli>` and `<uuid>` from the user message. If either is missing,
 ask a single clarifying question before proceeding.
@@ -193,7 +193,7 @@ on the chosen row.
    - `cwd` (from session meta using the per-CLI filter)
    - `mtime` (from `stat`)
    - snippet — prefer the first user-prompt match; else first
-     assistant match. Prefix with `user: ` or `asst: `. Truncate to 80
+     assistant match. Prefix with "user: " or "asst: ". Truncate to 80
      chars with `…`.
 6. Sort by `mtime` desc. Truncate to `--limit` (default 20).
 7. Render:
