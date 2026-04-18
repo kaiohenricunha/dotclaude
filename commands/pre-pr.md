@@ -2,7 +2,7 @@
 id: pre-pr
 name: pre-pr
 type: command
-version: 1.0.0
+version: 1.0.1
 domain: [devex]
 platform: [none]
 task: [review, testing]
