@@ -6,13 +6,6 @@ All notable changes to `@dotclaude/dotclaude` land here. Format follows
 
 ## [Unreleased]
 
-### Planned
-
-- Marketplace submission for the Claude Code plugin listing.
-- `dotclaude upgrade` subcommand to migrate consumer repos across versions.
-- `.d.ts` shipping for stronger type inference (via hand-authored declarations
-  — TypeScript migration is out of scope per ADR-0002).
-
 ## [0.5.0] — 2026-04-18
 
 No breaking changes. This release adds cross-machine session handoff via GitHub
@@ -214,3 +207,10 @@ and the docs set consumers need to adopt.
 Retroactive entry. Initial plugin skeleton: spec-harness library, five
 validators, template tree, hook, and `test_validate_settings.sh`. Never
 published to npm — the first published version is 0.2.0.
+
+## Roadmap
+
+- Marketplace submission for the Claude Code plugin listing.
+- `dotclaude upgrade` subcommand to migrate consumer repos across versions.
+- `.d.ts` shipping for stronger type inference (via hand-authored declarations
+  — TypeScript migration is out of scope per ADR-0002).

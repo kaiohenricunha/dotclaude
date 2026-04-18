@@ -5,10 +5,10 @@ on:
     tags:
       - "v*.*.*"
 
-# npm provenance requires the id-token permission. `contents: write` lets the
-# release job create a GitHub Release with the tag's CHANGELOG section.
+# npm provenance requires the id-token permission. GitHub Release creation is
+# handled by release-please; contents: read is sufficient here.
 permissions:
-  contents: write
+  contents: read
   id-token: write
 
 jobs:
@@ -39,19 +39,3 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Create GitHub Release via gh CLI
-        # Uses the gh CLI pre-installed on ubuntu-latest instead of a
-        # third-party action — the repo's Actions policy only allows
-        # github-owned and verified-creator actions, and this keeps the
-        # release step dependency-free.
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VER="${GITHUB_REF_NAME#v}"
-          # Extract the section between `## [VER]` and the next `## [` heading.
-          awk "/^## \\[$VER\\]/{found=1;next} /^## \\[/{if(found)exit} found" CHANGELOG.md > /tmp/release-body.md
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
-            --notes-file /tmp/release-body.md \
-            --verify-tag
