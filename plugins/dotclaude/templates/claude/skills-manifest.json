@@ -136,6 +136,13 @@
       "lastValidated": null
     },
     {
+      "name": "pre-pr",
+      "path": ".claude/commands/pre-pr.md",
+      "checksum": "",
+      "dependencies": [],
+      "lastValidated": null
+    },
+    {
       "name": "pulumi-specialist",
       "path": ".claude/skills/pulumi-specialist/SKILL.md",
       "checksum": "",
@@ -145,6 +152,13 @@
     {
       "name": "review-pr",
       "path": ".claude/commands/review-pr.md",
+      "checksum": "",
+      "dependencies": [],
+      "lastValidated": null
+    },
+    {
+      "name": "review-prs",
+      "path": ".claude/commands/review-prs.md",
       "checksum": "",
       "dependencies": [],
       "lastValidated": null

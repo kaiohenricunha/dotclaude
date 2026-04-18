@@ -15,7 +15,9 @@
       "handoff",
       "markdown",
       "merge-pr",
+      "pre-pr",
       "review-pr",
+      "review-prs",
       "security-review",
       "spec",
       "validate-spec",
@@ -48,6 +50,7 @@
       "ground-first",
       "handoff",
       "markdown",
+      "pre-pr",
       "security-review",
       "spec",
       "validate-spec",
@@ -57,7 +60,7 @@
     "azure": ["azure-specialist"],
     "crossplane": ["crossplane-specialist"],
     "kubernetes": ["crossplane-specialist", "kubernetes-specialist"],
-    "github-actions": ["dependabot-sweep", "merge-pr", "review-pr"],
+    "github-actions": ["dependabot-sweep", "merge-pr", "review-pr", "review-prs"],
     "gcp": ["gcp-specialist"],
     "pulumi": ["pulumi-specialist"],
     "terraform": ["terraform-specialist", "terragrunt-specialist"],
@@ -94,8 +97,10 @@
       "ground-first",
       "kubernetes-specialist",
       "merge-pr",
+      "pre-pr",
       "pulumi-specialist",
       "review-pr",
+      "review-prs",
       "security-review",
       "terraform-specialist",
       "terragrunt-specialist",
@@ -111,7 +116,14 @@
       "markdown",
       "spec"
     ],
-    "testing": ["detect-flaky", "fix-with-evidence", "merge-pr", "validate-spec", "veracity-audit"]
+    "testing": [
+      "detect-flaky",
+      "fix-with-evidence",
+      "merge-pr",
+      "pre-pr",
+      "validate-spec",
+      "veracity-audit"
+    ]
   },
   "maturity": {
     "validated": [
@@ -161,7 +173,9 @@
       "iac-engineer",
       "kubernetes-specialist",
       "platform-engineer",
+      "pre-pr",
       "pulumi-engineer",
+      "review-prs",
       "security-auditor",
       "security-engineer",
       "terragrunt-engineer",
