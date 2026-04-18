@@ -24,17 +24,21 @@ Examples:
 find ~/.codex/sessions -type f -name "rollout-*-<uuid>.jsonl" 2>/dev/null
 ```
 
-**Latest** — newest rollout by mtime:
+**Latest** — newest rollout by mtime (GNU/BSD portable):
 
 ```bash
-find ~/.codex/sessions -type f -name 'rollout-*.jsonl' -printf '%T@ %p\n' 2>/dev/null \
+find ~/.codex/sessions -type f -name 'rollout-*.jsonl' 2>/dev/null \
+  | xargs -I{} sh -c \
+    'stat -c "%Y %n" "{}" 2>/dev/null || stat -f "%m %N" "{}" 2>/dev/null' \
   | sort -rn | head -1 | awk '{print $2}'
 ```
 
 **List** — all rollouts newest first, with session metadata:
 
 ```bash
-find ~/.codex/sessions -type f -name 'rollout-*.jsonl' -printf '%T@ %p\n' 2>/dev/null \
+find ~/.codex/sessions -type f -name 'rollout-*.jsonl' 2>/dev/null \
+  | xargs -I{} sh -c \
+    'stat -c "%Y %n" "{}" 2>/dev/null || stat -f "%m %N" "{}" 2>/dev/null' \
   | sort -rn
 ```
 

@@ -103,6 +103,7 @@ more.
    **<cli>** `<short-uuid>` — `<cwd>` — <started-at>
 
    **User prompts:**
+
    - <prompt 1>
    - <prompt 2>
 
@@ -183,8 +184,9 @@ on the chosen row.
 4. **Clean pass (snippet extraction).** For each candidate file, apply
    the CLI's user+assistant `jq` filter from the corresponding reference
    in `references/` (see `claude-code.md`, `copilot.md`, `codex.md`),
-   then `rg -i -m 1 -o -C 0 '<query>'` over the extracted text. If the
-   clean pass yields no hit, **drop the file** — the raw match was in
+   then `rg -i -m 1 -C 0 '<query>'` over the extracted text so the full
+   matching line is available for snippet construction. If the clean
+   pass yields no hit, **drop the file** — the raw match was in
    tool-use payloads or metadata (almost always noise). For codex, drop
    any snippet whose source turn is an `<environment_context>` block.
 5. For each surviving candidate, extract:
@@ -200,9 +202,9 @@ on the chosen row.
 7. Render:
 
    ```markdown
-   | CLI     | Short UUID | cwd                          | Last modified      | Match               |
-   | ------- | ---------- | ---------------------------- | ------------------ | ------------------- |
-   | copilot | 1be89762   | /home/kaioh                  | 2026-04-17 20:21   | user: "copilot --resume=…" |
+   | CLI     | Short UUID | cwd         | Last modified    | Match                      |
+   | ------- | ---------- | ----------- | ---------------- | -------------------------- |
+   | copilot | 1be89762   | /home/kaioh | 2026-04-17 20:21 | user: "copilot --resume=…" |
 
    Drill in with `/handoff describe <cli> <uuid>`.
    ```
@@ -230,7 +232,11 @@ on the chosen row.
 - Malformed UUID → treat as a literal and let the resolver return
   "not found" rather than guessing.
 - Missing `jq` on PATH → fall back to reading the JSONL with `Read` and
-  parsing in-memory; note the fallback in output.
+  parsing in-memory. Note the fallback only in human-readable output
+  modes (`describe`, `list`, `search`). Do not emit any extra stdout for
+  `digest`; for `file`, stdout must remain path-only — if a fallback
+  note is needed, place it in the written markdown body after the
+  `<handoff>` block.
 
 ## Out of scope
 

@@ -24,17 +24,22 @@ project dirs:
 find ~/.claude/projects -maxdepth 2 -type f -name '<uuid>.jsonl' 2>/dev/null
 ```
 
-**Latest** — newest `.jsonl` across all project dirs by mtime:
+**Latest** — newest `.jsonl` across all project dirs by mtime (GNU/BSD
+portable):
 
 ```bash
-find ~/.claude/projects -maxdepth 2 -type f -name '*.jsonl' -printf '%T@ %p\n' 2>/dev/null \
+find ~/.claude/projects -maxdepth 2 -type f -name '*.jsonl' 2>/dev/null \
+  | xargs -I{} sh -c \
+    'stat -c "%Y %n" "{}" 2>/dev/null || stat -f "%m %N" "{}" 2>/dev/null' \
   | sort -rn | head -1 | awk '{print $2}'
 ```
 
 **List** — all sessions grouped by project, newest first:
 
 ```bash
-find ~/.claude/projects -maxdepth 2 -type f -name '*.jsonl' -printf '%T@ %p\n' 2>/dev/null \
+find ~/.claude/projects -maxdepth 2 -type f -name '*.jsonl' 2>/dev/null \
+  | xargs -I{} sh -c \
+    'stat -c "%Y %n" "{}" 2>/dev/null || stat -f "%m %N" "{}" 2>/dev/null' \
   | sort -rn
 ```
 
@@ -100,25 +105,15 @@ extracting user+assistant text first:
 ```bash
 jq -r '
   select((.type == "user" or .type == "assistant") and (.isSidechain | not))
+  | .type as $role
   | .message.content
-  | if type == "string" then "\(.type)\t\(.)" end // empty,
+  | if type == "string" then "\($role):\t\(.)"
+    else empty end,
     ( if type == "array" then
         (map(select(.type == "text") | .text) | join("\n"))
-          | if length > 0 then "\(input_filename)\t\(.)" end
+          | select(length > 0)
+          | "\($role):\t\(.)"
       else empty end )
-' <file> | rg -i -m 1 '<query>' && echo <file>
-```
-
-A simpler working form (role-prefixed lines, pipe to `rg`):
-
-```bash
-jq -r '
-  select((.type == "user" or .type == "assistant") and (.isSidechain | not))
-  | "\(.type):\t" +
-    ( .message.content
-      | if type == "string" then .
-        else (map(select(.type == "text") | .text) | join("\n"))
-        end )
 ' <file> | rg -i -m 1 '<query>'
 ```
 

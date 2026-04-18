@@ -14,7 +14,7 @@ origin:
   cwd: <absolute-path>
   model: <model-id-or-list>
   started_at: <ISO-8601>
-  turn_count: <int>           # user turns only
+  turn_count: <int> # user turns only
 summary: |
   2–4 sentences, plain English, describing what the session was about
   and where it left off. No CLI-specific jargon.
@@ -41,14 +41,17 @@ next_step_suggestion: |
 **Summary.** <summary prose>
 
 **User prompts (verbatim, in order).**
+
 1. <prompt 1>
 2. <prompt 2>
 
 **Key findings.**
+
 - <finding 1>
 - <finding 2>
 
 **Artifacts.**
+
 - Files touched: <path1>, <path2>
 - Commands run: `<cmd1>`, `<cmd2>`
 
@@ -66,6 +69,7 @@ reliably and distinguish digest content from surrounding commentary.
 **<cli>** `<short-id>` — `<cwd>` — <started-at>
 
 **User prompts.**
+
 - <prompt 1>
 - <prompt 2>
 

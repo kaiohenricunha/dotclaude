@@ -23,17 +23,22 @@ passed to `copilot --resume=<uuid>`.
 ~/.copilot/session-state/<uuid>/events.jsonl
 ```
 
-**Latest** — newest session dir by mtime of its `events.jsonl`:
+**Latest** — newest session dir by mtime of its `events.jsonl` (GNU/BSD
+portable):
 
 ```bash
-find ~/.copilot/session-state -maxdepth 2 -name events.jsonl -printf '%T@ %p\n' 2>/dev/null \
+find ~/.copilot/session-state -maxdepth 2 -name events.jsonl 2>/dev/null \
+  | xargs -I{} sh -c \
+    'stat -c "%Y %n" "{}" 2>/dev/null || stat -f "%m %N" "{}" 2>/dev/null' \
   | sort -rn | head -1 | awk '{print $2}'
 ```
 
 **List** — all sessions newest first:
 
 ```bash
-find ~/.copilot/session-state -maxdepth 2 -name events.jsonl -printf '%T@ %p\n' 2>/dev/null \
+find ~/.copilot/session-state -maxdepth 2 -name events.jsonl 2>/dev/null \
+  | xargs -I{} sh -c \
+    'stat -c "%Y %n" "{}" 2>/dev/null || stat -f "%m %N" "{}" 2>/dev/null' \
   | sort -rn
 ```
 
