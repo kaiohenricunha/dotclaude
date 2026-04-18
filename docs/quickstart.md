@@ -1,4 +1,17 @@
-# Quickstart — install to first green validator in under 10 minutes
+# Quickstart
+
+_Last updated: v0.5.0_
+
+**Two paths — pick yours:**
+
+| I want…                                               | Path                                                                              |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Skills & commands in every Claude Code session        | **[Dotfile bootstrap](./dotfile-quickstart.md)** — 30 seconds, no npm required   |
+| Spec-governance CLI and CI gates for my own repo      | **This page** — 10 minutes, Node ≥ 20 required                                   |
+
+---
+
+## CLI consumer — install to first green validator in under 10 minutes
 
 ## 1. Install
 
