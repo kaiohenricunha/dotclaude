@@ -160,13 +160,13 @@ after a pull the new version is live — but the running session cached the old 
 
 ## What gets symlinked
 
-| `~/.claude/` path        | Source                                       |
-| ------------------------ | -------------------------------------------- |
-| `CLAUDE.md`              | `CLAUDE.md` (global rules for all sessions)  |
-| `commands/*.md`          | `commands/*.md` (all slash commands)         |
-| `skills/*/`              | `skills/*/` (all skill directories)          |
-| `hooks/*.sh`             | `plugins/dotclaude/hooks/*.sh`               |
-| `agents/*.md` (copied)   | `plugins/dotclaude/templates/claude/agents/` |
+| `~/.claude/` path      | Source                                       |
+| ---------------------- | -------------------------------------------- |
+| `CLAUDE.md`            | `CLAUDE.md` (global rules for all sessions)  |
+| `commands/*.md`        | `commands/*.md` (all slash commands)         |
+| `skills/*/`            | `skills/*/` (all skill directories)          |
+| `hooks/*.sh`           | `plugins/dotclaude/hooks/*.sh`               |
+| `agents/*.md` (copied) | `plugins/dotclaude/templates/claude/agents/` |
 
 > Agents are **copied**, not symlinked — Claude Code resolves agent paths at startup
 > and needs real files, not symlinks, on some platforms.

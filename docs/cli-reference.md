@@ -206,11 +206,11 @@ Pre-existing real files (not symlinks) are backed up to `<name>.bak-<timestamp>`
 > **Platform note:** Windows is not supported (symlinks require elevated
 > permissions). Use WSL or run `bootstrap.sh` from Git Bash instead.
 
-| Flag               | Default      |                                                  |
-| ------------------ | ------------ | ------------------------------------------------ |
-| `--source <path>`  | npm install  | Path to a local dotclaude git clone (clone mode) |
-| `--target <dir>`   | `~/.claude`  | Override destination directory                   |
-| `--quiet`          | false        | Suppress per-file progress; print summary only   |
+| Flag              | Default     |                                                  |
+| ----------------- | ----------- | ------------------------------------------------ |
+| `--source <path>` | npm install | Path to a local dotclaude git clone (clone mode) |
+| `--target <dir>`  | `~/.claude` | Override destination directory                   |
+| `--quiet`         | false       | Suppress per-file progress; print summary only   |
 
 **Typical invocations:**
 
@@ -230,18 +230,18 @@ Pull, push, or check status for a dotclaude installation. Works in two modes:
 **npm mode** (default — installed globally via npm) or **clone mode** (local
 git checkout, activated with `--source`).
 
-| Flag              | Default     |                                          |
-| ----------------- | ----------- | ---------------------------------------- |
-| `--source <path>` | npm install | Path to a local dotclaude git clone      |
-| `--quiet`         | false       | Suppress per-file progress               |
+| Flag              | Default     |                                     |
+| ----------------- | ----------- | ----------------------------------- |
+| `--source <path>` | npm install | Path to a local dotclaude git clone |
+| `--quiet`         | false       | Suppress per-file progress          |
 
 **Subcommands:**
 
-| Subcommand | Description |
-|------------|-------------|
-| `pull` | npm mode: fetch latest from registry and re-bootstrap. Clone mode: `git fetch` + `git rebase origin/main` + re-bootstrap. |
-| `push` | Clone mode only: secret-scan staged files, commit, and push to origin. Set `HARNESS_SYNC_SKIP_SECRET_SCAN=1` to bypass the scan. |
-| `status` | npm mode: print current version. Clone mode: `git status --short`. |
+| Subcommand | Description                                                                                                                      |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `pull`     | npm mode: fetch latest from registry and re-bootstrap. Clone mode: `git fetch` + `git rebase origin/main` + re-bootstrap.        |
+| `push`     | Clone mode only: secret-scan staged files, commit, and push to origin. Set `HARNESS_SYNC_SKIP_SECRET_SCAN=1` to bypass the scan. |
+| `status`   | npm mode: print current version. Clone mode: `git status --short`.                                                               |
 
 **Typical invocations:**
 
@@ -260,11 +260,11 @@ Rebuild the taxonomy index (`index/artifacts.json`, `index/by-type.json`,
 `commands/`, `hooks/`, and `templates/`. Required before `search`, `list`,
 and `show` can operate.
 
-| Flag                 | Default          |                                              |
-| -------------------- | ---------------- | -------------------------------------------- |
-| `--repo-root <path>` | resolved via git | Override repo root                           |
-| `--check`            | false            | Verify index is fresh without writing (CI)   |
-| `--strict`           | false            | Fail on schema validation warnings           |
+| Flag                 | Default          |                                            |
+| -------------------- | ---------------- | ------------------------------------------ |
+| `--repo-root <path>` | resolved via git | Override repo root                         |
+| `--check`            | false            | Verify index is fresh without writing (CI) |
+| `--strict`           | false            | Fail on schema validation warnings         |
 
 **Typical invocations:**
 
@@ -283,9 +283,9 @@ dotclaude index --strict           # fail on any warning
 Full-text search over the taxonomy index by name, id, and description.
 Requires `dotclaude index` to have been run at least once.
 
-| Flag                 | Default          |                                              |
-| -------------------- | ---------------- | -------------------------------------------- |
-| `--repo-root <path>` | resolved via git | Override repo root                           |
+| Flag                 | Default          |                                                        |
+| -------------------- | ---------------- | ------------------------------------------------------ |
+| `--repo-root <path>` | resolved via git | Override repo root                                     |
 | `--type <type>`      | —                | Filter to one artifact type (agent, skill, command, …) |
 
 **Typical invocations:**
@@ -305,14 +305,14 @@ Searches are case-insensitive. Exit 2 if the index is missing.
 List all artifacts from the taxonomy index with optional facet filters.
 Requires `dotclaude index` to have been run at least once.
 
-| Flag                    | Default          |                              |
-| ----------------------- | ---------------- | ---------------------------- |
-| `--repo-root <path>`    | resolved via git | Override repo root           |
-| `--type <type>`         | —                | Filter by artifact type      |
-| `--domain <domain>`     | —                | Filter by domain facet       |
-| `--platform <platform>` | —                | Filter by platform facet     |
-| `--task <task>`         | —                | Filter by task facet         |
-| `--maturity <maturity>` | —                | Filter by maturity level     |
+| Flag                    | Default          |                          |
+| ----------------------- | ---------------- | ------------------------ |
+| `--repo-root <path>`    | resolved via git | Override repo root       |
+| `--type <type>`         | —                | Filter by artifact type  |
+| `--domain <domain>`     | —                | Filter by domain facet   |
+| `--platform <platform>` | —                | Filter by platform facet |
+| `--task <task>`         | —                | Filter by task facet     |
+| `--maturity <maturity>` | —                | Filter by maturity level |
 
 All filters are optional; omitting them lists everything. Multiple filters
 combine with AND logic.
@@ -333,9 +333,9 @@ dotclaude list --json | jq -r '.[].id'
 Display detailed metadata for a single artifact by its id. When a skill and
 agent share an id, use `--type` to disambiguate.
 
-| Flag                 | Default          |                                              |
-| -------------------- | ---------------- | -------------------------------------------- |
-| `--repo-root <path>` | resolved via git | Override repo root                           |
+| Flag                 | Default          |                                                |
+| -------------------- | ---------------- | ---------------------------------------------- |
+| `--repo-root <path>` | resolved via git | Override repo root                             |
 | `--type <type>`      | —                | Force type when multiple artifacts share an id |
 
 **Typical invocations:**
