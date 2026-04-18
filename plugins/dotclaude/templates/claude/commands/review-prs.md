@@ -50,12 +50,12 @@ Report any exclusions. Never silently skip a PR: every requested PR must appear 
 
 **2b — Merge state classification** (advisory; from the same JSON above):
 
-| `mergeable`   | `mergeStateStatus`      | Tag                             |
-| ------------- | ----------------------- | ------------------------------- |
-| `CONFLICTING` | `DIRTY`                 | `preflight-warn: conflicts`     |
-| `MERGEABLE`   | `BEHIND`                | `preflight-warn: behind`        |
-| `UNKNOWN`     | any                     | `preflight-warn: unknown-state` |
-| `MERGEABLE`   | `CLEAN` or `UNSTABLE`   | (no tag — proceed normally)     |
+| `mergeable`   | `mergeStateStatus`    | Tag                             |
+| ------------- | --------------------- | ------------------------------- |
+| `CONFLICTING` | `DIRTY`               | `preflight-warn: conflicts`     |
+| `MERGEABLE`   | `BEHIND`              | `preflight-warn: behind`        |
+| `UNKNOWN`     | any                   | `preflight-warn: unknown-state` |
+| `MERGEABLE`   | `CLEAN` or `UNSTABLE` | (no tag — proceed normally)     |
 
 Record the tag and pass `mergeStateStatus` into the sub-agent brief; the sub-agent handles rebase (step 9 of review-pr) and CI (step 10) autonomously.
 
