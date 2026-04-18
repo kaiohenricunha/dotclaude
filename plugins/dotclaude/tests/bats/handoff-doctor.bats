@@ -73,7 +73,7 @@ hermetic_path_without() {
 # --- github transport ---
 
 @test "doctor github: gh-missing when gh is not on PATH" {
-  hermetic_path
+  hermetic_path_without gh
   # No gh shim — command -v gh returns false.
   run "$DOCTOR" github
   [ "$status" -eq 1 ]
