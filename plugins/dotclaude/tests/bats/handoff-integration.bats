@@ -80,7 +80,7 @@ teardown() {
   [[ "$output" == *"aaaa1111"* ]]
 }
 
-@test "resolve (codex thread_name alias) → extract turns limited → assistant text" {
+@test "resolve (codex thread_name alias) → extract prompts → user prompt present" {
   # Codex alias path runs through a separate grep-prefilter branch in
   # resolve; the happy-path existence is covered elsewhere, but the
   # resolve→extract chain across the codex layout is worth pinning.

@@ -69,7 +69,7 @@ teardown() {
   local file="$TEST_HOME/.claude/projects/-demo/$uuid.jsonl"
   mkdir -p "$(dirname "$file")"
   printf '{"cwd":"/x","sessionId":"%s"}\n{"type":"user","message":{"content":"héllo wörld — 日本語 ✓"}}\n' \
-    "$uuid" "$uuid" > "$file"
+    "$uuid" > "$file"
   run "$EXTRACT" prompts claude "$file"
   [ "$status" -eq 0 ]
   [[ "$output" == *"héllo wörld"* ]]
