@@ -40,18 +40,37 @@ into the target agent.
 
 ## Arguments
 
+**Dead-simple form (the primary path):**
+
+- `/handoff <source-cli> <id-or-name>` — read the session transcript
+  from `<source-cli>` (one of `claude`, `copilot`, `codex`) and emit a
+  `<handoff>` block into the current context. `<id-or-name>` accepts:
+  - full UUID (36 chars)
+  - short UUID (first 8 hex)
+  - the literal `latest` (newest by mtime)
+  - Claude `customTitle` alias (set via `claude --resume "<name>"`,
+    stored as a `custom-title` JSONL record)
+  - Codex `thread_name` alias (set via `codex resume <name>`, stored
+    as an `event_msg` record)
+
+Equivalent from any shell (including Codex's bash tool):
+`!dotclaude handoff <source-cli> <id-or-name>`.
+
+**Power-user sub-commands** (optional, only when you need them):
+
 - `$0` — sub-command: `describe`, `digest`, `file`, `list`, `search`,
-  `push`, `pull`, `remote-list`, or `doctor`. If not provided and the
-  skill is auto-triggered, default to `describe`.
+  `push`, `pull`, `remote-list`, or `doctor`. When omitted and the
+  first positional is a CLI name, the skill behaves as `digest` by
+  default.
 - `$1` — positional varies by sub-command:
   - `describe` / `digest` / `file` / `list` / `push` → source CLI
     (`claude`, `copilot`, `codex`).
   - `search` → the query string (regex).
   - `pull` → a handle (gist ID, gist URL, or the literal `latest`).
   - `remote-list` / `doctor` → no positional argument.
-- `$2` — session identifier: a UUID or the literal `latest`. Required for
-  `describe`, `digest`, `file`, `push`. Ignored for `list`, `search`,
-  `pull`, `remote-list`, `doctor`.
+- `$2` — session identifier: a UUID, short UUID, `latest`, or a named
+  alias. Required for `describe`, `digest`, `file`, `push`. Ignored
+  for `list`, `search`, `pull`, `remote-list`, `doctor`.
 - `--to <target-cli>` — optional; tunes the digest voice for the target
   agent. Defaults to `claude` since that is the most common consumer in
   this repo.

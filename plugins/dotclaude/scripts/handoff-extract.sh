@@ -56,17 +56,34 @@ json_str_or_null() {
 
 meta_claude() {
   local file="$1"
-  # Slurp-and-first via `jq -n '[inputs]|.[0]'` so there's no SIGPIPE from
-  # `head -1` closing the pipe early on a long transcript.
+  # Prefer a record with a cwd (the common case). Slurp-and-first via
+  # `jq -n '[inputs]|.[0]'` to avoid SIGPIPE on long transcripts.
   local raw
   raw=$(jq -n -c '[inputs | select(.cwd != null and .cwd != "") | {cwd, sessionId, version}] | .[0] // empty' "$file" 2>/dev/null)
-  [[ -n "$raw" ]] || die_runtime "no session metadata found in $file"
 
-  local cwd session_id version short_id
-  cwd=$(printf '%s' "$raw" | jq -r '.cwd // ""')
-  session_id=$(printf '%s' "$raw" | jq -r '.sessionId // ""')
-  version=$(printf '%s' "$raw" | jq -r '.version // ""')
-  short_id="${session_id:0:8}"
+  local cwd="" session_id="" version=""
+  if [[ -n "$raw" ]]; then
+    cwd=$(printf '%s' "$raw" | jq -r '.cwd // ""')
+    session_id=$(printf '%s' "$raw" | jq -r '.sessionId // ""')
+    version=$(printf '%s' "$raw" | jq -r '.version // ""')
+  fi
+
+  # Edge case: brand-new aliased session with no activity yet (only
+  # custom-title / agent-name records, no cwd). Fall back to whatever
+  # identity records exist, then to the filename.
+  if [[ -z "$session_id" ]]; then
+    session_id=$(jq -n -r '[inputs | select(.sessionId != null) | .sessionId] | .[0] // empty' "$file" 2>/dev/null)
+  fi
+  if [[ -z "$session_id" ]]; then
+    # Parse the UUID out of the filename as a last resort.
+    local base
+    base=$(basename "$file" .jsonl)
+    if [[ "$base" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+      session_id="$base"
+    fi
+  fi
+
+  local short_id="${session_id:0:8}"
 
   # started_at: use file mtime as a stable proxy.
   local started_at

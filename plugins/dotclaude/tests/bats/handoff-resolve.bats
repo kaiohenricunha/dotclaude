@@ -25,6 +25,14 @@ setup() {
   printf '{"cwd":"/home/user/projects/other","sessionId":"bbbb2222-2222-2222-2222-222222222222","version":"2.1"}\n' \
     > "$TEST_HOME/.claude/projects/-home-user-projects-other/bbbb2222-2222-2222-2222-222222222222.jsonl"
 
+  # Third claude session with a customTitle record (the `claude --resume "<name>"` alias).
+  sleep 0.01
+  mkdir -p "$TEST_HOME/.claude/projects/-home-user-projects-demo"
+  CLAUDE_ALIAS_FILE="$TEST_HOME/.claude/projects/-home-user-projects-demo/cccc1111-1111-1111-1111-111111111111.jsonl"
+  printf '{"cwd":"/home/user/projects/demo","sessionId":"cccc1111-1111-1111-1111-111111111111","version":"2.1"}\n{"type":"custom-title","customTitle":"my-feature","sessionId":"cccc1111-1111-1111-1111-111111111111"}\n' \
+    > "$CLAUDE_ALIAS_FILE"
+  export CLAUDE_ALIAS_FILE
+
   # Copilot: ~/.copilot/session-state/<uuid>/events.jsonl
   mkdir -p "$TEST_HOME/.copilot/session-state/cccc3333-3333-3333-3333-333333333333"
   printf '{"type":"session.start","data":{"cwd":null,"model":null,"sessionId":"cccc3333-3333-3333-3333-333333333333"}}\n' \
@@ -76,6 +84,18 @@ teardown() {
   run "$RESOLVE" claude 00000000-0000-0000-0000-000000000000
   [ "$status" -eq 2 ]
   [[ "$output" == *"handoff-resolve:"* ]]
+  [[ "$output" == *"not found"* ]]
+}
+
+@test "resolve claude by customTitle alias" {
+  run "$RESOLVE" claude my-feature
+  [ "$status" -eq 0 ]
+  [ "$output" = "$CLAUDE_ALIAS_FILE" ]
+}
+
+@test "resolve claude unknown customTitle exits 2" {
+  run "$RESOLVE" claude nonexistent-feature-alias
+  [ "$status" -eq 2 ]
   [[ "$output" == *"not found"* ]]
 }
 

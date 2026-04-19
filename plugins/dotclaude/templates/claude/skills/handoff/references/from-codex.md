@@ -1,82 +1,67 @@
 # Using handoff from Codex (or any shell)
 
-Codex CLI does not autoload `~/.claude/skills/`, so it cannot invoke the
-`/handoff` slash command directly. Use the `dotclaude-handoff` binary
-via Codex's bash tool instead. One command, no skill load required.
+Codex CLI does not autoload `~/.claude/skills/`, so it cannot invoke
+the `/handoff` slash command directly. Use the packaged binary via
+Codex's bash tool instead. Same binary works from any shell.
+
+## One command, one shape
+
+```
+!dotclaude handoff <source-cli> <id-or-name>
+```
+
+- `<source-cli>`: `claude` | `copilot` | `codex`
+- `<id-or-name>`: full UUID, short UUID (8 hex), `latest`, or a
+  named alias where the source CLI supports it (Claude `customTitle`,
+  Codex `thread_name`).
+
+The output is a `<handoff>` block that lands directly in Codex's
+context. Follow up with "continue" and you are back on task.
+
+## Examples
+
+```
+# Claude hit its token limit; continue that session in Codex.
+!dotclaude handoff claude b8d2dd0a
+!dotclaude handoff claude "test-handoff"       # customTitle alias
+!dotclaude handoff claude latest
+
+# Resume a Copilot session in Codex.
+!dotclaude handoff copilot e6c2e29a
+
+# Resume a renamed Codex thread in a fresh Codex session.
+!dotclaude handoff codex test                   # thread_name alias
+!dotclaude handoff codex 019da2f6
+!dotclaude handoff codex latest
+```
 
 ## Prerequisite
 
-`npm install -g @dotclaude/dotclaude` (gives you `dotclaude-handoff` on
-your PATH). Or run `npx dotclaude-handoff ...` if you prefer not to
-install globally.
+`npm install -g @dotclaude/dotclaude` (installs `dotclaude` on PATH
+with `handoff` as one of its sub-commands). Or run ad-hoc with
+`npx dotclaude handoff ...`.
 
-## Typical workflows
+## Sub-commands (power users)
 
-### Claude session exceeded its token budget; continue in Codex
-
-Claude prints its resume UUID on exit, e.g.
-`claude --resume b8d2dd0a-1cb6-4cfb-b166-e0a94f20512e`.
-
-Open Codex and invoke the binary through its Bash tool:
+The bare form above is shorthand for the common `digest` path. Full
+sub-command list:
 
 ```
-!dotclaude-handoff digest claude b8d2dd0a --to codex
+dotclaude handoff <cli> <id>                 # implicit digest (default)
+dotclaude handoff resolve  <cli> <id>        # file path only
+dotclaude handoff describe <cli> <id>        # inline markdown summary
+dotclaude handoff digest   <cli> <id>        # full <handoff> block
+dotclaude handoff list     <cli>             # recent sessions
+dotclaude handoff file     <cli> <id>        # write to docs/handoffs/
 ```
-
-The output is a single `<handoff>` block tuned for Codex (task-shaped
-next step, filepaths inline). The block is now in Codex's context.
-Continue the task.
-
-Short UUID (first 8 hex) also works; so does the full UUID.
-
-### Codex renamed the thread ("to resume this thread run codex resume test")
-
-Handoff accepts the alias directly — it scans
-`event_msg.payload.thread_name` across rollouts:
-
-```
-!dotclaude-handoff describe codex test
-```
-
-### Moving from Codex back to Claude
-
-Inside Claude, run the slash-command form (skill is loaded):
-
-```
-/handoff digest codex <uuid-or-alias> --to claude
-```
-
-Or the binary form, which works from any shell:
-
-```
-!dotclaude-handoff digest codex <uuid-or-alias> --to claude
-```
-
-## Commands
-
-```
-dotclaude-handoff resolve  <cli> <id>              # file path only
-dotclaude-handoff describe <cli> <id>              # inline summary
-dotclaude-handoff digest   <cli> <id> --to <cli>   # paste-ready block
-dotclaude-handoff list     <cli>                   # recent sessions
-dotclaude-handoff file     <cli> <id> --to <cli>   # write to docs/handoffs/
-```
-
-`<cli>`: one of `claude`, `copilot`, `codex`.
-
-`<id>`: full UUID (36 chars), short UUID (first 8 hex), the literal
-`latest`, or (codex only) a thread_name alias.
-
-`--to <cli>`: tunes the next-step suggestion for the target agent.
-Defaults to `claude`.
 
 All subcommands support `--help`, `--version`, `--json`, `--verbose`,
 `--no-color`. Exit codes: 0 ok, 2 not found / parse error, 64 usage.
 
 ## Why the binary and not the skill file?
 
-`skills/handoff/SKILL.md` is the authoritative runbook for Claude Code
-and Copilot CLI (both load it automatically). Codex does not load it.
-Rather than asking Codex to ingest a 460-line spec just to run one
-sub-command, the binary bundles the resolution and extraction logic
-into a single call. Same code path, same output shape; no skill load.
+`skills/handoff/SKILL.md` is the authoritative runbook for Claude
+Code and Copilot CLI (both load it automatically). Codex does not
+load it. Rather than asking Codex to ingest a 460-line spec, the
+binary bundles the resolution and extraction logic into a single
+call. Same code path as the skill; no skill load required.

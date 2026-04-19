@@ -24,6 +24,27 @@ project dirs:
 find ~/.claude/projects -maxdepth 2 -type f -name '<uuid>.jsonl' 2>/dev/null
 ```
 
+**By `customTitle` alias (`claude --resume "<name>"`)** — when the user
+renames a session, Claude stores the alias as a JSONL record:
+
+```json
+{ "type": "custom-title", "customTitle": "<name>", "sessionId": "<uuid>" }
+```
+
+Scan `.jsonl` files for the match and map it back to the session file:
+
+```bash
+for f in $(find ~/.claude/projects -maxdepth 2 -type f -name '*.jsonl'); do
+  sid=$(jq -r --arg name "<name>" '
+    select(.type == "custom-title" and .customTitle == $name)
+    | .sessionId' "$f" 2>/dev/null | head -1)
+  [[ -n "$sid" ]] && find ~/.claude/projects -maxdepth 2 -name "${sid}.jsonl" && break
+done
+```
+
+Reference implementation:
+`plugins/dotclaude/scripts/handoff-resolve.sh claude <name>`.
+
 **Latest** — newest `.jsonl` across all project dirs by mtime (GNU/BSD
 portable):
 

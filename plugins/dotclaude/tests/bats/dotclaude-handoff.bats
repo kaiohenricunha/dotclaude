@@ -19,6 +19,7 @@ setup() {
 {"type":"user","cwd":"/home/u/proj","sessionId":"aaaa1111-1111-1111-1111-111111111111","version":"2.1","message":{"content":"Fix the retry loop"}}
 {"type":"user","cwd":"/home/u/proj","sessionId":"aaaa1111-1111-1111-1111-111111111111","message":{"content":"Run the full test suite"}}
 {"type":"assistant","message":{"content":[{"type":"text","text":"OK running now."}]}}
+{"type":"custom-title","customTitle":"my-feature","sessionId":"aaaa1111-1111-1111-1111-111111111111"}
 EOF
   export SESSION_FILE
 }
@@ -123,5 +124,43 @@ teardown() {
 
 @test "unknown cli exits 64" {
   run node "$BIN" resolve bogus abcd1234
+  [ "$status" -eq 64 ]
+}
+
+# -- bare form (implicit digest) -----------------------------------------
+
+@test "bare form: full UUID acts as implicit digest" {
+  run node "$BIN" claude aaaa1111-1111-1111-1111-111111111111
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"<handoff"* ]]
+  [[ "$output" == *"</handoff>"* ]]
+  [[ "$output" == *"aaaa1111"* ]]
+}
+
+@test "bare form: short UUID acts as implicit digest" {
+  run node "$BIN" claude aaaa1111
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"<handoff"* ]]
+}
+
+@test "bare form: customTitle alias acts as implicit digest" {
+  run node "$BIN" claude my-feature
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"<handoff"* ]]
+  [[ "$output" == *"aaaa1111"* ]]
+}
+
+@test "bare form: missing id exits 64" {
+  run node "$BIN" claude
+  [ "$status" -eq 64 ]
+}
+
+@test "bare form: unknown identifier exits 2" {
+  run node "$BIN" claude 00000000
+  [ "$status" -eq 2 ]
+}
+
+@test "bare form: bogus cli name treated as unknown subcommand (exits 64)" {
+  run node "$BIN" nonsense-cli aaaa1111
   [ "$status" -eq 64 ]
 }

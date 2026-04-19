@@ -64,12 +64,33 @@ resolve_claude() {
   if [[ "$id" =~ ^[0-9a-f]{8}$ ]]; then
     local hit
     hit="$(find "$root" -maxdepth 2 -type f -name "${id}*.jsonl" 2>/dev/null | head -1)"
-    [[ -n "$hit" ]] || die_runtime "claude session not found for short-uuid: $id"
-    printf '%s' "$hit"
-    return 0
+    if [[ -n "$hit" ]]; then
+      printf '%s' "$hit"
+      return 0
+    fi
+    # Fall through to customTitle scan if short-UUID lookup missed.
   fi
 
-  die_runtime "claude identifier must be full UUID, short-UUID (8 hex), or 'latest': $id"
+  # Claude `custom-title` alias scan: `claude --resume "<name>"` stores
+  # the alias as a JSONL record `{"type":"custom-title","customTitle":"<name>","sessionId":"<uuid>"}`.
+  if command -v jq >/dev/null 2>&1; then
+    local f session_id
+    while IFS= read -r f; do
+      session_id=$(jq -r --arg name "$id" '
+        select(.type == "custom-title" and .customTitle == $name)
+        | .sessionId' "$f" 2>/dev/null | head -1)
+      if [[ -n "$session_id" ]]; then
+        local hit
+        hit="$(find "$root" -maxdepth 2 -type f -name "${session_id}.jsonl" 2>/dev/null | head -1)"
+        if [[ -n "$hit" ]]; then
+          printf '%s' "$hit"
+          return 0
+        fi
+      fi
+    done < <(find "$root" -maxdepth 2 -type f -name '*.jsonl' 2>/dev/null)
+  fi
+
+  die_runtime "claude session not found for identifier: $id"
 }
 
 resolve_copilot() {

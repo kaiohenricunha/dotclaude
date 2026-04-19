@@ -241,12 +241,23 @@ if (argv.version) {
   process.exit(EXIT_CODES.OK);
 }
 
-const [sub, cli, id] = argv.positional;
-
-if (!sub) fail(EXIT_CODES.USAGE, "missing subcommand. See --help.");
-if (!SUBCOMMANDS.has(sub)) fail(EXIT_CODES.USAGE, `unknown subcommand: ${sub}`);
-if (!cli) fail(EXIT_CODES.USAGE, "missing cli argument");
-if (!CLIS.has(cli)) fail(EXIT_CODES.USAGE, `cli must be one of: claude, copilot, codex`);
+// Bare form: `dotclaude-handoff <cli> <id>` is implicit `digest`.
+// If positional[0] is a known CLI name, shift it into the sub-command
+// slot and default sub-command to "digest". Otherwise the existing
+// sub-command dispatch runs.
+let sub, cli, id;
+if (argv.positional.length >= 1 && CLIS.has(argv.positional[0])) {
+  sub = "digest";
+  cli = argv.positional[0];
+  id = argv.positional[1];
+  if (!id) fail(EXIT_CODES.USAGE, `missing identifier (uuid, short-uuid, 'latest', or alias) after '${cli}'`);
+} else {
+  [sub, cli, id] = argv.positional;
+  if (!sub) fail(EXIT_CODES.USAGE, "missing subcommand or cli. See --help.");
+  if (!SUBCOMMANDS.has(sub)) fail(EXIT_CODES.USAGE, `unknown subcommand: ${sub}`);
+  if (!cli) fail(EXIT_CODES.USAGE, "missing cli argument");
+  if (!CLIS.has(cli)) fail(EXIT_CODES.USAGE, `cli must be one of: claude, copilot, codex`);
+}
 
 const toCli = argv.flags.to ?? "claude";
 if (!CLIS.has(toCli)) fail(EXIT_CODES.USAGE, `--to must be one of: claude, copilot, codex`);
