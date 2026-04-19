@@ -222,7 +222,7 @@ teardown() {
   run env -i HOME="$TEST_HOME" PATH="$PATH" DOTCLAUDE_HANDOFF_REPO="$TRANSPORT_REPO" \
     node "$BIN" push --from codex --via git-fallback
   [ "$status" -eq 0 ]
-  run bash -c "git --git-dir='$TRANSPORT_REPO' branch -a"
+  run git --git-dir="$TRANSPORT_REPO" branch -a
   [[ "$output" == *"handoff/codex/bbbb2222"* ]]
 }
 
@@ -262,7 +262,7 @@ teardown() {
     node "$BIN" push --from codex --via git-fallback
   [ "$status" -eq 0 ]
   [[ "$stderr" == *"using --from codex override"* ]]
-  run bash -c "git --git-dir='$TRANSPORT_REPO' branch -a"
+  run git --git-dir="$TRANSPORT_REPO" branch -a
   [[ "$output" == *"handoff/codex/bbbb2222"* ]]
 }
 

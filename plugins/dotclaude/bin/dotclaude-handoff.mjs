@@ -512,12 +512,12 @@ async function pullGitFallback(query, fromCli = null) {
   }
 
   // Bare: pick the newest (for git-fallback we don't have a reliable remote
-  // mtime; fall back to enriching and picking the lexically last, which is
-  // typically the most recent since short IDs hash-distribute).
+  // mtime; fall back to the lexically last branch, which is typically the
+  // most recent since short IDs hash-distribute). The caller re-fetches
+  // the branch contents via fetchGitFallbackBranch, so skipping the
+  // enrichment pass saves N shallow clones.
   if (!query) {
-    const enriched = enrichWithDescriptions(candidates);
-    const picked = enriched[enriched.length - 1];
-    return picked;
+    return candidates[candidates.length - 1];
   }
 
   // Cheap pass: filter by branch name.
@@ -587,30 +587,17 @@ function detectHost(env = process.env) {
   // set in some launch paths but not others.
   if (env.CLAUDE_CODE_SSE_PORT) return "claude";
   // UNCONFIRMED: Codex CLI env-var contract is undocumented. Probe
-  // the CODEX_ prefix as a cheap heuristic.
-  for (const k of Object.keys(env)) {
+  // the CODEX_ prefix first so codex wins deterministically over
+  // copilot regardless of env iteration order.
+  for (const k in env) {
     if (k.startsWith("CODEX_")) return "codex";
   }
   // UNCONFIRMED: Copilot CLI markers. Both prefixes are checked to
   // avoid guessing which GitHub tooling variant is in use.
-  for (const k of Object.keys(env)) {
+  for (const k in env) {
     if (k.startsWith("GITHUB_COPILOT_") || k.startsWith("COPILOT_")) return "copilot";
   }
   return "unknown";
-}
-
-/**
- * Resolve the current-session JSONL file for the detected host, when
- * possible. Returns null if no stable env-var pointer is known for
- * any of the three CLIs today — the bare-push fallback chain in
- * main() handles the "unknown current session" case by narrowing to
- * the detected host's "latest" session instead.
- *
- * Kept as a hook for a future signal (e.g. a Claude Code transcript
- * path env var) without rewiring call sites.
- */
-function detectHostSession() {
-  return null;
 }
 
 // ---- main --------------------------------------------------------------
@@ -653,17 +640,23 @@ function shortIdFromPath(path) {
   return m ? m[1] : "?";
 }
 
+function requireGitFallbackTransport(transport) {
+  if (transport === "git-fallback") return;
+  fail(
+    EXIT_CODES.USAGE,
+    `transport '${transport}' not yet implemented in the binary; use --via git-fallback (or invoke the /handoff skill inside Claude/Copilot for --via github)`
+  );
+}
+
 async function main() {
   // ---- breaking-change shim ---------------------------------------------
-  // v<next>: `push/pull <cli> <query>` and the bare `push <cli>` form
-  // (no query) were removed. Auto-detect via `--from` or leave the
-  // positional off entirely. A lone CLI name is never a valid query
-  // under the new surface, so the shim fires whether or not a third
-  // positional is present.
+  // A lone CLI name is never a valid query under the new surface, so
+  // catch `push/pull claude|copilot|codex` (with or without a trailing
+  // positional) and point the user at --from.
   if ((first === "push" || first === "pull") && CLIS.has(second)) {
     fail(
       EXIT_CODES.USAGE,
-      `${first} no longer takes a <cli> positional; use --from ${second} or drop it entirely (see CHANGELOG [Unreleased] for the breaking change)`
+      `${first} no longer takes a <cli> positional; use --from ${second} or drop it entirely`
     );
   }
 
@@ -743,12 +736,7 @@ async function main() {
     }
     if (fallbackNote) process.stderr.write(fallbackNote + "\n");
 
-    if (via !== "git-fallback") {
-      fail(
-        EXIT_CODES.USAGE,
-        `transport '${via}' not yet implemented in the binary; use --via git-fallback (or invoke the /handoff skill inside Claude/Copilot for --via github)`
-      );
-    }
+    requireGitFallbackTransport(via);
     const tag = argv.flags.tag ? String(argv.flags.tag) : null;
     try {
       const result = pushGitFallback({ cli: sessionHit.cli, path: sessionHit.path, tag });
@@ -760,12 +748,7 @@ async function main() {
   }
 
   if (first === "pull") {
-    if (via !== "git-fallback") {
-      fail(
-        EXIT_CODES.USAGE,
-        `transport '${via}' not yet implemented in the binary; use --via git-fallback (or invoke the /handoff skill inside Claude/Copilot for --via github)`
-      );
-    }
+    requireGitFallbackTransport(via);
     try {
       const hit = await pullGitFallback(second, fromCli);
       const { content } = fetchGitFallbackBranch(hit.branch);
@@ -784,9 +767,7 @@ async function main() {
     if (!cli) fail(EXIT_CODES.USAGE, `${sub} requires <cli>`);
     if (!CLIS.has(cli)) fail(EXIT_CODES.USAGE, `cli must be one of: ${[...CLIS].join(", ")}`);
     if (!id) fail(EXIT_CODES.USAGE, `${sub} requires an identifier after <cli>`);
-    const r = runScript(RESOLVE_SH, [cli, id]);
-    if (r.status !== 0) fail(r.status === 64 ? EXIT_CODES.USAGE : 2, r.stderr.trim());
-    const path = r.stdout.trim();
+    const { path } = resolveNarrowed(cli, id);
     if (sub === "resolve") {
       process.stdout.write(`${path}\n`);
       process.exit(EXIT_CODES.OK);
