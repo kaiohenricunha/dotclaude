@@ -61,6 +61,94 @@ EOF
   echo "$dir"
 }
 
+# -- handoff session-tree fixtures ----------------------------------------
+#
+# Each helper seeds a hermetic session tree under $1 (usually an ephemeral
+# $HOME created by mktemp in setup()). Callers select which fixtures they
+# need — suites that only touch claude don't pay the codex/copilot cost.
+# All helpers are idempotent-ish: they create parent directories with -p.
+
+# make_claude_session_tree <home> [uuid1] [uuid2] ...
+# Seeds ~/.claude/projects/<slug>/<uuid>.jsonl with one record containing
+# cwd + sessionId. Subsequent UUIDs get unique slugs so the resolver finds
+# them deterministically. Exports CLAUDE_SESSION_UUIDS (space-separated).
+make_claude_session_tree() {
+  local home="$1"; shift
+  local uuids=("$@")
+  [[ ${#uuids[@]} -gt 0 ]] || uuids=("aaaa1111-1111-1111-1111-111111111111")
+  local i=0
+  for uuid in "${uuids[@]}"; do
+    local slug="-home-user-projects-demo${i}"
+    local dir="$home/.claude/projects/$slug"
+    mkdir -p "$dir"
+    printf '{"cwd":"/home/user/projects/demo%d","sessionId":"%s","version":"2.1"}\n' \
+      "$i" "$uuid" > "$dir/$uuid.jsonl"
+    i=$((i + 1))
+    sleep 0.01
+  done
+  CLAUDE_SESSION_UUIDS="${uuids[*]}"
+  export CLAUDE_SESSION_UUIDS
+}
+
+# make_copilot_session_tree <home> [uuid1] [uuid2] ...
+# Seeds ~/.copilot/session-state/<uuid>/events.jsonl.
+make_copilot_session_tree() {
+  local home="$1"; shift
+  local uuids=("$@")
+  [[ ${#uuids[@]} -gt 0 ]] || uuids=("cccc3333-3333-3333-3333-333333333333")
+  for uuid in "${uuids[@]}"; do
+    local dir="$home/.copilot/session-state/$uuid"
+    mkdir -p "$dir"
+    printf '{"type":"session.start","data":{"cwd":"/tmp","model":"gpt","sessionId":"%s"}}\n' \
+      "$uuid" > "$dir/events.jsonl"
+    sleep 0.01
+  done
+  COPILOT_SESSION_UUIDS="${uuids[*]}"
+  export COPILOT_SESSION_UUIDS
+}
+
+# make_codex_session_tree <home> [uuid1] [uuid2] ...
+# Seeds ~/.codex/sessions/2026/04/18/rollout-<ts>-<uuid>.jsonl.
+# Each UUID gets a distinct timestamp so file-ordering is deterministic.
+make_codex_session_tree() {
+  local home="$1"; shift
+  local uuids=("$@")
+  [[ ${#uuids[@]} -gt 0 ]] || uuids=("eeee5555-5555-5555-5555-555555555555")
+  local dir="$home/.codex/sessions/2026/04/18"
+  mkdir -p "$dir"
+  local i=0
+  local -a paths=()
+  for uuid in "${uuids[@]}"; do
+    local hh; printf -v hh '%02d' "$i"
+    local path="$dir/rollout-2026-04-18T${hh}-00-00-${uuid}.jsonl"
+    printf '{"type":"session_meta","payload":{"id":"%s","cwd":"/work"}}\n' \
+      "$uuid" > "$path"
+    paths+=("$path")
+    i=$((i + 1))
+  done
+  CODEX_SESSION_UUIDS="${uuids[*]}"
+  CODEX_SESSION_PATHS="${paths[*]}"
+  export CODEX_SESSION_UUIDS CODEX_SESSION_PATHS
+}
+
+# make_transport_repo <dir>
+# Initialise a bare git repo at <dir>. Use as DOTCLAUDE_HANDOFF_REPO for
+# push/pull tests. Caller is responsible for cleanup.
+make_transport_repo() {
+  local dir="$1"
+  git init -q --bare "$dir"
+  echo "$dir"
+}
+
+# make_session_with_content <path> <content>
+# Overwrite the session JSONL at <path> with <content>. Useful for
+# boundary tests (empty files, unicode, malformed records).
+make_session_with_content() {
+  local path="$1" content="$2"
+  mkdir -p "$(dirname "$path")"
+  printf '%s' "$content" > "$path"
+}
+
 # Feed a hook JSON payload to a PreToolUse guard script.
 # Usage: feed_hook_json <path-to-hook> <command-string>
 # Sets ${status}, ${output}, ${lines[@]} as bats' standard `run` would.
