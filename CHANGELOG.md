@@ -61,7 +61,7 @@ All notable changes to `@dotclaude/dotclaude` land here. Format follows
   fall back to the union resolver.
 - **Honest stderr fallback notes.** Bare `push` (no query) now prints
   one stderr line naming which fallback fired:
-  - `no current-signal in claude, using latest claude session: <short>`
+  - `no current-session signal in <cli>, using latest <cli> session: <short>`
     — host was detected, narrowed to its root.
   - `using --from <cli> override, latest session: <short>` — `--from`
     was explicit, host was not detected or differed.
