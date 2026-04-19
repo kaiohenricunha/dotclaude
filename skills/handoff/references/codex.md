@@ -37,7 +37,8 @@ done | head -1
 ```
 
 Reference implementation:
-`plugins/dotclaude/scripts/handoff-resolve.sh codex <alias>`.
+`plugins/dotclaude/scripts/handoff-resolve.sh any <alias>` (or the
+per-CLI form `handoff-resolve.sh codex <alias>` for scripting).
 
 **Latest** — newest rollout by mtime (GNU/BSD portable):
 

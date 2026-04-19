@@ -27,27 +27,31 @@ machines. Nine sub-commands, three transports, one scrubbed digest.
 
 ## Quick start — machine-to-machine handoff
 
-**On machine A** (Windows/WSL, inside a Claude Code session):
+**On machine A** (inside any session on Claude, Copilot, or Codex):
 
 ```
-/handoff push claude latest --to codex --tag "finishing auth refactor"
+/handoff push --tag "finishing auth refactor"
 ```
+
+(Zero-arg: pushes the host's latest session. Explicit variant:
+`/handoff push <query> --tag <label>` picks a specific session.)
 
 This:
 
-1. Loads the most recent Claude Code session transcript.
+1. Loads the relevant session transcript.
 2. Runs a secret-scrubbing pass (eight token patterns — bearer, AWS key, etc.).
-3. Voices the digest for the target agent (Codex in this case).
-4. Uploads as a private GitHub Gist via `gh gist`.
+3. Uploads as a private GitHub Gist via `gh gist` (default), or via
+   `--via git-fallback` / `--via gist-token` for restricted environments.
 
-**On machine B** (Linux/macOS, inside Codex CLI):
+**On machine B** (inside any CLI):
 
 ```
-/handoff pull latest --to codex
+/handoff pull finishing-auth-refactor
 ```
 
-This pulls the most recent handoff addressed to Codex, prints the paste-ready
-digest, and lists any follow-up prompts.
+Bare `/handoff pull` fetches the newest handoff; the positional is a
+fuzzy-match query against tag, short UUID, project slug, hostname, or
+CLI name.
 
 ---
 
@@ -66,21 +70,22 @@ platform-specific remediation block.
 
 ---
 
-## Sub-commands at a glance
+## The five forms
 
-| Sub-command   | Positional args        | Flags                                            |
-| ------------- | ---------------------- | ------------------------------------------------ |
-| `describe`    | `<cli> <uuid\|latest>` | `--to`                                           |
-| `digest`      | `<cli> <uuid\|latest>` | `--to`                                           |
-| `file`        | `<cli> <uuid\|latest>` | `--to`                                           |
-| `list`        | `<cli>`                | `--limit`, `--since`                             |
-| `search`      | `<query>`              | `--cli`, `--limit`, `--since`                    |
-| `push`        | `<cli> <uuid\|latest>` | `--to`, `--via`, `--include-transcript`, `--tag` |
-| `pull`        | `<handle\|latest>`     | `--to`, `--via`, `--from-file`                   |
-| `remote-list` | —                      | `--via`, `--limit`, `--since`                    |
-| `doctor`      | —                      | `--via`                                          |
+| Form                  | Behavior                                              |
+| --------------------- | ----------------------------------------------------- |
+| `/handoff`            | Push the host's latest session                        |
+| `/handoff <query>`    | Local cross-agent: emit `<handoff>` block in place    |
+| `/handoff push [<q>]` | Upload to transport; zero-arg = host latest           |
+| `/handoff pull [<q>]` | Fetch from transport; zero-arg = newest gist          |
+| `/handoff list`       | Unified local + remote table (`--local` / `--remote`) |
 
-Full argument semantics live in [`skills/handoff/SKILL.md`](../skills/handoff/SKILL.md).
+Every `<query>` can be a full UUID, short UUID (first 8 hex), `latest`,
+a Claude `customTitle`, or a Codex `thread_name`.
+
+Power-user sub-commands (`resolve`, `describe`, `digest`, `file`) stay
+reachable for scripting — each takes an explicit `<cli>` `<id>`. Full
+argument semantics live in [`skills/handoff/SKILL.md`](../skills/handoff/SKILL.md).
 
 ---
 
@@ -89,21 +94,21 @@ Full argument semantics live in [`skills/handoff/SKILL.md`](../skills/handoff/SK
 **Persist important context as a markdown file:**
 
 ```
-/handoff file claude latest --to claude
-# writes to docs/handoffs/<date>-<topic>.md
+/handoff file claude latest
+# writes to docs/handoffs/<date>-<origin>-<short-id>.md
 ```
 
 **Recover context after `/clear`:**
 
 ```
 /handoff search "auth middleware" --cli claude --since 2026-04-01
-/handoff describe claude <uuid-from-search>
+/handoff <uuid-from-search>      # bare <query> form drops the block in place
 ```
 
 **Scheduled remote handoff** (e.g. running as a /loop or cron):
 
 ```
-/handoff push claude latest --to claude --via github --tag "nightly checkpoint"
+/handoff push --via github --tag "nightly checkpoint"
 ```
 
 ---

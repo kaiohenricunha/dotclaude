@@ -1,5 +1,13 @@
 # Handoff remote — audit artifacts
 
+> **UX note.** The invocation examples in this folder predate the
+> five-form public surface landed on the `feat/handoff-shell-refactor`
+> branch (PR #58). Current invocations are `/handoff push [<query>]`
+> and `/handoff pull [<query>]`; the older `/handoff push claude
+latest --to codex` form shown below is superseded. Transport
+> mechanics, secret scrubbing, and the description schema are
+> unchanged. See `skills/handoff/SKILL.md` for the current shape.
+
 This folder holds evidence-of-correctness for the handoff remote
 transport (GitHub-first). It is intentionally inspectable rather
 than prose-claim: reviewers read the artifacts, not the PR body.

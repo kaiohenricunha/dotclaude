@@ -43,7 +43,8 @@ done
 ```
 
 Reference implementation:
-`plugins/dotclaude/scripts/handoff-resolve.sh claude <name>`.
+`plugins/dotclaude/scripts/handoff-resolve.sh any <name>` (or the
+per-CLI form `handoff-resolve.sh claude <name>` for scripting).
 
 **Latest** — newest `.jsonl` across all project dirs by mtime (GNU/BSD
 portable):
