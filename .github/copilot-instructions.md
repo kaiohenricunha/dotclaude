@@ -8,8 +8,8 @@ it sets the global rule floor every session inherits.
 
 ## Build, test, lint
 
-Node ≥ 20. Zero runtime dependencies are tolerated by contract (ADR-0002) —
-do not add new ones without a very strong case (devdeps OK).
+Node ≥ 20. Avoid adding new runtime dependencies (ADR-0002) — any new
+runtime dep needs a very strong case (devdeps OK).
 
 ```bash
 npm ci
@@ -18,7 +18,7 @@ npm test -- plugins/dotclaude/tests/validate-specs.test.mjs   # single file
 npm test -- -t "regex matching test name"                     # single test
 npm run coverage                             # thresholds: lines 85 / fns 85 / branches 80 / stmts 85
 npm run lint                                 # prettier + markdownlint + JSDoc coverage
-npm run shellcheck                           # all bash scripts, severity=warning
+npm run shellcheck                           # all bash scripts
 npm run dogfood                              # runs the validators against this repo
 npm run docs:stamp-check                     # docs/*.md must carry _Last updated: vX.Y.Z_
 
@@ -36,11 +36,15 @@ run it before pushing changes that touch `plugins/dotclaude/src/`,
 Layered Node ESM, no TypeScript, no bundler. Read `docs/architecture.md` for
 the full diagram; the short version:
 
-- `plugins/dotclaude/bin/*.mjs` — CLI entry points. Every bin follows the
-  same pipeline: `parse(lib/argv) → validator → createOutput(lib/output) →
-formatError(lib/errors) → exit(lib/exit-codes)`. Each is also exposed as a
-  standalone `npx dotclaude-<thing>` bin **and** as a subcommand of the
-  umbrella `dotclaude` dispatcher.
+- `plugins/dotclaude/bin/*.mjs` — CLI entry points. Validator-style bins
+  follow the standard pipeline:
+  `parse(lib/argv) → validator → createOutput(lib/output) →
+  formatError(lib/errors) → exit(lib/exit-codes)`. Exceptions include
+  `plugins/dotclaude/bin/dotclaude.mjs` (the umbrella dispatcher) and
+  `plugins/dotclaude/bin/dotclaude-detect-drift.mjs` (a thin wrapper that may
+  use `spawn` / `process.exit`). Validator bins are exposed as standalone
+  `npx dotclaude-<thing>` commands, and most are also reachable as
+  subcommands of `dotclaude`.
 - `plugins/dotclaude/src/lib/` — shared primitives (`argv`, `output`,
   `errors`, `exit-codes`, `debug`). Validators must use these, not raw
   `console.log` / `process.exit` / `throw new Error(string)`.
@@ -85,7 +89,7 @@ plugin with its own `scripts/lib/output.sh` + `src/lib/argv.mjs` conventions
   undocumented `export`s under `plugins/dotclaude/src/`.
 - **Shell discipline.** `set -euo pipefail` at the top of every script;
   source `plugins/dotclaude/scripts/lib/output.sh` for `pass` / `fail` /
-  `warn` / `out_summary`; gate JSON output via `HARNESS_JSON=1`. `bash`
+  `warn` / `out_summary`; gate JSON output via `DOTCLAUDE_JSON=1`. `bash`
   only — never `zsh` (its read-only `$status` silently breaks scripts).
 - **Bats tests** capture stderr by redirecting `2>&1` because `run` only
   captures stdout; handoff scripts intentionally print usage/errors to

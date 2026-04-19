@@ -42,22 +42,29 @@ unless they prevent a bug.
 
 ### CLI / library contract (`plugins/dotclaude/`)
 
-- **New runtime dependency.** Zero-dep is enforced by ADR-0002. Adding
-  anything to `dependencies` (not `devDependencies`) needs an explicit
-  rationale in the PR body. Block.
+- **New runtime dependency.** ADR-0002 aims to avoid adding new runtime
+  deps. Adding anything to `dependencies` (not `devDependencies`) needs
+  an explicit rationale in the PR body. Block if missing.
 - **TypeScript / build step.** Plain Node 20+ ESM only, no bundler
   (ADR-0002). Block.
-- **Bin without the standard pipeline.** Every `plugins/dotclaude/bin/*.mjs`
-  must `parse(lib/argv) → validator → createOutput(lib/output) →
-formatError(lib/errors) → exit(lib/exit-codes)`. Flag raw
-  `console.log` / `process.exit(N)` / `throw new Error("string")` in bin
-  or validator code.
+- **Bin without the standard pipeline.** Validator-style
+  `plugins/dotclaude/bin/*.mjs` must use
+  `parse(lib/argv) → validator → createOutput(lib/output) →
+  formatError(lib/errors) → exit(lib/exit-codes)`. Flag raw
+  `console.log` / `process.exit(N)` / `throw new Error("string")` in
+  validator bins. Exception: `dotclaude.mjs` (umbrella dispatcher) and
+  `dotclaude-detect-drift.mjs` (thin wrapper) intentionally use
+  `spawn` / `process.exit`.
 - **Wrong exit code.** Bins must exit with the named `EXIT_CODES`:
   `OK=0`, `VALIDATION=1`, `ENV=2`, `USAGE=64`. Flag literal numbers other
   than these or misuse (e.g. exiting `1` for a usage error — should be
   `64`).
-- **Missing CLI flags.** Every bin honors `--help`, `--version`, `--json`,
-  `--verbose`, `--no-color`. Flag bins that don't.
+- **Missing CLI flags.** Non-wrapper bins must honor `--help`,
+  `--version`, `--json`, `--verbose`, `--no-color`. For
+  wrapper/dispatcher bins, it's acceptable to own only `--help` /
+  `--version` if they transparently forward `--json`, `--verbose`, and
+  `--no-color` to the delegated command. Flag bins that neither
+  implement nor forward the standard flags correctly.
 - **Unstructured errors.** Validator `errors.push(...)` must push a
   `ValidationError(code, …)` from `src/lib/errors.mjs`. New failure
   classes need a new entry in `ERROR_CODES`. Flag string-only errors.
@@ -78,7 +85,7 @@ formatError(lib/errors) → exit(lib/exit-codes)`. Flag raw
 - Reserved variable names: `status`, `path`, `pwd`, `prompt`, `HISTFILE`.
 - Direct `echo`/`printf` for status output instead of `pass` / `fail` /
   `warn` / `out_summary` from `plugins/dotclaude/scripts/lib/output.sh`.
-- JSON output not gated behind `HARNESS_JSON=1`.
+- JSON output not gated behind `DOTCLAUDE_JSON=1`.
 - Bats tests asserting on stderr without `2>&1` redirect — `run` only
   captures stdout, and handoff scripts deliberately print to stderr.
 
