@@ -1,21 +1,23 @@
 #!/usr/bin/env node
 /**
- * dotclaude-handoff — read a session transcript and render it as a
- * paste-ready handoff digest.
+ * dotclaude-handoff — five-form cross-agent / cross-machine handoff.
  *
  * Usage:
- *   dotclaude-handoff <subcmd> <cli> <identifier> [--to <cli>] [OPTIONS]
+ *   dotclaude handoff                              push host's latest session
+ *   dotclaude handoff <query>                      local cross-agent: emit <handoff> block
+ *   dotclaude handoff push [<query>] [--tag <label>] [--via <transport>]
+ *   dotclaude handoff pull [<query>] [--via <transport>]
+ *   dotclaude handoff list [--local|--remote] [--via <transport>]
  *
- * Subcommands:
- *   resolve   <cli> <id>              print resolved session file path
- *   describe  <cli> <id>              inline summary (markdown or --json)
- *   digest    <cli> <id> [--to ...]   full <handoff> block for paste
- *   list      <cli>                   newest-first table of sessions
- *   file      <cli> <id> [--to ...]   write markdown handoff doc to disk
+ * Power-user sub-commands (still work):
+ *   resolve   <cli> <id>         print resolved session file path
+ *   describe  <cli> <id>         inline summary (markdown or --json)
+ *   digest    <cli> <id>         full <handoff> block for paste
+ *   file      <cli> <id>         write markdown handoff doc to disk
  *
- * cli:  claude | copilot | codex
- * id:   full UUID, short UUID (first 8 hex), `latest`, or (codex only)
- *       a thread_name alias.
+ * `<query>` resolves across all three CLIs (claude, copilot, codex):
+ * full UUID, short UUID (first 8 hex), `latest`, or a named alias
+ * (Claude customTitle, Codex thread_name).
  *
  * Exits: 0 ok, 2 not-found / runtime error, 64 usage error.
  */
@@ -26,21 +28,37 @@ import { version } from "../src/index.mjs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve as resolvePath } from "node:path";
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir, hostname } from "node:os";
+import { createInterface } from "node:readline";
 
-const SUBCOMMANDS = new Set(["resolve", "describe", "digest", "list", "file"]);
+const POWER_SUBS = new Set(["resolve", "describe", "digest", "file"]);
 const CLIS = new Set(["claude", "copilot", "codex"]);
+const TRANSPORTS = new Set(["git-fallback", "github"]);
 
 const META = {
   name: "dotclaude-handoff",
   synopsis:
-    "dotclaude-handoff <resolve|describe|digest|list|file> <claude|copilot|codex> [<id>] [--to <cli>]",
+    "dotclaude handoff [<query>|push|pull|list] [<query>] [--tag <label>] [--via <transport>]",
   description:
-    "Read a session transcript from one agentic CLI and render it as a paste-ready handoff digest. Works from any shell, including Codex's bash tool.",
+    "Cross-agent and cross-machine session handoff. Bare <query> emits a <handoff> block for local cross-agent. push/pull/list handle the remote transport.",
   flags: {
+    tag: { type: "string" },
+    via: { type: "string" },
     to: { type: "string" },
     limit: { type: "string" },
     "out-dir": { type: "string" },
+    local: { type: "boolean" },
+    remote: { type: "boolean" },
   },
 };
 
@@ -48,23 +66,98 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPTS = resolvePath(__dirname, "..", "scripts");
 const RESOLVE_SH = join(SCRIPTS, "handoff-resolve.sh");
 const EXTRACT_SH = join(SCRIPTS, "handoff-extract.sh");
+const DESCRIPTION_SH = join(SCRIPTS, "handoff-description.sh");
 
 function fail(code, msg) {
   if (msg) process.stderr.write(`dotclaude-handoff: ${msg}\n`);
   process.exit(code);
 }
 
-function runScript(script, args) {
-  const res = spawnSync(script, args, { encoding: "utf8" });
+function runScript(script, args, opts = {}) {
+  const res = spawnSync(script, args, { encoding: "utf8", ...opts });
   return { status: res.status ?? 2, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
 }
 
-function resolveSession(cli, id) {
-  const r = runScript(RESOLVE_SH, [cli, id]);
+function runGit(args, cwd) {
+  return spawnSync("git", args, { encoding: "utf8", cwd });
+}
+
+function runGitOrThrow(args, cwd) {
+  const r = runGit(args, cwd);
   if (r.status !== 0) {
-    fail(r.status === 64 ? EXIT_CODES.USAGE : 2, r.stderr.trim() || `could not resolve ${cli} ${id}`);
+    throw new Error(`git ${args.join(" ")} failed: ${(r.stderr || r.stdout).trim()}`);
   }
-  return r.stdout.trim();
+  return r;
+}
+
+// ---- resolver / extractor bridge ---------------------------------------
+
+/**
+ * @typedef {{cli: string, sessionId: string, path: string, query: string}} Candidate
+ */
+
+/**
+ * Call `handoff-resolve.sh any <query>`. Handles the collision contract:
+ *   - 0 hits: exits 2 (bubble up)
+ *   - 1 hit:  returns {cli, path}
+ *   - >1 hit: on TTY prompt the user to pick; non-TTY emits candidates
+ *             and exits 2.
+ *
+ * @param {string} query
+ * @returns {Promise<{cli: string, path: string}>}
+ */
+async function resolveAny(query) {
+  const r = runScript(RESOLVE_SH, ["any", query]);
+  if (r.status === 0) {
+    const path = r.stdout.trim();
+    const cli = cliFromPath(path);
+    return { cli, path };
+  }
+  // status != 0. If stderr begins with "multiple sessions match", it is a
+  // collision. Otherwise it's "no session matches" or an env error.
+  const stderr = r.stderr;
+  if (!stderr.includes("multiple sessions match")) {
+    fail(r.status === 64 ? EXIT_CODES.USAGE : 2, stderr.trim() || `no session matches: ${query}`);
+  }
+  // Parse candidate TSV lines (4 fields: cli\tsid\tpath\tquery).
+  const candidates = [];
+  for (const line of stderr.split("\n")) {
+    const parts = line.split("\t");
+    if (parts.length === 4) {
+      candidates.push({ cli: parts[0], sessionId: parts[1], path: parts[2], query: parts[3] });
+    }
+  }
+  if (process.stdin.isTTY) {
+    return await promptCollisionChoice(query, candidates);
+  }
+  // Non-TTY: pass through the script's stderr and exit 2.
+  process.stderr.write(stderr);
+  process.exit(2);
+}
+
+async function promptCollisionChoice(query, candidates) {
+  process.stderr.write(`dotclaude-handoff: multiple sessions match "${query}":\n`);
+  candidates.forEach((c, i) => {
+    process.stderr.write(`  [${i + 1}] ${c.cli.padEnd(8)} ${c.sessionId}  ${c.path}\n`);
+  });
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  const ans = await new Promise((resolve) => {
+    rl.question("Pick [1..N], or any other input to abort: ", resolve);
+  });
+  rl.close();
+  const n = Number.parseInt(ans.trim(), 10);
+  if (!Number.isInteger(n) || n < 1 || n > candidates.length) {
+    process.exit(2);
+  }
+  const chosen = candidates[n - 1];
+  return { cli: chosen.cli, path: chosen.path };
+}
+
+function cliFromPath(path) {
+  if (path.includes("/.claude/projects/")) return "claude";
+  if (path.includes("/.copilot/session-state/")) return "copilot";
+  if (path.includes("/.codex/sessions/")) return "codex";
+  return "claude";
 }
 
 function extractMeta(cli, file) {
@@ -89,6 +182,8 @@ function extractLines(sub, cli, file, extra = []) {
 const extractPrompts = (cli, file) => extractLines("prompts", cli, file);
 const extractTurns = (cli, file, limit) =>
   extractLines("turns", cli, file, limit ? [String(limit)] : []);
+
+// ---- rendering ---------------------------------------------------------
 
 function nextStepFor(toCli) {
   if (toCli === "codex") {
@@ -116,17 +211,9 @@ function renderDescribeMarkdown(meta, prompts) {
   lines.push("**User prompts:**");
   lines.push("");
   const toShow = prompts.slice(0, 10);
-  if (toShow.length === 0) {
-    lines.push("- (no user prompts captured)");
-  } else {
-    for (const p of toShow) {
-      const trimmed = p.length > 200 ? `${p.slice(0, 200).trim()}…` : p;
-      lines.push(`- ${trimmed}`);
-    }
-  }
-  if (prompts.length > 10) {
-    lines.push(`- …and ${prompts.length - 10} more (truncated)`);
-  }
+  if (toShow.length === 0) lines.push("- (no user prompts captured)");
+  else for (const p of toShow) lines.push(`- ${p.length > 200 ? `${p.slice(0, 200).trim()}…` : p}`);
+  if (prompts.length > 10) lines.push(`- …and ${prompts.length - 10} more (truncated)`);
   lines.push("");
   lines.push(`**Prompt count:** ${prompts.length}`);
   return lines.join("\n");
@@ -137,7 +224,6 @@ function renderHandoffBlock(meta, prompts, turns, toCli) {
   const promptsCapped = prompts.slice(-10);
   const turnsTail = turns.slice(-3);
   const next = nextStepFor(toCli);
-
   const lines = [];
   lines.push(
     `<handoff origin="${meta.cli}" session="${meta.short_id ?? ""}" cwd="${meta.cwd ?? ""}" target="${toCli}">`
@@ -147,50 +233,45 @@ function renderHandoffBlock(meta, prompts, turns, toCli) {
   lines.push("");
   lines.push("**User prompts (last 10, in order).**");
   lines.push("");
-  if (promptsCapped.length === 0) {
-    lines.push("1. (no user prompts captured)");
-  } else {
+  if (promptsCapped.length === 0) lines.push("1. (no user prompts captured)");
+  else
     promptsCapped.forEach((p, i) => {
       const trimmed = p.length > 300 ? `${p.slice(0, 300).trim()}…` : p;
       lines.push(`${i + 1}. ${trimmed}`);
     });
-  }
   lines.push("");
   lines.push("**Last assistant turns (tail).**");
   lines.push("");
-  if (turnsTail.length === 0) {
-    lines.push("_(no assistant output captured)_");
-  } else {
+  if (turnsTail.length === 0) lines.push("_(no assistant output captured)_");
+  else
     for (const t of turnsTail) {
       const trimmed = t.length > 400 ? `${t.slice(0, 400).trim()}…` : t;
       lines.push(`> ${trimmed.replace(/\n/g, "\n> ")}`);
       lines.push("");
     }
-  }
   lines.push("**Next step.** " + next);
   lines.push("");
   lines.push("</handoff>");
   return lines.join("\n");
 }
 
+// ---- local session enumeration (list --local) --------------------------
+
 const UUID_HEAD_RE = /([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 
 const CLI_LAYOUTS = {
   claude: {
     root: (home) => join(home, ".claude", "projects"),
-    // ~/.claude/projects/<slug>/<uuid>.jsonl — one level deep.
     walk: 1,
     match: (name) => name.endsWith(".jsonl"),
   },
   copilot: {
     root: (home) => join(home, ".copilot", "session-state"),
-    // ~/.copilot/session-state/<uuid>/events.jsonl — one level deep.
     walk: 1,
     match: (name) => name === "events.jsonl",
   },
   codex: {
     root: (home) => join(home, ".codex", "sessions"),
-    // ~/.codex/sessions/YYYY/MM/DD/rollout-…-<uuid>.jsonl — three levels deep.
     walk: 3,
     match: (name) => name.startsWith("rollout-") && name.endsWith(".jsonl"),
   },
@@ -218,12 +299,11 @@ function collectSessionFiles(root, walk, match) {
   return files;
 }
 
-function listSessions(cli) {
+function listLocalSessions(cli) {
   const layout = CLI_LAYOUTS[cli];
-  if (!layout) fail(EXIT_CODES.USAGE, `unknown cli: ${cli}`);
+  if (!layout) return [];
   const root = layout.root(process.env.HOME ?? "");
   if (!existsSync(root)) return [];
-
   const rows = [];
   for (const file of collectSessionFiles(root, layout.walk, layout.match)) {
     let mtime;
@@ -235,13 +315,222 @@ function listSessions(cli) {
     const m = file.match(UUID_HEAD_RE);
     const shortId = m ? m[1] : "?";
     const when = new Date(mtime * 1000).toISOString().replace("T", " ").slice(0, 16);
-    rows.push({ cli, short_id: shortId, file, mtime, when });
+    rows.push({ location: "local", cli, short_id: shortId, file, mtime, when });
   }
   rows.sort((a, b) => b.mtime - a.mtime);
-  return rows.slice(0, 50);
+  return rows;
 }
 
-// ---- main ---------------------------------------------------------------
+function listAllLocalSessions() {
+  return [...listLocalSessions("claude"), ...listLocalSessions("copilot"), ...listLocalSessions("codex")].sort(
+    (a, b) => b.mtime - a.mtime
+  );
+}
+
+// ---- transport: git-fallback -------------------------------------------
+
+function requireTransportRepo() {
+  const url = process.env.DOTCLAUDE_HANDOFF_REPO;
+  if (!url) fail(2, "DOTCLAUDE_HANDOFF_REPO env var must be set for --via git-fallback");
+  return url;
+}
+
+function encodeDescription({ cli, shortId, project, host, tag }) {
+  const args = [
+    "encode",
+    "--cli",
+    cli,
+    "--short-id",
+    shortId,
+    "--project",
+    project || "adhoc",
+    "--hostname",
+    host || "unknown",
+  ];
+  if (tag) args.push("--tag", tag);
+  const r = runScript(DESCRIPTION_SH, args);
+  if (r.status !== 0) fail(2, `description encode failed: ${r.stderr.trim()}`);
+  return r.stdout.trim();
+}
+
+function projectSlugFromCwd(cwd) {
+  if (!cwd) return "adhoc";
+  const last = cwd.split("/").filter(Boolean).pop() || "adhoc";
+  return last.toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40) || "adhoc";
+}
+
+function pushGitFallback({ cli, path: sessionFile, tag }) {
+  const repoUrl = requireTransportRepo();
+  const meta = extractMeta(cli, sessionFile);
+  const prompts = extractPrompts(cli, sessionFile);
+  const turns = extractTurns(cli, sessionFile);
+  const toCli = meta.cli;
+  const handoffBlock = renderHandoffBlock(meta, prompts, turns, toCli);
+
+  const shortId = meta.short_id ?? "unknown";
+  const host = hostname().toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40);
+  const project = projectSlugFromCwd(meta.cwd);
+  const description = encodeDescription({
+    cli: meta.cli,
+    shortId,
+    project,
+    host,
+    tag: tag || null,
+  });
+
+  const metadata = {
+    cli: meta.cli,
+    session_id: meta.session_id,
+    short_id: shortId,
+    cwd: meta.cwd ?? null,
+    hostname: host,
+    created_at: new Date().toISOString(),
+    scrubbed_count: 0,
+    schema_version: "1",
+    tag: tag || null,
+  };
+
+  const tmp = mkdtempSync(join(tmpdir(), "handoff-push-"));
+  try {
+    runGitOrThrow(["init", "-q"], tmp);
+    runGitOrThrow(["remote", "add", "origin", repoUrl], tmp);
+    runGitOrThrow(["config", "user.email", "handoff@dotclaude.local"], tmp);
+    runGitOrThrow(["config", "user.name", "dotclaude-handoff"], tmp);
+    const branch = `handoff/${meta.cli}/${shortId}`;
+    runGitOrThrow(["checkout", "-q", "-b", branch], tmp);
+    writeFileSync(join(tmp, "handoff.md"), handoffBlock + "\n");
+    writeFileSync(join(tmp, "metadata.json"), JSON.stringify(metadata, null, 2) + "\n");
+    writeFileSync(join(tmp, "description.txt"), description + "\n");
+    runGitOrThrow(["add", "."], tmp);
+    runGitOrThrow(["commit", "-q", "-m", description], tmp);
+    runGitOrThrow(["push", "-q", "-f", "origin", branch], tmp);
+    return { branch, url: repoUrl, description };
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/**
+ * List remote handoffs from git-fallback as candidate objects.
+ * Returns [{branch, description, commit}] — no content fetched.
+ */
+function listGitFallbackCandidates() {
+  const repoUrl = requireTransportRepo();
+  const r = runGit(["ls-remote", repoUrl, "refs/heads/handoff/*"]);
+  if (r.status !== 0) fail(2, `ls-remote failed: ${r.stderr.trim()}`);
+  const rows = [];
+  for (const line of r.stdout.split("\n")) {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length !== 2) continue;
+    const commit = parts[0];
+    const ref = parts[1];
+    const branch = ref.replace(/^refs\/heads\//, "");
+    rows.push({ commit, branch, description: "" });
+  }
+  return rows;
+}
+
+/**
+ * Fetch a specific handoff branch and return its `handoff.md` content.
+ */
+function fetchGitFallbackBranch(branch) {
+  const repoUrl = requireTransportRepo();
+  const tmp = mkdtempSync(join(tmpdir(), "handoff-pull-"));
+  try {
+    const r = runGit(["clone", "-q", "--depth", "1", "--branch", branch, repoUrl, "."], tmp);
+    if (r.status !== 0) {
+      throw new Error(`clone --branch ${branch} failed: ${r.stderr.trim()}`);
+    }
+    const handoffPath = join(tmp, "handoff.md");
+    if (!existsSync(handoffPath)) {
+      throw new Error(`handoff.md missing in branch ${branch}`);
+    }
+    const content = readFileSync(handoffPath, "utf8");
+    const descPath = join(tmp, "description.txt");
+    const description = existsSync(descPath) ? readFileSync(descPath, "utf8").trim() : "";
+    return { content, description };
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Enrich candidates with their description (requires per-branch fetch).
+ */
+function enrichWithDescriptions(candidates) {
+  return candidates.map((c) => {
+    try {
+      const { description } = fetchGitFallbackBranch(c.branch);
+      return { ...c, description };
+    } catch {
+      return c;
+    }
+  });
+}
+
+function matchesQuery(candidate, query) {
+  const q = query.toLowerCase();
+  if (candidate.branch.toLowerCase().includes(q)) return true;
+  if (candidate.description && candidate.description.toLowerCase().includes(q)) return true;
+  if (candidate.commit && candidate.commit.toLowerCase().startsWith(q)) return true;
+  return false;
+}
+
+async function pullGitFallback(query) {
+  const candidates = listGitFallbackCandidates();
+  if (candidates.length === 0) fail(2, "no handoffs found on transport");
+
+  // Bare: pick the newest (for git-fallback we don't have a reliable remote
+  // mtime; fall back to enriching and picking the lexically last, which is
+  // typically the most recent since short IDs hash-distribute).
+  if (!query) {
+    const enriched = enrichWithDescriptions(candidates);
+    const picked = enriched[enriched.length - 1];
+    return picked;
+  }
+
+  // Cheap pass: filter by branch name.
+  let hits = candidates.filter((c) => matchesQuery(c, query));
+  if (hits.length === 0) {
+    // Expensive pass: enrich with descriptions and re-match.
+    const enriched = enrichWithDescriptions(candidates);
+    hits = enriched.filter((c) => matchesQuery(c, query));
+  } else {
+    hits = enrichWithDescriptions(hits);
+  }
+
+  if (hits.length === 0) fail(2, `no handoffs match: ${query}`);
+  if (hits.length === 1) return hits[0];
+
+  // Collision.
+  if (process.stdin.isTTY) {
+    process.stderr.write(`dotclaude-handoff: multiple handoffs match "${query}":\n`);
+    hits.forEach((h, i) => {
+      process.stderr.write(`  [${i + 1}] ${h.branch}  ${h.description}\n`);
+    });
+    const rl = createInterface({ input: process.stdin, output: process.stderr });
+    const ans = await new Promise((resolve) => {
+      rl.question("Pick [1..N], or any other input to abort: ", resolve);
+    });
+    rl.close();
+    const n = Number.parseInt(ans.trim(), 10);
+    if (!Number.isInteger(n) || n < 1 || n > hits.length) process.exit(2);
+    return hits[n - 1];
+  }
+  process.stderr.write(`dotclaude-handoff: multiple handoffs match "${query}":\n`);
+  for (const h of hits) process.stderr.write(`  ${h.branch}\t${h.description}\n`);
+  process.exit(2);
+}
+
+// ---- host session detection --------------------------------------------
+
+function detectHostSession() {
+  // Claude Code exposes no stable env-var pointer to the current session
+  // file. Fall back to `latest` across all three roots.
+  return null;
+}
+
+// ---- main --------------------------------------------------------------
 
 let argv;
 try {
@@ -251,7 +540,7 @@ try {
 }
 
 if (argv.help) {
-  process.stdout.write(`${helpText(META)}\n`);
+  process.stdout.write(`${helpText(META)}\n\nSee skills/handoff/SKILL.md for the full reference.\n`);
   process.exit(EXIT_CODES.OK);
 }
 if (argv.version) {
@@ -259,118 +548,203 @@ if (argv.version) {
   process.exit(EXIT_CODES.OK);
 }
 
-// Bare form `dotclaude-handoff <cli> <id>` is implicit `digest`.
-let sub, cli, id;
-if (argv.positional.length >= 1 && CLIS.has(argv.positional[0])) {
-  sub = "digest";
-  cli = argv.positional[0];
-  id = argv.positional[1];
-  if (!id) fail(EXIT_CODES.USAGE, `missing identifier (uuid, short-uuid, 'latest', or alias) after '${cli}'`);
-} else {
-  [sub, cli, id] = argv.positional;
-  if (!sub) fail(EXIT_CODES.USAGE, "missing subcommand or cli. See --help.");
-  if (!SUBCOMMANDS.has(sub)) fail(EXIT_CODES.USAGE, `unknown subcommand: ${sub}`);
-  if (!cli) fail(EXIT_CODES.USAGE, "missing cli argument");
-  if (!CLIS.has(cli)) fail(EXIT_CODES.USAGE, `cli must be one of: claude, copilot, codex`);
-}
-
-const toCli = argv.flags.to ?? "claude";
-if (!CLIS.has(toCli)) fail(EXIT_CODES.USAGE, `--to must be one of: claude, copilot, codex`);
+const via = (argv.flags.via ?? "github").toString();
+if (!TRANSPORTS.has(via)) fail(EXIT_CODES.USAGE, `--via must be one of: ${[...TRANSPORTS].join(", ")}`);
 
 const limit = argv.flags.limit ?? "20";
-if (!/^\d+$/.test(limit)) fail(EXIT_CODES.USAGE, `--limit must be a non-negative integer, got: ${limit}`);
+if (!/^\d+$/.test(limit.toString())) fail(EXIT_CODES.USAGE, `--limit must be a non-negative integer, got: ${limit}`);
 
-if (sub === "list") {
-  const rows = listSessions(cli);
-  if (argv.json) {
-    process.stdout.write(JSON.stringify(rows, null, 2) + "\n");
-    process.exit(EXIT_CODES.OK);
-  }
-  if (rows.length === 0) {
-    process.stdout.write(`No ${cli} sessions found\n`);
-    process.exit(EXIT_CODES.OK);
-  }
-  process.stdout.write(`| Short UUID | When              | File |\n`);
-  process.stdout.write(`| ---------- | ----------------- | ---- |\n`);
-  for (const r of rows) {
-    process.stdout.write(`| ${r.short_id} | ${r.when} | ${r.file} |\n`);
-  }
-  process.exit(EXIT_CODES.OK);
+const toCli = (argv.flags.to ?? "claude").toString();
+if (!CLIS.has(toCli)) fail(EXIT_CODES.USAGE, `--to must be one of: ${[...CLIS].join(", ")}`);
+
+const [first, second, third] = argv.positional;
+
+function printUsage() {
+  process.stdout.write(
+    [
+      "Usage:",
+      "  dotclaude handoff                              push host's latest session",
+      "  dotclaude handoff <query>                      emit <handoff> block for local paste",
+      "  dotclaude handoff push [<query>] [--tag LBL]   upload to transport",
+      "  dotclaude handoff pull [<query>]               fetch from transport",
+      "  dotclaude handoff list [--local|--remote]      sessions + gists",
+      "",
+      "Power-user sub-commands: resolve, describe, digest, file (all take <cli> <id>).",
+      "",
+      "Exit codes: 0 ok, 2 not found / runtime error, 64 usage error.",
+      "",
+    ].join("\n")
+  );
 }
 
-if (!id) fail(EXIT_CODES.USAGE, `${sub} requires an identifier (uuid, short-uuid, 'latest', or alias)`);
-
-const file = resolveSession(cli, id);
-
-if (sub === "resolve") {
-  process.stdout.write(`${file}\n`);
-  process.exit(EXIT_CODES.OK);
-}
-
-const meta = extractMeta(cli, file);
-const prompts = extractPrompts(cli, file);
-
-if (sub === "describe") {
-  if (argv.json) {
-    process.stdout.write(
-      JSON.stringify({ origin: meta, user_prompts: prompts }, null, 2) + "\n"
-    );
+async function main() {
+  // ---- zero-arg: print usage --------------------------------------------
+  if (argv.positional.length === 0) {
+    printUsage();
     process.exit(EXIT_CODES.OK);
   }
-  process.stdout.write(renderDescribeMarkdown(meta, prompts) + "\n");
-  process.exit(EXIT_CODES.OK);
-}
 
-const turns = extractTurns(cli, file, limit);
+  // ---- top-level subs: push / pull / list --------------------------------
+  if (first === "list") {
+    const showLocal = !argv.flags.remote;
+    const showRemote = !argv.flags.local;
+    const rows = [];
+    if (showLocal) {
+      for (const r of listAllLocalSessions()) {
+        rows.push({ ...r, location: "local" });
+      }
+    }
+    if (showRemote && via === "git-fallback" && process.env.DOTCLAUDE_HANDOFF_REPO) {
+      try {
+        for (const c of listGitFallbackCandidates()) {
+          rows.push({ location: "remote", branch: c.branch, commit: c.commit });
+        }
+      } catch (err) {
+        process.stderr.write(`dotclaude-handoff: list --remote: ${err.message}\n`);
+      }
+    }
+    if (argv.json) {
+      process.stdout.write(JSON.stringify(rows, null, 2) + "\n");
+      process.exit(EXIT_CODES.OK);
+    }
+    if (rows.length === 0) {
+      process.stdout.write("No sessions found\n");
+      process.exit(EXIT_CODES.OK);
+    }
+    process.stdout.write("| Location | CLI / Branch                         | Short UUID | When / Commit    |\n");
+    process.stdout.write("| -------- | ------------------------------------ | ---------- | ---------------- |\n");
+    for (const r of rows) {
+      if (r.location === "local") {
+        process.stdout.write(`| local    | ${r.cli.padEnd(36)} | ${r.short_id.padEnd(10)} | ${r.when.padEnd(16)} |\n`);
+      } else {
+        const shortCommit = (r.commit ?? "").slice(0, 10);
+        process.stdout.write(`| remote   | ${r.branch.padEnd(36)} | ${"".padEnd(10)} | ${shortCommit.padEnd(16)} |\n`);
+      }
+    }
+    process.exit(EXIT_CODES.OK);
+  }
 
-if (sub === "digest") {
+  if (first === "push") {
+    // `push` | `push <query>` | `push <query> --tag <label>`
+    let sessionHit;
+    if (second) {
+      sessionHit = await resolveAny(second);
+    } else {
+      const host = detectHostSession();
+      sessionHit = host ?? (await resolveAny("latest"));
+    }
+    if (via !== "git-fallback") {
+      fail(
+        EXIT_CODES.USAGE,
+        `transport '${via}' not yet implemented in the binary; use --via git-fallback (or invoke the /handoff skill inside Claude/Copilot for --via github)`
+      );
+    }
+    const tag = argv.flags.tag ? String(argv.flags.tag) : null;
+    try {
+      const result = pushGitFallback({ cli: sessionHit.cli, path: sessionHit.path, tag });
+      process.stdout.write(`${result.branch}\n${result.url}\n${result.description}\n`);
+      process.exit(EXIT_CODES.OK);
+    } catch (err) {
+      fail(2, `push failed: ${err.message}`);
+    }
+  }
+
+  if (first === "pull") {
+    if (via !== "git-fallback") {
+      fail(
+        EXIT_CODES.USAGE,
+        `transport '${via}' not yet implemented in the binary; use --via git-fallback (or invoke the /handoff skill inside Claude/Copilot for --via github)`
+      );
+    }
+    try {
+      const hit = await pullGitFallback(second);
+      const { content } = fetchGitFallbackBranch(hit.branch);
+      process.stdout.write(content.endsWith("\n") ? content : content + "\n");
+      process.exit(EXIT_CODES.OK);
+    } catch (err) {
+      fail(2, `pull failed: ${err.message}`);
+    }
+  }
+
+  // ---- power-user sub-commands (resolve/describe/digest/file) -----------
+  if (POWER_SUBS.has(first)) {
+    const sub = first;
+    const cli = second;
+    const id = third;
+    if (!cli) fail(EXIT_CODES.USAGE, `${sub} requires <cli>`);
+    if (!CLIS.has(cli)) fail(EXIT_CODES.USAGE, `cli must be one of: ${[...CLIS].join(", ")}`);
+    if (!id) fail(EXIT_CODES.USAGE, `${sub} requires an identifier after <cli>`);
+    const r = runScript(RESOLVE_SH, [cli, id]);
+    if (r.status !== 0) fail(r.status === 64 ? EXIT_CODES.USAGE : 2, r.stderr.trim());
+    const path = r.stdout.trim();
+    if (sub === "resolve") {
+      process.stdout.write(`${path}\n`);
+      process.exit(EXIT_CODES.OK);
+    }
+    const meta = extractMeta(cli, path);
+    const prompts = extractPrompts(cli, path);
+    if (sub === "describe") {
+      if (argv.json) {
+        process.stdout.write(JSON.stringify({ origin: meta, user_prompts: prompts }, null, 2) + "\n");
+        process.exit(EXIT_CODES.OK);
+      }
+      process.stdout.write(renderDescribeMarkdown(meta, prompts) + "\n");
+      process.exit(EXIT_CODES.OK);
+    }
+    const turns = extractTurns(cli, path, limit);
+    if (sub === "digest") {
+      process.stdout.write(renderHandoffBlock(meta, prompts, turns, toCli) + "\n");
+      process.exit(EXIT_CODES.OK);
+    }
+    if (sub === "file") {
+      const outDir = argv.flags["out-dir"];
+      let target;
+      if (outDir) {
+        target = resolvePath(outDir.toString());
+      } else {
+        const gitRes = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" });
+        target =
+          gitRes.status === 0 && gitRes.stdout.trim()
+            ? join(gitRes.stdout.trim(), "docs", "handoffs")
+            : join(process.env.HOME ?? "", ".claude", "handoffs");
+      }
+      mkdirSync(target, { recursive: true });
+      const today = new Date().toISOString().slice(0, 10);
+      const shortId = meta.short_id ?? "unknown";
+      const outPath = join(target, `${today}-${meta.cli}-${shortId}.md`);
+      const body = [
+        `# Handoff: ${meta.cli} → ${toCli}`,
+        "",
+        `_Generated: ${new Date().toISOString()}_`,
+        `_Origin session: \`${meta.session_id ?? "?"}\` (cwd: \`${meta.cwd ?? "?"}\`)_`,
+        "",
+        renderHandoffBlock(meta, prompts, turns, toCli),
+        "",
+        "---",
+        "",
+        "## Full user prompt log",
+        "",
+        ...prompts.map((p, i) => `${i + 1}. ${p}`),
+        "",
+        "## Notes",
+        "",
+        `- Source transcript: \`${path}\``,
+        `- Prompts: ${prompts.length} (verbatim); assistant turns summarized in the <handoff> block.`,
+      ].join("\n");
+      writeFileSync(outPath, body + "\n");
+      process.stdout.write(`${outPath}\n`);
+      process.exit(EXIT_CODES.OK);
+    }
+  }
+
+  // ---- bare <query>: local cross-agent (implicit digest) -----------------
+  const query = first;
+  const hit = await resolveAny(query);
+  const meta = extractMeta(hit.cli, hit.path);
+  const prompts = extractPrompts(hit.cli, hit.path);
+  const turns = extractTurns(hit.cli, hit.path, limit);
   process.stdout.write(renderHandoffBlock(meta, prompts, turns, toCli) + "\n");
   process.exit(EXIT_CODES.OK);
 }
 
-if (sub === "file") {
-  // Write a markdown doc to docs/handoffs/ (or ~/.claude/handoffs/ as fallback).
-  const outDir = argv.flags["out-dir"];
-  let target;
-  if (outDir) {
-    target = resolvePath(outDir);
-  } else {
-    const gitRes = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" });
-    if (gitRes.status === 0 && gitRes.stdout.trim()) {
-      target = join(gitRes.stdout.trim(), "docs", "handoffs");
-    } else {
-      target = join(process.env.HOME ?? "", ".claude", "handoffs");
-    }
-  }
-  mkdirSync(target, { recursive: true });
-  const today = new Date().toISOString().slice(0, 10);
-  const shortId = meta.short_id ?? "unknown";
-  const filename = `${today}-${meta.cli}-${shortId}.md`;
-  const outPath = join(target, filename);
-
-  const body = [
-    `# Handoff: ${meta.cli} → ${toCli}`,
-    "",
-    `_Generated: ${new Date().toISOString()}_`,
-    `_Origin session: \`${meta.session_id ?? "?"}\` (cwd: \`${meta.cwd ?? "?"}\`)_`,
-    "",
-    renderHandoffBlock(meta, prompts, turns, toCli),
-    "",
-    "---",
-    "",
-    "## Full user prompt log",
-    "",
-    ...prompts.map((p, i) => `${i + 1}. ${p}`),
-    "",
-    "## Notes",
-    "",
-    `- Source transcript: \`${file}\``,
-    `- Prompts: ${prompts.length} (verbatim); assistant turns summarized in the <handoff> block.`,
-  ].join("\n");
-
-  writeFileSync(outPath, body + "\n");
-  process.stdout.write(`${outPath}\n`);
-  process.exit(EXIT_CODES.OK);
-}
-
-fail(EXIT_CODES.USAGE, `unhandled subcommand: ${sub}`);
+main().catch((err) => fail(2, err.message));

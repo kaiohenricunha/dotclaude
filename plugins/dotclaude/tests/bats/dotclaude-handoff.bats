@@ -1,8 +1,10 @@
 #!/usr/bin/env bats
-# Smoke tests for plugins/dotclaude/bin/dotclaude-handoff.mjs.
-# The binary delegates to handoff-resolve.sh and handoff-extract.sh;
-# these tests verify argv parsing, exit codes, and the happy-path output
-# shape. Detailed extraction correctness lives in handoff-extract.bats.
+# Power-user sub-command tests for plugins/dotclaude/bin/dotclaude-handoff.mjs.
+#
+# The PRIMARY public surface (bare <query>, push, pull, list) is covered
+# by dotclaude-handoff-five-form.bats. This file covers the legacy
+# power-user subs still reachable for scripting: resolve / describe /
+# digest / file. Each takes an explicit <cli> <id>.
 
 load helpers
 
@@ -12,7 +14,6 @@ setup() {
   TEST_HOME=$(mktemp -d)
   export HOME="$TEST_HOME"
 
-  # Minimal Claude session
   mkdir -p "$TEST_HOME/.claude/projects/-home-u-proj"
   SESSION_FILE="$TEST_HOME/.claude/projects/-home-u-proj/aaaa1111-1111-1111-1111-111111111111.jsonl"
   cat > "$SESSION_FILE" <<'EOF'
@@ -33,29 +34,18 @@ teardown() {
   [ -x "$BIN" ]
 }
 
-@test "--help exits 0 and mentions subcommands" {
-  run node "$BIN" --help
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"resolve"* ]]
-  [[ "$output" == *"describe"* ]]
-  [[ "$output" == *"digest"* ]]
-  [[ "$output" == *"list"* ]]
-}
-
 @test "--version exits 0 and emits semver" {
   run node "$BIN" --version
   [ "$status" -eq 0 ]
   [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]
 }
 
-@test "no subcommand exits 64" {
-  run node "$BIN"
-  [ "$status" -eq 64 ]
-}
-
-@test "unknown subcommand exits 64" {
-  run node "$BIN" bogus claude foo
-  [ "$status" -eq 64 ]
+@test "--help exits 0 and mentions the five forms" {
+  run node "$BIN" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"push"* ]]
+  [[ "$output" == *"pull"* ]]
+  [[ "$output" == *"list"* ]]
 }
 
 @test "resolve missing args exits 64" {
@@ -86,7 +76,6 @@ teardown() {
 @test "describe --json emits structured JSON" {
   run node "$BIN" describe claude aaaa1111 --json
   [ "$status" -eq 0 ]
-  # Should be valid JSON with expected keys.
   echo "$output" | jq -e '.origin.cli == "claude"' >/dev/null
   echo "$output" | jq -e '.origin.session_id == "aaaa1111-1111-1111-1111-111111111111"' >/dev/null
   echo "$output" | jq -e '.user_prompts | length >= 2' >/dev/null
@@ -97,7 +86,6 @@ teardown() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"<handoff"* ]]
   [[ "$output" == *"</handoff>"* ]]
-  # Codex-tuned next step should include a task-shaped cue
   [[ "$output" == *"Next step"* ]]
 }
 
@@ -107,60 +95,7 @@ teardown() {
   [[ "$output" == *"<handoff"* ]]
 }
 
-@test "list claude renders a table" {
-  run node "$BIN" list claude
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"aaaa1111"* ]]
-  [[ "$output" == *"Short UUID"* ]]
-  [[ "$output" == *"aaaa1111-1111-1111-1111-111111111111.jsonl"* ]]
-}
-
-@test "list --json emits array of session objects" {
-  run node "$BIN" list claude --json
-  [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'length >= 1' >/dev/null
-  echo "$output" | jq -e '.[0].short_id == "aaaa1111"' >/dev/null
-}
-
-@test "unknown cli exits 64" {
+@test "unknown cli in power-user sub exits 64" {
   run node "$BIN" resolve bogus abcd1234
-  [ "$status" -eq 64 ]
-}
-
-# -- bare form (implicit digest) -----------------------------------------
-
-@test "bare form: full UUID acts as implicit digest" {
-  run node "$BIN" claude aaaa1111-1111-1111-1111-111111111111
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"<handoff"* ]]
-  [[ "$output" == *"</handoff>"* ]]
-  [[ "$output" == *"aaaa1111"* ]]
-}
-
-@test "bare form: short UUID acts as implicit digest" {
-  run node "$BIN" claude aaaa1111
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"<handoff"* ]]
-}
-
-@test "bare form: customTitle alias acts as implicit digest" {
-  run node "$BIN" claude my-feature
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"<handoff"* ]]
-  [[ "$output" == *"aaaa1111"* ]]
-}
-
-@test "bare form: missing id exits 64" {
-  run node "$BIN" claude
-  [ "$status" -eq 64 ]
-}
-
-@test "bare form: unknown identifier exits 2" {
-  run node "$BIN" claude 00000000
-  [ "$status" -eq 2 ]
-}
-
-@test "bare form: bogus cli name treated as unknown subcommand (exits 64)" {
-  run node "$BIN" nonsense-cli aaaa1111
   [ "$status" -eq 64 ]
 }
