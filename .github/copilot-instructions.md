@@ -39,7 +39,7 @@ the full diagram; the short version:
 - `plugins/dotclaude/bin/*.mjs` — CLI entry points. Validator-style bins
   follow the standard pipeline:
   `parse(lib/argv) → validator → createOutput(lib/output) →
-  formatError(lib/errors) → exit(lib/exit-codes)`. Exceptions include
+formatError(lib/errors) → exit(lib/exit-codes)`. Exceptions include
   `plugins/dotclaude/bin/dotclaude.mjs` (the umbrella dispatcher) and
   `plugins/dotclaude/bin/dotclaude-detect-drift.mjs` (a thin wrapper that may
   use `spawn` / `process.exit`). Validator bins are exposed as standalone

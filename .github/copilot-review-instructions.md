@@ -50,7 +50,7 @@ unless they prevent a bug.
 - **Bin without the standard pipeline.** Validator-style
   `plugins/dotclaude/bin/*.mjs` must use
   `parse(lib/argv) → validator → createOutput(lib/output) →
-  formatError(lib/errors) → exit(lib/exit-codes)`. Flag raw
+formatError(lib/errors) → exit(lib/exit-codes)`. Flag raw
   `console.log` / `process.exit(N)` / `throw new Error("string")` in
   validator bins. Exception: `dotclaude.mjs` (umbrella dispatcher) and
   `dotclaude-detect-drift.mjs` (thin wrapper) intentionally use
