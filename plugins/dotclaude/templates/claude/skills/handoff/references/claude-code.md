@@ -24,6 +24,28 @@ project dirs:
 find ~/.claude/projects -maxdepth 2 -type f -name '<uuid>.jsonl' 2>/dev/null
 ```
 
+**By `customTitle` alias (`claude --resume "<name>"`)** — when the user
+renames a session, Claude stores the alias as a JSONL record:
+
+```json
+{ "type": "custom-title", "customTitle": "<name>", "sessionId": "<uuid>" }
+```
+
+Scan `.jsonl` files for the match and map it back to the session file:
+
+```bash
+while IFS= read -r f; do
+  sid=$(jq -r --arg name "<name>" '
+    select(.type == "custom-title" and .customTitle == $name)
+    | .sessionId' "$f" 2>/dev/null | head -1)
+  [[ -n "$sid" ]] && find ~/.claude/projects -maxdepth 2 -name "${sid}.jsonl" && break
+done < <(find ~/.claude/projects -maxdepth 2 -type f -name '*.jsonl')
+```
+
+Reference implementation:
+`plugins/dotclaude/scripts/handoff-resolve.sh any <name>` (or the
+per-CLI form `handoff-resolve.sh claude <name>` for scripting).
+
 **Latest** — newest `.jsonl` across all project dirs by mtime (GNU/BSD
 portable):
 
@@ -71,6 +93,24 @@ with `type == "text"`:
 jq -r 'select(.type == "user") | .message.content
   | if type == "string" then . else (map(select(.type == "text") | .text) | join("\n")) end' <file>
 ```
+
+**Noise exclusions.** Claude JSONL carries many synthetic "user" records
+that are not real human prompts: hook outputs, system reminders,
+slash-command echoes, task-notification polling, and tool results.
+Drop any prompt whose first non-whitespace content starts with:
+
+- `<local-command-caveat>` — caveat wrapper for local-command input
+- `<command-name>`, `<command-message>`, `<command-args>` — slash-command echoes
+- `<stdin>` — interactive input wrapper
+- `<system-reminder>` — injected reminders
+- `<user-prompt-submit-hook>` — hook payloads
+- `<task-notification>`, `</task-notification>`, `<task-id>` — task-monitor polling
+- `<summary>Monitor event` — monitor-event summary
+- `<event>` — raw monitor events
+- `If this event is something the user` — monitor heuristic preamble
+
+Reference implementation: `plugins/dotclaude/scripts/handoff-extract.sh
+prompts claude <file>`.
 
 ### Assistant turns (text only)
 

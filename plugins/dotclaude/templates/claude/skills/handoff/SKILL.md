@@ -21,7 +21,7 @@ description: >
   "find the session where", "search sessions", "which session did I",
   "push handoff", "pull handoff", "handoff to other machine",
   "resume on my other laptop".
-argument-hint: "<sub-cmd> [<source-cli>] <uuid|latest|query|handle> [--to <target-cli>] [--via <transport>] [--cli <cli>]"
+argument-hint: "[<query>|push|pull|list] [<query>] [--tag <label>] [--via <transport>]"
 tools: Glob, Read, Grep, Bash, Write
 effort: medium
 model: sonnet
@@ -29,29 +29,59 @@ model: sonnet
 
 # Handoff — Cross-CLI Session Context Transfer
 
-Locate a session transcript from one agentic CLI and hand its context to
-another. Supports three source CLIs (`claude`, `copilot`, `codex`) and
-the same three as targets. The skill never invokes a different CLI
-itself — it produces a summary or a paste-ready block the user drops
+Locate a session transcript from any agentic CLI and hand its context
+to another. Source CLI is auto-detected from the identifier; target CLI
+is wherever you run the command. The skill never invokes a different
+CLI itself — it produces a paste-ready `<handoff>` block the user drops
 into the target agent.
 
 ## Arguments
 
-- `$0` — sub-command: `describe`, `digest`, `file`, `list`, `search`,
-  `push`, `pull`, `remote-list`, or `doctor`. If not provided and the
-  skill is auto-triggered, default to `describe`.
-- `$1` — positional varies by sub-command:
-  - `describe` / `digest` / `file` / `list` / `push` → source CLI
-    (`claude`, `copilot`, `codex`).
-  - `search` → the query string (regex).
-  - `pull` → a handle (gist ID, gist URL, or the literal `latest`).
-  - `remote-list` / `doctor` → no positional argument.
-- `$2` — session identifier: a UUID or the literal `latest`. Required for
-  `describe`, `digest`, `file`, `push`. Ignored for `list`, `search`,
-  `pull`, `remote-list`, `doctor`.
-- `--to <target-cli>` — optional; tunes the digest voice for the target
-  agent. Defaults to `claude` since that is the most common consumer in
-  this repo.
+**The five forms (primary public surface):**
+
+```
+/handoff                              push host's latest session
+/handoff <query>                      local cross-agent: emit <handoff>
+/handoff push [<query>] [--tag <l>]   upload to transport
+/handoff pull [<query>]               fetch from transport
+/handoff list [--local|--remote]      unified table
+```
+
+Equivalent from any shell (including Codex's bash tool):
+`!dotclaude handoff …` with the same arguments.
+
+`<query>` auto-detects the source CLI across all three roots
+(`~/.claude/projects`, `~/.copilot/session-state`, `~/.codex/sessions`).
+It accepts:
+
+- full UUID (36 chars)
+- short UUID (first 8 hex)
+- the literal `latest` (newest by mtime across every root)
+- Claude `customTitle` alias (set via `claude --resume "<name>"`,
+  stored as a `custom-title` JSONL record)
+- Codex `thread_name` alias (set via `codex resume <name>`, stored as
+  an `event_msg` record)
+
+**Collision model.** When a `<query>` matches in two or more roots (or
+matches two gists on `pull`), behavior depends on stdin:
+
+- TTY → skill prompts interactively for a pick.
+- Non-TTY → exits 2 with a TSV candidate list on stderr (one line per
+  candidate: `<cli>\t<session-id>\t<path>\t<query>`).
+
+**Power-user sub-commands** (optional, only when you need them):
+
+- `resolve <cli> <id>` — print the absolute JSONL path.
+- `describe <cli> <id>` — inline summary (markdown or `--json`).
+- `digest <cli> <id>` — full `<handoff>` block for paste (no transport).
+- `file <cli> <id>` — write a markdown doc to `docs/handoffs/`.
+
+Each takes an explicit `<cli>` (`claude`, `copilot`, `codex`) and an
+identifier. These remain reachable for scripting.
+
+- `--to <target-cli>` — optional; tunes the `<handoff>` block's
+  next-step wording for a specific target agent. Defaults to `claude`.
+  Mostly redundant for in-place use and can be omitted.
 - `--cli <cli>` — `search` and `remote-list` only; restrict the scan
   to one CLI.
 - `--since <ISO>` — `search` and `remote-list` only; skip entries older
@@ -100,34 +130,54 @@ install matrix and workarounds live in
 ## Auto-trigger contract
 
 When the user message matches any of these patterns and the skill fires
-without explicit sub-command, run `describe` by default:
+without an explicit form, run the bare `<query>` path (local
+cross-agent digest) by default:
 
 - Literal resume-command fragments: `claude --resume <uuid>`,
-  `copilot --resume=<uuid>`, `codex resume <uuid>`.
-- Natural-language: "what was that session about", "continue in
-  \<cli\>", "switch to \<cli\>", "handoff".
+  `claude --resume "<name>"`, `copilot --resume=<uuid>`,
+  `codex resume <uuid>`, `codex resume <name>`.
+- Natural-language: "what was that session about", "continue in X",
+  "switch to X", "handoff".
 
-Extract `<cli>` and `<uuid>` from the user message. If either is missing,
-ask a single clarifying question before proceeding.
+Extract the `<query>` from the user message (a UUID, short UUID, or
+named alias). No CLI argument is needed — the skill probes all three
+roots. If the query is missing or ambiguous, ask a single clarifying
+question before proceeding.
 
 ---
 
 ## Sub-Commands
 
-### `describe <cli> <uuid|latest>`
+### `describe <cli> <uuid|latest|alias>`
 
 Print an inline 2–4 sentence summary of the session plus the verbatim
 user prompts. Use when the user asks "what was that about" and nothing
 more.
 
-**Steps:**
+For the deterministic path (resolve + extract), prefer the bundled
+shell scripts:
+
+- `plugins/dotclaude/scripts/handoff-resolve.sh <cli> <id>` — returns
+  the absolute JSONL path, supports UUID, short-UUID, `latest`, and
+  (codex only) thread-name aliases.
+- `plugins/dotclaude/scripts/handoff-extract.sh meta <cli> <file>` —
+  emits a JSON metadata object.
+- `plugins/dotclaude/scripts/handoff-extract.sh prompts <cli> <file>` —
+  emits clean user prompts with CLI-specific noise filtered out.
+
+For a fully-packaged CLI interface, invoke
+`dotclaude-handoff describe <cli> <id>` (same pattern, no skill load
+required — useful from Codex).
+
+**Steps (skill-interpreted fallback if the scripts are unavailable):**
 
 1. Resolve the session file. Load the per-CLI reference:
    - `claude` → `references/claude-code.md`
    - `copilot` → `references/copilot.md`
    - `codex` → `references/codex.md`
-2. Apply the `latest` resolver if the identifier is `latest`, otherwise
-   locate the file by UUID using the path pattern in that reference.
+2. Apply the `latest` resolver if the identifier is `latest`; for codex
+   an alias (non-hex identifier) triggers a `thread_name` scan; otherwise
+   locate the file by UUID using the path pattern in the reference.
 3. If no file is found, output exactly:
 
    ```
@@ -137,8 +187,10 @@ more.
    and stop.
 
 4. Run the per-CLI `jq` filters from the reference to extract:
-   - session meta (cwd, model, timestamp)
-   - all user turns, verbatim, in order
+   - session meta (cwd, model, timestamp); for copilot, fall back to
+     `workspace.yaml` when `session.start.cwd` is null
+   - all user turns, verbatim, in order, with CLI-specific noise filtered
+     (see the reference for the exclusion list)
    - all assistant turns (kept in memory for summary only; do not print)
 5. Render the output as:
 

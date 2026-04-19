@@ -24,6 +24,23 @@ Examples:
 find ~/.codex/sessions -type f -name "rollout-*-<uuid>.jsonl" 2>/dev/null
 ```
 
+**By thread alias (`codex resume <name>`)** — when the user renames a
+thread, Codex records an `event_msg` with
+`payload.thread_name = "<name>"`. Scan rollouts for the match:
+
+```bash
+find ~/.codex/sessions -type f -name 'rollout-*.jsonl' 2>/dev/null \
+  | while IFS= read -r f; do
+      jq -r --arg name "<name>" '
+        select(.type == "event_msg" and .payload.thread_name == $name)
+        | input_filename' "$f" 2>/dev/null | head -1
+    done | head -1
+```
+
+Reference implementation:
+`plugins/dotclaude/scripts/handoff-resolve.sh any <alias>` (or the
+per-CLI form `handoff-resolve.sh codex <alias>` for scripting).
+
 **Latest** — newest rollout by mtime (GNU/BSD portable):
 
 ```bash

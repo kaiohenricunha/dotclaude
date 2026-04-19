@@ -148,10 +148,11 @@ After `./bootstrap.sh`, open any repo in Claude Code and try:
 /dependabot-sweep
 # → parallel subagents annotate each PR with risk level; safe bumps merged automatically
 
-# Hand off mid-task context from Claude Code to Codex (or another machine)
-/handoff push claude latest --to codex
-# → scrubs secrets, produces a gist; pull on the other end with:
-/handoff pull latest --to codex
+# Hand off mid-task context across CLIs or machines
+/handoff <query>                    # local cross-agent: emit <handoff> block
+/handoff push [<query>] [--tag]     # upload to transport (scrubs secrets)
+/handoff pull [<query>]             # fetch and render on the other end
+# <query> = short UUID, full UUID, 'latest', Claude customTitle, or Codex thread_name
 ```
 
 Every command is context-aware — it reads your repo's files, history, and CI state.
