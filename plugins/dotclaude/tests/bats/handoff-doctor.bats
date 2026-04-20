@@ -64,7 +64,9 @@ hermetic_path_without() {
 
 # --- argv contract -------------------------------------------------------
 
-@test "doctor: takes no arguments after v0.9.0; any positional exits 64" {
+@test "doctor: takes no arguments after v0.9.0; any positional exits 2" {
+  # The script rejects positionals via `exit 2` (usage error in POSIX
+  # convention; matches the shebang script's other usage-error paths).
   run "$DOCTOR" git-fallback
   [ "$status" -eq 2 ]
   [[ "$output" == *"removed in v0.9.0"* ]]

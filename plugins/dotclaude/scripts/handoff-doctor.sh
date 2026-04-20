@@ -87,9 +87,14 @@ if [[ -z "$repo" ]]; then
 fi
 
 if ! git ls-remote "$repo" HEAD >/dev/null 2>&1; then
+  # Derive the host from the repo URL so the SSH probe suggestion
+  # points at the right server (works for ssh://, git@, https://; falls
+  # back to "<host>" when the URL is local or unparseable).
+  host="$(printf '%s' "$repo" | sed -nE 's#^(ssh://|git@|https?://)?([^/:]+).*#\2#p')"
+  [[ -z "$host" ]] && host="<host>"
   fail "handoff-repo-unreachable" \
     "git ls-remote on \$DOTCLAUDE_HANDOFF_REPO failed" \
-    "verify SSH: ssh -T git@github.com" \
+    "verify SSH auth to your provider (e.g. ssh -T git@$host)" \
     "or switch to HTTPS + credential helper: git config --global credential.helper cache" \
     "confirm the repo exists and your account has push access"
 fi

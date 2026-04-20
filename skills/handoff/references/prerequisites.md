@@ -65,9 +65,9 @@ Fix:
 2. `export DOTCLAUDE_HANDOFF_REPO=git@github.com:<user>/handoff-store.git`
    (add to your shell rc for persistence).
 
-The URL accepts `ssh://`, `git@`, `https://`, or a local path. Self-hosted
-GitLab/Gitea/Forgejo work the same way — the only requirement is that
-your account can push to that repo.
+The URL accepts `ssh://`, `git@`, `https://`, an absolute local path, or a
+`file://` URL. Self-hosted GitLab/Gitea/Forgejo work the same way — the
+only requirement is that your account can push to that repo.
 
 **`handoff-repo-unreachable`** — diagnose: `git ls-remote` failed.
 Fix:

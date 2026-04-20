@@ -2,7 +2,7 @@
 
 _Last updated: v0.8.0_
 
-> **Added in v0.5.0; reworked in v0.9.0** to drop the gist transports.
+> **Added in v0.5.0; later reworked** to drop the gist transports.
 > Full skill reference: [`skills/handoff/SKILL.md`](../skills/handoff/SKILL.md).
 
 The `/handoff` skill moves live session context from one agentic CLI to another —
@@ -41,7 +41,8 @@ source ~/.zshrc
 ```
 
 You can also use HTTPS (`https://github.com/<user>/handoff-store.git`), self-hosted
-URLs, or local paths. The only requirement is that your account can push.
+URLs, or a local repository via an absolute path or `file://` URL. The only
+requirement is that your account can push.
 
 ---
 
