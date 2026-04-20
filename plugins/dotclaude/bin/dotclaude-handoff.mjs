@@ -50,6 +50,20 @@ import { createInterface } from "node:readline";
 const POWER_SUBS = new Set(["resolve", "describe", "digest", "file"]);
 const CLIS = new Set(["claude", "copilot", "codex"]);
 
+// Schema pin for the remote handoff store. v0.10.0 introduced the v2
+// branch namespace (handoff/<project>/<cli>/<YYYY-MM>/<short>) and the
+// .dotclaude-handoff.json file on `main`. The binary refuses to write
+// (exit 2) against a store whose pin doesn't match, pointing the user
+// at `dotclaude handoff init`.
+const SCHEMA_VERSION = "2";
+
+// V2 branch shape — used both as the regex the writer must match AND
+// the filter `listRemoteCandidates` applies on read to skip legacy v1
+// branches. Keep in sync with handoff-description.sh's v2 schema.
+const V2_BRANCH_RE =
+  /^handoff\/[a-z0-9-]+\/(claude|copilot|codex)\/\d{4}-\d{2}\/[0-9a-f]{8}$/;
+const V1_BRANCH_RE = /^handoff\/(claude|copilot|codex)\/[0-9a-f]{8}$/;
+
 const META = {
   name: "dotclaude-handoff",
   synopsis:
@@ -364,7 +378,7 @@ function requireTransportRepo() {
   return url;
 }
 
-function encodeDescription({ cli, shortId, project, host, tag }) {
+function encodeDescription({ cli, shortId, project, host, month, tag }) {
   const args = [
     "encode",
     "--cli",
@@ -375,6 +389,8 @@ function encodeDescription({ cli, shortId, project, host, tag }) {
     project || "adhoc",
     "--hostname",
     host || "unknown",
+    "--month",
+    month,
   ];
   if (tag) args.push("--tag", tag);
   const r = runScript(DESCRIPTION_SH, args);
@@ -382,14 +398,107 @@ function encodeDescription({ cli, shortId, project, host, tag }) {
   return r.stdout.trim();
 }
 
+// Slugify any string for safe use as a branch / description segment:
+// lowercase, [a-z0-9-] only, capped at 40 chars. Collapses runs of
+// dashes and strips leading/trailing dashes so whitespace-only input
+// falls back to "adhoc" instead of "-" — matches the shell-side
+// contract in handoff-description.sh's slugify().
+function slugify(s) {
+  if (!s) return "adhoc";
+  let out = s.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+  out = out.replace(/-+/g, "-").replace(/^-+/, "").replace(/-+$/, "");
+  return out.slice(0, 40) || "adhoc";
+}
+
+// Resolve a cwd to a project slug. Walks up to the nearest git-repo
+// root via `git rev-parse --show-toplevel` so a session running deep
+// inside `~/projects/foo/services/api` is grouped under `foo`, not
+// `api`. Falls back to the cwd basename when not inside a git repo —
+// matching the v0.9.0 behaviour for non-git scratch dirs.
 function projectSlugFromCwd(cwd) {
   if (!cwd) return "adhoc";
-  const last = cwd.split("/").filter(Boolean).pop() || "adhoc";
-  return last.toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40) || "adhoc";
+  const r = spawnSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8" });
+  const root = r.status === 0 ? r.stdout.trim() : "";
+  const last = (root || cwd).split("/").filter(Boolean).pop() || "adhoc";
+  return slugify(last);
+}
+
+// Two-digit UTC month bucket for the v2 branch namespace. Accepts any
+// ISO-8601 string (or null/undefined → falls back to "now"); returns
+// "YYYY-MM". Pure function so the unit tests can drive it directly.
+function monthBucket(isoOrNull) {
+  const d = isoOrNull ? new Date(isoOrNull) : new Date();
+  if (Number.isNaN(d.getTime())) return monthBucket(null);
+  const yyyy = d.getUTCFullYear().toString();
+  const mm = (d.getUTCMonth() + 1).toString().padStart(2, "0");
+  return `${yyyy}-${mm}`;
+}
+
+// Build a v2 branch name. Centralised so the regex, the writer, and
+// the migrate sub all agree on the format.
+function v2BranchName({ project, cli, month, shortId }) {
+  return `handoff/${slugify(project)}/${cli}/${month}/${shortId}`;
+}
+
+// Shallow-clone the remote's `main` branch into a temp dir and read
+// `.dotclaude-handoff.json`. Returns the parsed object, or null when
+// the file is missing (uninitialised store). Throws when `main`
+// itself is missing (truly empty repo) — caller decides how to
+// handle that vs the unwritten-pin case.
+function readRemoteSchema() {
+  const repoUrl = requireTransportRepo();
+  const tmp = mkdtempSync(join(tmpdir(), "handoff-schema-"));
+  try {
+    const r = runGit(["clone", "-q", "--depth", "1", "--branch", "main", repoUrl, "."], tmp);
+    if (r.status !== 0) {
+      // Empty repo (no `main`) is a distinct state from "main exists
+      // but lacks the pin"; surface it as null so callers can decide.
+      const stderr = (r.stderr || "").toLowerCase();
+      if (stderr.includes("not found") || stderr.includes("does not appear") || stderr.includes("empty repository")) {
+        return null;
+      }
+      throw new Error(`clone failed: ${(r.stderr || r.stdout).trim()}`);
+    }
+    const pinPath = join(tmp, ".dotclaude-handoff.json");
+    if (!existsSync(pinPath)) return null;
+    try {
+      return JSON.parse(readFileSync(pinPath, "utf8"));
+    } catch (err) {
+      throw new Error(`.dotclaude-handoff.json is not valid JSON: ${err.message}`);
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// Wrap requireTransportRepo with a schema check. Push paths must call
+// this before writing — it's the "enforced" half of the v2 contract.
+// On schema mismatch / missing pin, fails with a pointer at `init`.
+function requireInitializedRepo() {
+  const url = requireTransportRepo();
+  let pin;
+  try {
+    pin = readRemoteSchema();
+  } catch (err) {
+    fail(2, `cannot read remote schema: ${err.message}`);
+  }
+  if (pin === null) {
+    fail(
+      2,
+      "remote handoff store is not initialised — run `dotclaude handoff init` first (writes README.md + .dotclaude-handoff.json to `main`)"
+    );
+  }
+  if (pin.schema_version !== SCHEMA_VERSION) {
+    fail(
+      2,
+      `remote handoff store schema_version=${pin.schema_version}, this binary supports ${SCHEMA_VERSION}; upgrade @dotclaude/dotclaude or reinitialise the store`
+    );
+  }
+  return url;
 }
 
 function pushRemote({ cli, path: sessionFile, tag }) {
-  const repoUrl = requireTransportRepo();
+  const repoUrl = requireInitializedRepo();
   const meta = extractMeta(cli, sessionFile);
   const prompts = extractPrompts(cli, sessionFile);
   const turns = extractTurns(cli, sessionFile);
@@ -397,13 +506,15 @@ function pushRemote({ cli, path: sessionFile, tag }) {
   const handoffBlock = renderHandoffBlock(meta, prompts, turns, toCli);
 
   const shortId = meta.short_id ?? "unknown";
-  const host = hostname().toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40);
+  const host = slugify(hostname());
   const project = projectSlugFromCwd(meta.cwd);
+  const month = monthBucket(new Date().toISOString());
   const description = encodeDescription({
     cli: meta.cli,
     shortId,
     project,
     host,
+    month,
     tag: tag || null,
   });
 
@@ -412,10 +523,12 @@ function pushRemote({ cli, path: sessionFile, tag }) {
     session_id: meta.session_id,
     short_id: shortId,
     cwd: meta.cwd ?? null,
+    project,
+    month,
     hostname: host,
     created_at: new Date().toISOString(),
     scrubbed_count: 0,
-    schema_version: "1",
+    schema_version: SCHEMA_VERSION,
     tag: tag || null,
   };
 
@@ -425,7 +538,7 @@ function pushRemote({ cli, path: sessionFile, tag }) {
     runGitOrThrow(["remote", "add", "origin", repoUrl], tmp);
     runGitOrThrow(["config", "user.email", "handoff@dotclaude.local"], tmp);
     runGitOrThrow(["config", "user.name", "dotclaude-handoff"], tmp);
-    const branch = `handoff/${meta.cli}/${shortId}`;
+    const branch = v2BranchName({ project, cli: meta.cli, month, shortId });
     runGitOrThrow(["checkout", "-q", "-b", branch], tmp);
     writeFileSync(join(tmp, "handoff.md"), handoffBlock + "\n");
     writeFileSync(join(tmp, "metadata.json"), JSON.stringify(metadata, null, 2) + "\n");
@@ -509,12 +622,17 @@ async function pullRemote(query, fromCli = null) {
   let candidates = listRemoteCandidates();
   if (candidates.length === 0) fail(2, "no handoffs found on transport");
 
-  // `--from <cli>` narrows the candidate set to one source-CLI. Branch
-  // names are shaped `handoff/<cli>/<short-uuid>`, so the prefix match
-  // is exact. Applied BEFORE any query match so short-UUID collisions
-  // across CLIs can be resolved with --from.
+  // `--from <cli>` narrows the candidate set to one source-CLI. Two
+  // branch shapes may coexist in the store: v2 (`handoff/<project>/
+  // <cli>/<YYYY-MM>/<short>`) carries the CLI in segment 2, v1 legacy
+  // (`handoff/<cli>/<short>`) carries it in segment 1. Applied BEFORE
+  // any query match so short-UUID collisions across CLIs can be
+  // resolved with --from.
   if (fromCli) {
-    candidates = candidates.filter((c) => c.branch.startsWith(`handoff/${fromCli}/`));
+    candidates = candidates.filter((c) => {
+      const segs = c.branch.split("/");
+      return segs[2] === fromCli || segs[1] === fromCli;
+    });
     if (candidates.length === 0) fail(2, `no ${fromCli} handoffs found on transport`);
   }
 
@@ -614,7 +732,8 @@ function detectHost(env = process.env) {
  * handoff-description.sh — keeps the schema owner in one place.
  */
 function decodeDescription(desc) {
-  if (!desc || !desc.startsWith("handoff:v1:")) return null;
+  if (!desc) return null;
+  if (!desc.startsWith("handoff:v1:") && !desc.startsWith("handoff:v2:")) return null;
   const r = runScript(DESCRIPTION_SH, ["decode", desc]);
   if (r.status !== 0) return null;
   try {
@@ -753,7 +872,135 @@ async function main() {
     const r = runScript(DOCTOR_SH, []);
     process.stdout.write(r.stdout);
     process.stderr.write(r.stderr);
-    process.exit(r.status);
+    if (r.status !== 0) process.exit(r.status);
+    // Surface the v2 schema pin status as a soft check on top of the
+    // shell script's git/env validation. Missing pin is a warning,
+    // not a failure — the script's contract stays "git transport
+    // reachable", and `init` is the documented next step.
+    try {
+      const pin = readRemoteSchema();
+      if (pin === null) {
+        process.stderr.write(
+          "warn: remote handoff store is not initialised — run `dotclaude handoff init` before the first push\n"
+        );
+      } else if (pin.schema_version !== SCHEMA_VERSION) {
+        process.stderr.write(
+          `warn: remote schema_version=${pin.schema_version}, this binary supports ${SCHEMA_VERSION}\n`
+        );
+      } else {
+        process.stdout.write(`ok: schema_version=${pin.schema_version}\n`);
+      }
+    } catch (err) {
+      process.stderr.write(`warn: schema check skipped: ${err.message}\n`);
+    }
+    process.exit(EXIT_CODES.OK);
+  }
+
+  if (first === "init") {
+    const repoUrl = requireTransportRepo();
+    let existing;
+    try {
+      existing = readRemoteSchema();
+    } catch (err) {
+      fail(2, `cannot read remote schema: ${err.message}`);
+    }
+    if (existing !== null) {
+      if (existing.schema_version === SCHEMA_VERSION) {
+        process.stdout.write(`ok: already initialised (schema_version=${existing.schema_version})\n`);
+        process.exit(EXIT_CODES.OK);
+      }
+      fail(
+        2,
+        `remote already pinned at schema_version=${existing.schema_version}; this binary supports ${SCHEMA_VERSION}. Upgrade @dotclaude/dotclaude on every machine before reinitialising.`
+      );
+    }
+
+    const tmp = mkdtempSync(join(tmpdir(), "handoff-init-"));
+    try {
+      // Try to clone main first; falls back to a fresh init when the
+      // remote is genuinely empty (no main branch yet).
+      const cloneR = runGit(["clone", "-q", "--depth", "1", "--branch", "main", repoUrl, "."], tmp);
+      const isEmpty = cloneR.status !== 0;
+      if (isEmpty) {
+        runGitOrThrow(["init", "-q", "-b", "main"], tmp);
+        runGitOrThrow(["remote", "add", "origin", repoUrl], tmp);
+      }
+      runGitOrThrow(["config", "user.email", "handoff@dotclaude.local"], tmp);
+      runGitOrThrow(["config", "user.name", "dotclaude-handoff"], tmp);
+
+      const pin = {
+        schema_version: SCHEMA_VERSION,
+        created_at: new Date().toISOString(),
+        layout: "branch-per-handoff",
+        branch_format: "handoff/<project>/<cli>/<YYYY-MM>/<short-uuid>",
+        description_format: "handoff:v2:<project>:<cli>:<YYYY-MM>:<short-uuid>:<hostname>[:<tag>]",
+        created_by: `@dotclaude/dotclaude@${version}`,
+      };
+      writeFileSync(join(tmp, ".dotclaude-handoff.json"), JSON.stringify(pin, null, 2) + "\n");
+
+      // README.md is best-effort: only write it when the repo doesn't
+      // already have one. This keeps `init` safe to run against a
+      // private repo the user is also using for unrelated content.
+      const readmePath = join(tmp, "README.md");
+      let readmeWritten = false;
+      if (!existsSync(readmePath)) {
+        writeFileSync(
+          readmePath,
+          [
+            "# Handoff store",
+            "",
+            "Managed by [`@dotclaude/dotclaude`](https://github.com/kaiohenricunha/dotclaude). Holds session handoffs",
+            "produced by `dotclaude handoff push`.",
+            "",
+            "## Layout",
+            "",
+            "Each handoff is a branch:",
+            "",
+            "```",
+            "handoff/<project>/<cli>/<YYYY-MM>/<short-uuid>",
+            "```",
+            "",
+            "Each branch carries three files at the root: `handoff.md` (the rendered",
+            "`<handoff>` block), `metadata.json` (cli, session, project, hostname,",
+            "scrubbed_count, schema_version), and `description.txt` (the encoded",
+            "`handoff:v2:...` string, also used as the commit message).",
+            "",
+            "The `main` branch is reserved for `.dotclaude-handoff.json` (the schema",
+            "pin) and this README. Operational sub-commands (push / pull /",
+            "remote-list / prune / migrate) only touch `handoff/...` branches.",
+            "",
+            "## Lifecycle",
+            "",
+            "- `dotclaude handoff init` — scaffolds this repo (idempotent).",
+            "- `dotclaude handoff push` — appends a handoff branch.",
+            "- `dotclaude handoff pull` — fetches one back.",
+            "- `dotclaude handoff remote-list` — lists what's here.",
+            "- `dotclaude handoff prune --older-than <Nd>` — deletes stale branches.",
+            "",
+            "Do not edit files on `main` by hand unless you know what you're doing.",
+            "",
+          ].join("\n")
+        );
+        readmeWritten = true;
+      } else {
+        process.stderr.write(
+          "note: README.md already exists on `main`; leaving it untouched\n"
+        );
+      }
+
+      runGitOrThrow(["add", ".dotclaude-handoff.json", ...(readmeWritten ? ["README.md"] : [])], tmp);
+      runGitOrThrow(
+        ["commit", "-q", "-m", `chore: initialise handoff store (schema_version=${SCHEMA_VERSION})`],
+        tmp
+      );
+      runGitOrThrow(["push", "-q", "origin", "main"], tmp);
+      process.stdout.write(`ok: initialised handoff store at ${repoUrl} (schema_version=${SCHEMA_VERSION})\n`);
+      process.exit(EXIT_CODES.OK);
+    } catch (err) {
+      fail(2, `init failed: ${err.message}`);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   }
 
   if (first === "remote-list") {
@@ -1031,11 +1278,19 @@ export {
   encodeDescription,
   mechanicalSummary,
   matchesQuery,
+  monthBucket,
   nextStepFor,
   projectSlugFromCwd,
+  readRemoteSchema,
+  requireInitializedRepo,
   requireTransportRepo,
   searchSessions,
+  slugify,
   truncate,
+  v2BranchName,
   CLI_LAYOUTS,
+  SCHEMA_VERSION,
   UUID_HEAD_RE,
+  V1_BRANCH_RE,
+  V2_BRANCH_RE,
 };

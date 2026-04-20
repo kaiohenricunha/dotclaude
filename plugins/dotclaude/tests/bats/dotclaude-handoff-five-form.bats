@@ -42,12 +42,16 @@ EOF
 {"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"text","text":"running"}]}}
 EOF
 
-  # Set up a bare git repo as the remote transport endpoint.
-  # Push/pull tests run against this local repo — no GitHub auth needed.
+  # Set up a bare git repo as the remote transport endpoint and
+  # pre-initialise it with the v2 schema pin so push/pull work without
+  # each test having to run `init` first. v0.10.0 pushRemote() refuses
+  # uninitialised stores by design — the init-coverage tests live in
+  # handoff-binary-subs.bats and don't use this fixture.
   TRANSPORT_REPO=$(mktemp -d)
   rm -rf "$TRANSPORT_REPO"
   git init -q --bare "$TRANSPORT_REPO"
   export DOTCLAUDE_HANDOFF_REPO="$TRANSPORT_REPO"
+  node "$BIN" init >/dev/null
 
   export CLAUDE_FILE CODEX_FILE TRANSPORT_REPO
 }
@@ -126,20 +130,27 @@ teardown() {
 
 # -- push (remote git transport) -----------------------------------------
 
-@test "push <query> uploads to remote (bare repo transport)" {
+@test "push <query> uploads to remote (v2 branch shape)" {
   run node "$BIN" push my-feature
   [ "$status" -eq 0 ]
-  # Confirm the transport repo has the new branch.
+  # Confirm the transport repo has a v2 branch. The month segment
+  # reflects the current UTC month; we match with a glob rather than
+  # hard-coding the date so the test stays stable across calendar
+  # rollovers. Fixture cwd `/home/u/demo` → project slug "demo".
   run bash -c "git --git-dir='$TRANSPORT_REPO' branch -a"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"handoff/claude/aaaa1111"* ]]
+  [[ "$output" =~ handoff/demo/claude/[0-9]{4}-[0-9]{2}/aaaa1111 ]]
 }
 
 @test "push --tag label embeds tag in the transport description" {
   run node "$BIN" push my-feature --tag finishing-auth
   [ "$status" -eq 0 ]
-  # The description line includes the tag (commit message carries it).
-  run bash -c "git --git-dir='$TRANSPORT_REPO' log --format=%s handoff/claude/aaaa1111"
+  # Find the branch name via ls-remote, then grep its commit message
+  # for the tag segment.
+  run bash -c "git --git-dir='$TRANSPORT_REPO' for-each-ref --format='%(refname:short)' 'refs/heads/handoff/demo/claude/*/aaaa1111'"
+  [ "$status" -eq 0 ]
+  branch="$output"
+  run bash -c "git --git-dir='$TRANSPORT_REPO' log --format=%s $branch"
   [ "$status" -eq 0 ]
   [[ "$output" == *"finishing-auth"* ]]
 }
@@ -185,7 +196,7 @@ teardown() {
   [ "$status" -eq 0 ]
   run node "$BIN" pull alpha </dev/null
   [ "$status" -eq 2 ]
-  [[ "$output" == *"handoff/claude/aaaa1111"* ]] || [[ "$output" == *"handoff/codex/bbbb2222"* ]]
+  [[ "$output" =~ handoff/demo/(claude|codex)/ ]]
 }
 
 # -- back-compat removal: no <cli> positional allowed --------------------
@@ -224,7 +235,7 @@ teardown() {
     node "$BIN" push --from codex
   [ "$status" -eq 0 ]
   run git --git-dir="$TRANSPORT_REPO" branch -a
-  [[ "$output" == *"handoff/codex/bbbb2222"* ]]
+  [[ "$output" =~ handoff/demo/codex/[0-9]{4}-[0-9]{2}/bbbb2222 ]]
 }
 
 @test "push --from with an unknown CLI exits 64" {
@@ -264,7 +275,7 @@ teardown() {
   [ "$status" -eq 0 ]
   [[ "$stderr" == *"using --from codex override"* ]]
   run git --git-dir="$TRANSPORT_REPO" branch -a
-  [[ "$output" == *"handoff/codex/bbbb2222"* ]]
+  [[ "$output" =~ handoff/demo/codex/[0-9]{4}-[0-9]{2}/bbbb2222 ]]
 }
 
 # -- honest stderr fallback notes ----------------------------------------

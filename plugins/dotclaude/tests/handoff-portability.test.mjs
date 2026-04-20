@@ -34,11 +34,12 @@ describe("collectSessionFiles (symlink safety)", () => {
 });
 
 describe("projectSlugFromCwd (trailing-separator edge)", () => {
-  it("does not strip a trailing '-' produced by sanitising punctuation", () => {
-    // Documented side-effect: the sanitizer folds runs of non-[a-z0-9-] to
-    // "-" and then slice-at-40 truncates; no trim. A final segment ending
-    // in punctuation therefore yields a trailing "-".
-    expect(projectSlugFromCwd("/tmp/My Weird Project!!")).toBe("my-weird-project-");
+  it("strips a trailing '-' produced by sanitising punctuation", () => {
+    // v0.10.0 tightened the JS slugify to match the shell slugify in
+    // handoff-description.sh — collapse runs of '-' and trim leading /
+    // trailing '-'. A cwd ending in punctuation therefore yields a
+    // clean "my-weird-project" rather than "my-weird-project-".
+    expect(projectSlugFromCwd("/tmp/My Weird Project!!")).toBe("my-weird-project");
   });
 });
 

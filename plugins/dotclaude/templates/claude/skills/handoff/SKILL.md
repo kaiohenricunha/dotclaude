@@ -62,6 +62,7 @@ semantics. Brief summary:
 
 | Sub                   | Purpose                                                             |
 | --------------------- | ------------------------------------------------------------------- |
+| `init`                | Scaffold the remote schema pin on `main` (idempotent, one-time)     |
 | `resolve <cli> <id>`  | Print the absolute JSONL path                                       |
 | `describe <cli> <id>` | Inline 2–4 sentence summary + verbatim user prompts                 |
 | `digest <cli> <id>`   | Print a paste-ready `<handoff>` block (no transport)                |
@@ -71,7 +72,7 @@ semantics. Brief summary:
 | `push [<query>]`      | Push to `$DOTCLAUDE_HANDOFF_REPO`; `--tag` / `--include-transcript` |
 | `pull [<handle>]`     | Fetch from `$DOTCLAUDE_HANDOFF_REPO`; `--from-file` for offline     |
 | `remote-list`         | List handoffs on the transport; `--cli` / `--since` / `--limit`     |
-| `doctor`              | Verify `git` + `$DOTCLAUDE_HANDOFF_REPO` reachable                  |
+| `doctor`              | Verify `git` + `$DOTCLAUDE_HANDOFF_REPO` + schema pin               |
 
 Cross-cutting flags (consult `--help` for the canonical list):
 
@@ -101,9 +102,24 @@ self-hosted). Required:
 - `$DOTCLAUDE_HANDOFF_REPO` set to the repo URL (no default; example:
   `git@github.com:<user>/handoff-store.git`).
 - Working SSH or credential-helper auth for that repo.
+- The repo initialised once via `dotclaude handoff init` — writes the
+  schema pin on `main` so the binary can refuse mismatched stores.
 
 Run `dotclaude handoff doctor` to verify. Full install matrix and
 remediation lives in `references/prerequisites.md`.
+
+## Repo layout (v0.10.0+)
+
+Each handoff is a branch:
+
+```
+handoff/<project>/<cli>/<YYYY-MM>/<short-uuid>
+```
+
+e.g. `handoff/dotclaude/claude/2026-04/aaaa1111`. `main` holds
+`.dotclaude-handoff.json` (the schema pin) and a README — `push`/
+`pull`/`remote-list`/`prune` only touch `handoff/...` branches. Full
+schema + rationale in [`docs/handoff-store-schema.md`](../../docs/handoff-store-schema.md).
 
 ## Auto-trigger contract
 

@@ -117,8 +117,12 @@ teardown() {
   [ "$status" -eq 0 ]
   # Transport description appears on stdout as the final line of the push.
   [[ "$output" == *"shipping-the-thing"* ]]
-  # And it persists into the transport repo commit subject.
-  run bash -c "git --git-dir='$TRANSPORT_REPO' log --format=%s handoff/claude/aaaa1111"
+  # And it persists into the transport repo commit subject. Branch is
+  # handoff/<project>/<cli>/<YYYY-MM>/<short>; look it up dynamically.
+  run bash -c "git --git-dir='$TRANSPORT_REPO' for-each-ref --format='%(refname:short)' 'refs/heads/handoff/*/claude/*/aaaa1111'"
+  [ "$status" -eq 0 ]
+  local branch="$output"
+  run bash -c "git --git-dir='$TRANSPORT_REPO' log --format=%s $branch"
   [ "$status" -eq 0 ]
   [[ "$output" == *"shipping-the-thing"* ]]
   # Pull-by-tag resolves and returns a valid block (content-equivalence

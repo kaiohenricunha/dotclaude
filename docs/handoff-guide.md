@@ -37,8 +37,15 @@ GitHub, GitLab, Gitea, self-hosted). Create one once, then point
 gh repo create handoff-store --private
 echo 'export DOTCLAUDE_HANDOFF_REPO=git@github.com:<user>/handoff-store.git' >> ~/.zshrc
 source ~/.zshrc
-/handoff doctor                  # verify
+dotclaude handoff init           # writes .dotclaude-handoff.json + README to main
+dotclaude handoff doctor         # verify
 ```
+
+`init` is required from v0.10.0 onward — `push` refuses to write into
+an unstamped store so mismatched versions across machines surface
+immediately. Running it against an already-initialised store is a
+no-op (exits 0 with "already initialised"). Schema details live in
+[`docs/handoff-store-schema.md`](./handoff-store-schema.md).
 
 You can also use HTTPS (`https://github.com/<user>/handoff-store.git`), self-hosted
 URLs, or a local repository via an absolute path or `file://` URL. The only

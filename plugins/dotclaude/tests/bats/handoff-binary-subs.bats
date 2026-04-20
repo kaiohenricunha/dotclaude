@@ -34,11 +34,15 @@ EOF
 {"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"text","text":"running"}]}}
 EOF
 
-  # Set up a bare git repo as the remote transport endpoint.
+  # Set up a bare git repo as the remote transport endpoint and
+  # pre-initialise it with the v2 schema pin so push succeeds.
+  # The dedicated `init` tests further down reinitialise their own
+  # fresh stores so they can assert against the bare-repo starting state.
   TRANSPORT_REPO=$(mktemp -d)
   rm -rf "$TRANSPORT_REPO"
   git init -q --bare "$TRANSPORT_REPO"
   export DOTCLAUDE_HANDOFF_REPO="$TRANSPORT_REPO"
+  node "$BIN" init >/dev/null
 
   export CLAUDE_FILE CODEX_FILE TRANSPORT_REPO
 }
@@ -77,8 +81,9 @@ teardown() {
   [ "$status" -eq 0 ]
   run node "$BIN" remote-list
   [ "$status" -eq 0 ]
-  [[ "$output" == *"handoff/claude/aaaa1111"* ]]
-  [[ "$output" == *"handoff/codex/bbbb2222"* ]]
+  # v2 branches include project + month; fixture cwd resolves to "demo".
+  [[ "$output" =~ handoff/demo/claude/[0-9]{4}-[0-9]{2}/aaaa1111 ]]
+  [[ "$output" =~ handoff/demo/codex/[0-9]{4}-[0-9]{2}/bbbb2222 ]]
 }
 
 @test "remote-list --cli claude filters to claude-only" {
@@ -86,8 +91,8 @@ teardown() {
   run node "$BIN" push my-codex-task
   run node "$BIN" remote-list --cli claude
   [ "$status" -eq 0 ]
-  [[ "$output" == *"handoff/claude/aaaa1111"* ]]
-  [[ "$output" != *"handoff/codex/bbbb2222"* ]]
+  [[ "$output" =~ handoff/demo/claude/[0-9]{4}-[0-9]{2}/aaaa1111 ]]
+  [[ "$output" != *"bbbb2222"* ]]
 }
 
 @test "remote-list --json emits a JSON array of handoff entries" {
@@ -152,4 +157,44 @@ teardown() {
   [[ "$output" == *'"cli":'* ]]
   [[ "$output" == *'"short_id":'* ]]
   [[ "$output" == *'"snippet":'* ]]
+}
+
+# ---- init (v0.10.0: scaffold the remote schema pin) --------------------
+# These tests build a second, FRESH bare repo so they can assert the
+# pre-init / post-init transitions without tripping the shared setup's
+# already-initialised fixture repo.
+
+@test "init: idempotent — re-running against an already-initialised store exits 0" {
+  run node "$BIN" init
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"already initialised"* ]]
+}
+
+@test "init: a fresh empty bare repo gets main + .dotclaude-handoff.json" {
+  local fresh
+  fresh=$(mktemp -d); rm -rf "$fresh"; git init -q --bare "$fresh"
+  DOTCLAUDE_HANDOFF_REPO="$fresh" run node "$BIN" init
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok: initialised"* ]]
+  # Schema pin landed on main.
+  run git --git-dir="$fresh" show main:.dotclaude-handoff.json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"schema_version": "2"'* ]]
+  rm -rf "$fresh"
+}
+
+@test "push against an uninitialised store exits 2 with an init pointer" {
+  local fresh
+  fresh=$(mktemp -d); rm -rf "$fresh"; git init -q --bare "$fresh"
+  DOTCLAUDE_HANDOFF_REPO="$fresh" run node "$BIN" push aaaa1111
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"not initialised"* ]]
+  [[ "$output" == *"dotclaude handoff init"* ]]
+  rm -rf "$fresh"
+}
+
+@test "doctor surfaces schema status after a successful transport check" {
+  run node "$BIN" doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"schema_version=2"* ]]
 }

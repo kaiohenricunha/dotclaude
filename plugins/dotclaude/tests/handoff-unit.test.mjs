@@ -76,11 +76,11 @@ describe("projectSlugFromCwd", () => {
     expect(projectSlugFromCwd(long).length).toBeLessThanOrEqual(40);
   });
 
-  it("only collapses to 'adhoc' when normalisation leaves an empty string", () => {
-    // Documented edge: "..." normalises to "-", which is non-empty so the
-    // `|| "adhoc"` fallback does NOT fire. Locked in so a regex tweak that
-    // silently changes this behaviour is surfaced by the suite.
-    expect(projectSlugFromCwd("/root/...")).toBe("-");
+  it("collapses to 'adhoc' when normalisation leaves only dashes", () => {
+    // v0.10.0 aligned the JS slugify with the shell slugify — collapse
+    // runs of '-' and trim leading / trailing '-'. "..." now reduces
+    // to "" after trimming, and the `|| "adhoc"` fallback fires.
+    expect(projectSlugFromCwd("/root/...")).toBe("adhoc");
   });
 });
 

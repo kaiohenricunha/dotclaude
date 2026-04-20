@@ -51,7 +51,14 @@ teardown() {
   "
   [ "$status" -eq 0 ]
 
-  run git --git-dir="$TRANSPORT_REPO" rev-parse handoff/claude/aaaa1111
+  # v2 branch shape: handoff/<project>/<cli>/<YYYY-MM>/<short>.
+  # Fixture cwd `/home/u/demo` → project slug "demo"; month is the
+  # current UTC month. Look up the ref dynamically.
+  run bash -c "git --git-dir='$TRANSPORT_REPO' for-each-ref --format='%(refname:short)' 'refs/heads/handoff/demo/claude/*/aaaa1111'"
+  [ "$status" -eq 0 ]
+  local branch="$output"
+  [ -n "$branch" ]
+  run git --git-dir="$TRANSPORT_REPO" rev-parse "$branch"
   [ "$status" -eq 0 ]
   [[ "$output" =~ ^[0-9a-f]{40}$ ]]
   run git --git-dir="$TRANSPORT_REPO" fsck --no-dangling
