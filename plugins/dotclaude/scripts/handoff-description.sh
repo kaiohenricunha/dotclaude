@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-# handoff-description.sh — encode/decode the gist description schema.
+# handoff-description.sh — encode/decode the remote handoff store
+# description schema. Used by `dotclaude handoff push` to build the
+# branch commit message + the description.txt file, and by
+# `remote-list` to render the table.
 #
-# Schema: handoff:v1:<cli>:<short-uuid>:<project-slug>:<hostname>[:<tag>]
+# Schemas:
+#   v2 (current): handoff:v2:<project>:<cli>:<YYYY-MM>:<short>:<host>[:<tag>]
+#   v1 (legacy ): handoff:v1:<cli>:<short>:<project>:<host>[:<tag>]
+# decode accepts both; encode only emits v2.
 #
 # Usage:
 #   handoff-description.sh encode \
@@ -9,13 +15,14 @@
 #     --short-id <8 hex chars> \
 #     --project <slug> \
 #     --hostname <slug> \
+#     --month <YYYY-MM> \
 #     [--tag <slug>]
 #
-#   handoff-description.sh decode "<handoff:v1:...>"
+#   handoff-description.sh decode "<handoff:v[12]:...>"
 #
-# encode: prints the composed string on stdout, exit 0.
-# decode: prints a JSON object on stdout, exit 0. Exits non-zero with
-# a structured error on malformed input.
+# encode: prints the v2 string on stdout, exit 0.
+# decode: prints a JSON object on stdout, exit 0. The JSON includes a
+#         "schema":"v1"|"v2" key so callers can branch on it.
 
 set -euo pipefail
 
@@ -26,7 +33,6 @@ slugify() {
   local raw="$1"
   raw="$(printf '%s' "$raw" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
   raw="$(printf '%s' "$raw" | LC_ALL=C tr -c 'a-z0-9-' '-')"
-  # Trim leading/trailing dashes and collapse runs.
   raw="$(printf '%s' "$raw" | sed -E 's/-+/-/g; s/^-+//; s/-+$//')"
   [[ -z "$raw" ]] && raw="adhoc"
   printf '%s' "${raw:0:40}"
@@ -37,14 +43,20 @@ valid_segment() {
   [[ "$1" =~ ^[a-z0-9-]{1,40}$ ]]
 }
 
+# YYYY-MM month bucket — exactly 4 digits, dash, 2 digits.
+valid_month() {
+  [[ "$1" =~ ^[0-9]{4}-[0-9]{2}$ ]]
+}
+
 cmd_encode() {
-  local cli="" short_id="" project="" hostname="" tag=""
+  local cli="" short_id="" project="" hostname="" month="" tag=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --cli) cli="$2"; shift 2;;
       --short-id) short_id="$2"; shift 2;;
       --project) project="$2"; shift 2;;
       --hostname) hostname="$2"; shift 2;;
+      --month) month="$2"; shift 2;;
       --tag) tag="$2"; shift 2;;
       *) die "unknown encode flag: $1";;
     esac
@@ -54,6 +66,7 @@ cmd_encode() {
   [[ -z "$short_id" ]] && die "encode requires --short-id"
   [[ -z "$project" ]] && die "encode requires --project"
   [[ -z "$hostname" ]] && die "encode requires --hostname"
+  [[ -z "$month" ]] && die "encode requires --month"
 
   case "$cli" in
     claude|copilot|codex) ;;
@@ -61,6 +74,7 @@ cmd_encode() {
   esac
 
   [[ "$short_id" =~ ^[0-9a-f]{8}$ ]] || die "--short-id must be exactly 8 hex chars"
+  valid_month "$month" || die "--month must be YYYY-MM (got: $month)"
 
   local project_slug hostname_slug tag_slug=""
   project_slug="$(slugify "$project")"
@@ -68,7 +82,7 @@ cmd_encode() {
   valid_segment "$project_slug" || die "project slug invalid after normalization: $project_slug"
   valid_segment "$hostname_slug" || die "hostname slug invalid after normalization: $hostname_slug"
 
-  local out="handoff:v1:${cli}:${short_id}:${project_slug}:${hostname_slug}"
+  local out="handoff:v2:${project_slug}:${cli}:${month}:${short_id}:${hostname_slug}"
   if [[ -n "$tag" ]]; then
     tag_slug="$(slugify "$tag")"
     valid_segment "$tag_slug" || die "tag slug invalid after normalization: $tag_slug"
@@ -78,39 +92,78 @@ cmd_encode() {
   printf '%s\n' "$out"
 }
 
+# Decode a v2 description. Segments are positional:
+#   handoff:v2:<project>:<cli>:<YYYY-MM>:<short>:<host>[:<tag>]
+decode_v2() {
+  local rest="$1"
+  IFS=':' read -r project cli month short_id hostname tag extra <<<"$rest"
+
+  [[ -n "${extra:-}" ]] && die "malformed v2: too many colon segments"
+  [[ -z "${project:-}" || -z "${cli:-}" || -z "${month:-}" || -z "${short_id:-}" || -z "${hostname:-}" ]] \
+    && die "malformed v2: missing required segment"
+
+  case "$cli" in
+    claude|copilot|codex) ;;
+    *) die "malformed v2: cli not one of claude|copilot|codex ($cli)";;
+  esac
+  valid_month "$month" || die "malformed v2: month not YYYY-MM ($month)"
+  [[ "$short_id" =~ ^[0-9a-f]{8}$ ]] || die "malformed v2: short-id not 8 hex chars"
+  valid_segment "$project" || die "malformed v2: project slug fails charset"
+  valid_segment "$hostname" || die "malformed v2: hostname slug fails charset"
+  if [[ -n "${tag:-}" ]]; then
+    valid_segment "$tag" || die "malformed v2: tag slug fails charset"
+  fi
+
+  if [[ -n "${tag:-}" ]]; then
+    printf '{"schema":"v2","cli":"%s","short_id":"%s","project":"%s","month":"%s","hostname":"%s","tag":"%s"}\n' \
+      "$cli" "$short_id" "$project" "$month" "$hostname" "$tag"
+  else
+    printf '{"schema":"v2","cli":"%s","short_id":"%s","project":"%s","month":"%s","hostname":"%s","tag":null}\n' \
+      "$cli" "$short_id" "$project" "$month" "$hostname"
+  fi
+}
+
+# Decode a legacy v1 description (read-only — no encode path). Segments:
+#   handoff:v1:<cli>:<short>:<project>:<host>[:<tag>]
+decode_v1() {
+  local rest="$1"
+  IFS=':' read -r cli short_id project hostname tag extra <<<"$rest"
+
+  [[ -n "${extra:-}" ]] && die "malformed v1: too many colon segments"
+  [[ -z "${cli:-}" || -z "${short_id:-}" || -z "${project:-}" || -z "${hostname:-}" ]] \
+    && die "malformed v1: missing required segment"
+
+  case "$cli" in
+    claude|copilot|codex) ;;
+    *) die "malformed v1: cli not one of claude|copilot|codex ($cli)";;
+  esac
+  [[ "$short_id" =~ ^[0-9a-f]{8}$ ]] || die "malformed v1: short-id not 8 hex chars"
+  valid_segment "$project" || die "malformed v1: project slug fails charset"
+  valid_segment "$hostname" || die "malformed v1: hostname slug fails charset"
+  if [[ -n "${tag:-}" ]]; then
+    valid_segment "$tag" || die "malformed v1: tag slug fails charset"
+  fi
+
+  # Emit the same shape as v2's JSON, with month=null (legacy lacks it)
+  # and schema=v1 so callers can mark these as "(legacy)" in UI.
+  if [[ -n "${tag:-}" ]]; then
+    printf '{"schema":"v1","cli":"%s","short_id":"%s","project":"%s","month":null,"hostname":"%s","tag":"%s"}\n' \
+      "$cli" "$short_id" "$project" "$hostname" "$tag"
+  else
+    printf '{"schema":"v1","cli":"%s","short_id":"%s","project":"%s","month":null,"hostname":"%s","tag":null}\n' \
+      "$cli" "$short_id" "$project" "$hostname"
+  fi
+}
+
 cmd_decode() {
   local raw="${1:-}"
   [[ -z "$raw" ]] && die "decode requires the description string"
 
-  # Strict parse: reject anything that doesn't start with handoff:v1:.
-  [[ "$raw" =~ ^handoff:v1: ]] || die "malformed: missing handoff:v1: prefix"
-
-  local rest="${raw#handoff:v1:}"
-  IFS=':' read -r cli short_id project hostname tag extra <<<"$rest"
-
-  [[ -n "${extra:-}" ]] && die "malformed: too many colon segments"
-  [[ -z "${cli:-}" || -z "${short_id:-}" || -z "${project:-}" || -z "${hostname:-}" ]] \
-    && die "malformed: missing required segment"
-
-  case "$cli" in
-    claude|copilot|codex) ;;
-    *) die "malformed: cli not one of claude|copilot|codex ($cli)";;
+  case "$raw" in
+    handoff:v2:*) decode_v2 "${raw#handoff:v2:}" ;;
+    handoff:v1:*) decode_v1 "${raw#handoff:v1:}" ;;
+    *) die "malformed: missing handoff:v[12]: prefix" ;;
   esac
-  [[ "$short_id" =~ ^[0-9a-f]{8}$ ]] || die "malformed: short-id not 8 hex chars"
-  valid_segment "$project" || die "malformed: project slug fails charset"
-  valid_segment "$hostname" || die "malformed: hostname slug fails charset"
-  if [[ -n "${tag:-}" ]]; then
-    valid_segment "$tag" || die "malformed: tag slug fails charset"
-  fi
-
-  # Emit JSON. Keep it hand-rolled to avoid a jq hard-dep.
-  if [[ -n "${tag:-}" ]]; then
-    printf '{"cli":"%s","short_id":"%s","project":"%s","hostname":"%s","tag":"%s"}\n' \
-      "$cli" "$short_id" "$project" "$hostname" "$tag"
-  else
-    printf '{"cli":"%s","short_id":"%s","project":"%s","hostname":"%s","tag":null}\n' \
-      "$cli" "$short_id" "$project" "$hostname"
-  fi
 }
 
 sub="${1:-}"
