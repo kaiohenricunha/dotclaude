@@ -4,6 +4,17 @@ All notable changes to `@dotclaude/dotclaude` land here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0](https://github.com/kaiohenricunha/dotclaude/compare/v0.10.0...v0.11.0) (2026-04-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **handoff:** self-bootstrap push — drop init ceremony and schema pin ([#80](https://github.com/kaiohenricunha/dotclaude/issues/80))
+
+### Added
+
+* **handoff:** self-bootstrap push — drop init ceremony and schema pin ([#80](https://github.com/kaiohenricunha/dotclaude/issues/80)) ([ab02686](https://github.com/kaiohenricunha/dotclaude/commit/ab026867a2b3665d413961cb1f9faf6ae8cecc85))
+
 ## [0.10.0](https://github.com/kaiohenricunha/dotclaude/compare/v0.9.0...v0.10.0) (2026-04-20)
 
 
