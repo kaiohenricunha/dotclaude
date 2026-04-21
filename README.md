@@ -6,26 +6,28 @@
 
 > Maintained by [@kaiohenricunha](https://github.com/kaiohenricunha) · [Changelog](./CHANGELOG.md) · [Security](./SECURITY.md)
 
-Portable Claude Code plugin + zero-dependency npm package that bootstraps
-spec-driven-development governance into consumer repos.
+An opinionated Claude Code toolkit. Ships a curated library of skills,
+slash commands, and cloud/IaC specialists plus a global rule floor that
+hardens every Claude Code session — and an optional spec-driven-development
+governance CLI on top, for repos that want PR-time gates.
 
 **Who is this for?**
 
-| I am…            | I want…                                        | Start here                                       |
-| ---------------- | ---------------------------------------------- | ------------------------------------------------ |
-| **Dotfile user** | Skills & commands in every Claude Code session | [Clone & bootstrap](#clone--bootstrap)           |
-| **Consumer**     | Spec-governance CLI for my own repos           | [Install the CLI](#install-the-cli)              |
-| **Library user** | Node API in my own tooling                     | [docs/api-reference.md](./docs/api-reference.md) |
-| **Contributor**  | Dev workflow, local gates                      | [CONTRIBUTING.md](./CONTRIBUTING.md)             |
+| I am…            | I want…                                                                | Start here                                       |
+| ---------------- | ---------------------------------------------------------------------- | ------------------------------------------------ |
+| **Dotfile user** | The toolkit — skills, commands, and CLAUDE.md in every Claude session  | [Clone & bootstrap](#clone--bootstrap)           |
+| **Consumer**     | The CLI in my repo — bootstrap, doctor, drift, optional spec-gov gates | [Install the CLI](#install-the-cli)              |
+| **Library user** | Node API in my own tooling                                             | [docs/api-reference.md](./docs/api-reference.md) |
+| **Contributor**  | Dev workflow, local gates                                              | [CONTRIBUTING.md](./CONTRIBUTING.md)             |
 
 ---
 
 ## TL;DR — pick your path
 
-| What you want                                     | How                                                                                |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Skills & commands library wired into `~/.claude/` | **[Clone & bootstrap](#clone--bootstrap)** — 30 seconds, no npm required           |
-| Spec-governance CLI for your own repos            | **[Install the CLI](#install-the-cli)** — see install section (Node ≥ 20 required) |
+| What you want                                                                | How                                                                                |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Skills & commands library wired into `~/.claude/`                            | **[Clone & bootstrap](#clone--bootstrap)** — 30 seconds, no npm required           |
+| Governance CLI for your own repos (bootstrap + doctor + optional spec gates) | **[Install the CLI](#install-the-cli)** — see install section (Node ≥ 20 required) |
 
 Both paths are independent. You can use one or both.
 
@@ -114,7 +116,7 @@ or `dotclaude sync --help` for full options.
 | [`create-assessment`](commands/create-assessment.md) | `/create-assessment <target>`  | 0–10 graded assessment doc → `docs/assessments/`          |
 | [`markdown`](commands/markdown.md)                   | `/markdown <path>`             | Fix markdown formatting and structure                     |
 
-**Spec & governance:**
+**Spec & governance** — one optional pillar of the toolkit. Skip this section if you're not adopting spec-driven workflows.
 
 | Command / Skill                                    | Invoke                                                                                                                                | What it does                                    |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
@@ -161,8 +163,8 @@ Every command is context-aware — it reads your repo's files, history, and CI s
 
 ## Install the CLI
 
-Need spec-governance gates, CI integration, drift detection, or programmatic
-validation in your own projects? Install the CLI:
+Want the governance CLI in your own repos — bootstrap, doctor, drift detection,
+programmatic validation, and optional spec-governance gates? Install it:
 
 ```bash
 # One-liner (requires Node ≥ 20)
