@@ -33,4 +33,4 @@ docs/specs/
 1. Draft → `status: draft`; no CI enforcement yet.
 2. Approve → `status: approved`; files in `linked_paths` now require this spec (or a `No-spec rationale`) in any PR that touches them.
 3. Implement → `status: implementing`; work in progress, same gating.
-4. Done → `status: done`; spec remains as governance over linked_paths (Böckeler's "spec-anchored" mode).
+4. Done → `status: done`; spec remains as governance over linked_paths (Böckeler's "spec-anchored" mode — an opt-in steady state for repos that want long-lived PR-time gates, not the default for casual feature work).

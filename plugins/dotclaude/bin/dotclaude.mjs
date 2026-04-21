@@ -41,7 +41,7 @@ const SUBCOMMANDS = [
 function printUsage() {
   process.stdout.write(
     [
-      "dotclaude — structured-error-emitting CLI for @dotclaude/dotclaude",
+      "dotclaude — Claude Code toolkit CLI (bootstrap, doctor, validators, governance)",
       "",
       "Usage:",
       "  dotclaude <subcommand> [options]",

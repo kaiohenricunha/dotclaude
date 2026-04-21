@@ -5,10 +5,10 @@
 > - **TL;DR — just want skills & commands:** Clone this repo and run `./bootstrap.sh`.
 >   That wires `commands/`, `skills/`, and this file into `~/.claude/` in one step.
 >   No npm required.
-> - **Want more flexibility:** Install `@dotclaude/dotclaude` for the full governance
->   CLI — `dotclaude bootstrap`, `dotclaude sync`, `dotclaude doctor`,
->   `dotclaude validate-specs`, and more. See [README.md](./README.md) or
->   [docs/quickstart.md](./docs/quickstart.md).
+> - **Want more:** Install `@dotclaude/dotclaude` for the full CLI — `dotclaude bootstrap`,
+>   `dotclaude sync`, `dotclaude doctor`, `dotclaude init`, `dotclaude detect-drift`,
+>   and the spec-governance validators.
+>   See [README.md](./README.md) or [docs/quickstart.md](./docs/quickstart.md).
 >
 > **This file is for the bootstrap path.** It gets symlinked into `~/.claude/CLAUDE.md`
 > by `bootstrap.sh` and sets the global rule floor for every Claude Code session.
