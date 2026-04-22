@@ -763,7 +763,29 @@ async function main() {
 
   // ---- bare <query>: local cross-agent (implicit digest) -----------------
   const query = first;
-  const hit = await resolveAny(query);
+  // Host-scoping rule (#85): when query == "latest" we respect --from
+  // and the detected host so the resolver picks the newest session on
+  // THIS agent, not the globally-newest JSONL across all roots. An
+  // explicit UUID/alias is left untouched — narrowing an alias can hide
+  // a legitimate cross-agent match.
+  const narrowLatestTo =
+    query === "latest" ? (fromCli ?? (detectedHost !== "unknown" ? detectedHost : null)) : null;
+  let hit;
+  let fallbackNote;
+  if (narrowLatestTo) {
+    hit = resolveNarrowed(narrowLatestTo, "latest");
+    const shortId = shortIdFromPath(hit.path);
+    fallbackNote = fromCli
+      ? `using --from ${narrowLatestTo} override, latest ${narrowLatestTo} session: ${shortId}`
+      : `latest ${narrowLatestTo} session: ${shortId}`;
+  } else {
+    hit = await resolveAny(query);
+    if (query === "latest" && detectedHost === "unknown") {
+      const shortId = shortIdFromPath(hit.path);
+      fallbackNote = `host not detected, using latest across all clis: ${shortId}`;
+    }
+  }
+  if (fallbackNote) process.stderr.write(fallbackNote + "\n");
   const meta = extractMeta(hit.cli, hit.path);
   const prompts = extractPrompts(hit.cli, hit.path);
   const turns = extractTurns(hit.cli, hit.path, limit);
