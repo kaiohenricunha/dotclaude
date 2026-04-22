@@ -48,10 +48,8 @@ bash tool.
 /handoff list [--local|--remote]      unified table
 ```
 
-A bare `/handoff` with no arguments prints usage and exits 0. The
-previous zero-arg alias for `push` was ambiguous (two SKILL.md contracts
-claimed it) and unsafe (it mutated remote state without explicit intent).
-Every remote verb is now explicit.
+A bare `/handoff` with no arguments prints usage and exits 0. Every
+remote verb is explicit.
 
 `<query>` auto-detects across `~/.claude/projects`,
 `~/.copilot/session-state`, and `~/.codex/sessions`. Accepted forms:

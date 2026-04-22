@@ -458,11 +458,6 @@ function shortIdFromPath(path) {
 }
 
 async function main() {
-  // Issue #86: bare `dotclaude handoff` (no positionals, no flags that
-  // already short-circuited) prints usage and exits 0. The previous
-  // behavior — silently pushing the host's latest session — carried two
-  // contradictory SKILL.md contracts and mutated remote state as a
-  // zero-arg default, which is unsafe. Every other verb is explicit.
   if (argv.positional.length === 0) {
     process.stdout.write(helpText(META) + "\n");
     process.exit(EXIT_CODES.OK);
@@ -630,8 +625,6 @@ async function main() {
     process.exit(EXIT_CODES.OK);
   }
 
-  // `push` is the only path to remote-mutation now (#86 removed the
-  // zero-arg alias). Everything below this guard handles the push flow.
   if (first === "push") {
     const explicitQuery = second ?? null;
     let sessionHit;
