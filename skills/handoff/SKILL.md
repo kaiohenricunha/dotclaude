@@ -42,10 +42,10 @@ bash tool.
 ## The four forms
 
 ```
-/handoff <query>                      local cross-agent: emit <handoff>
-/handoff push [<query>] [--tag <l>]   upload to transport
-/handoff pull [<query>]               fetch from transport
-/handoff list [--local|--remote]      unified table
+/handoff <query>                          local cross-agent: emit <handoff>
+/handoff push [<query>] [--tag <label>]   upload to transport
+/handoff pull [<query>]                   fetch from transport
+/handoff list [--local|--remote]          unified table
 ```
 
 A bare `/handoff` with no arguments prints usage and exits 0. Every
