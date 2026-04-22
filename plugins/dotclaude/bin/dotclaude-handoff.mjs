@@ -7,7 +7,7 @@
  *   dotclaude handoff <query>                      local cross-agent: emit <handoff> block
  *   dotclaude handoff push [<query>] [--tag <label>]
  *   dotclaude handoff pull [<query>]
- *   dotclaude handoff list [--local|--remote]
+ *   dotclaude handoff list [--local|--remote] [--from <cli>] [--since <ISO>] [--limit <N>|--all]
  *   dotclaude handoff doctor
  *   dotclaude handoff remote-list [--cli <cli>] [--since <ISO>] [--limit <N>]
  *   dotclaude handoff search <query> [--cli <cli>] [--since <ISO>] [--limit <N>]
@@ -105,6 +105,7 @@ const META = {
     remote: { type: "boolean" },
     verify: { type: "boolean" },
     "force-collision": { type: "boolean" },
+    all: { type: "boolean" },
   },
 };
 
@@ -296,6 +297,21 @@ function listAllLocalSessions() {
   return [...listLocalSessions("claude"), ...listLocalSessions("copilot"), ...listLocalSessions("codex")].sort(
     (a, b) => b.mtime - a.mtime
   );
+}
+
+/**
+ * Parse a transport branch name of the form
+ * `handoff/<project>/<cli>/<YYYY-MM>/<shortUuid>` into its parts.
+ * Returns `{cli: "?", shortId: "", yearMonth: ""}` for malformed names so
+ * the list renderer degrades gracefully rather than crashing on a legacy
+ * branch that predates the current scheme.
+ */
+function parseHandoffBranch(branch) {
+  const parts = (branch ?? "").split("/");
+  if (parts.length !== 5 || parts[0] !== "handoff") {
+    return { cli: "?", shortId: "", yearMonth: "" };
+  }
+  return { cli: parts[2], shortId: parts[4], yearMonth: parts[3] };
 }
 
 // ---- host session detection --------------------------------------------
@@ -603,40 +619,77 @@ async function main() {
 
   // ---- top-level subs: push / pull / list --------------------------------
   if (first === "list") {
+    let sinceMs = null;
+    if (argv.flags.since) {
+      sinceMs = Date.parse(String(argv.flags.since));
+      if (Number.isNaN(sinceMs)) {
+        fail(EXIT_CODES.USAGE, `--since must be ISO-8601, got: ${argv.flags.since}`);
+      }
+    }
+    const listCap = Boolean(argv.flags.all) ? Infinity : Number.parseInt(limit.toString(), 10);
+
     const showLocal = !argv.flags.remote;
     const showRemote = !argv.flags.local;
+    const onlyRemote = Boolean(argv.flags.remote) && !argv.flags.local;
     const rows = [];
+
     if (showLocal) {
       for (const r of listAllLocalSessions()) {
+        if (fromCli && r.cli !== fromCli) continue;
+        if (sinceMs !== null && r.mtime * 1000 < sinceMs) continue;
         rows.push({ ...r, location: "local" });
       }
     }
-    if (showRemote && process.env.DOTCLAUDE_HANDOFF_REPO) {
-      try {
-        for (const c of listRemoteCandidates()) {
-          rows.push({ location: "remote", branch: c.branch, commit: c.commit });
+
+    let remoteMissingRepo = false;
+    if (showRemote) {
+      if (!process.env.DOTCLAUDE_HANDOFF_REPO) {
+        remoteMissingRepo = true;
+        process.stderr.write(
+          "dotclaude-handoff: list --remote: DOTCLAUDE_HANDOFF_REPO not set; skipping remote enumeration\n",
+        );
+      } else {
+        try {
+          for (const c of listRemoteCandidates()) {
+            const parsed = parseHandoffBranch(c.branch);
+            if (fromCli && parsed.cli !== fromCli) continue;
+            rows.push({
+              location: "remote",
+              cli: parsed.cli,
+              short_id: parsed.shortId,
+              branch: c.branch,
+              commit: c.commit,
+              when: parsed.yearMonth,
+            });
+          }
+        } catch (err) {
+          process.stderr.write(`dotclaude-handoff: list --remote: ${err.message}\n`);
         }
-      } catch (err) {
-        process.stderr.write(`dotclaude-handoff: list --remote: ${err.message}\n`);
       }
     }
+
+    rows.sort((a, b) => {
+      const ta = a.mtime ?? 0;
+      const tb = b.mtime ?? 0;
+      return tb - ta;
+    });
+    const capped = Number.isFinite(listCap) ? rows.slice(0, listCap) : rows;
+
     if (argv.json) {
-      process.stdout.write(JSON.stringify(rows, null, 2) + "\n");
+      process.stdout.write(JSON.stringify(capped, null, 2) + "\n");
       process.exit(EXIT_CODES.OK);
     }
-    if (rows.length === 0) {
+    if (capped.length === 0) {
+      if (onlyRemote && remoteMissingRepo) process.exit(2);
       process.stdout.write("No sessions found\n");
       process.exit(EXIT_CODES.OK);
     }
-    process.stdout.write("| Location | CLI / Branch                         | Short UUID | When / Commit    |\n");
-    process.stdout.write("| -------- | ------------------------------------ | ---------- | ---------------- |\n");
-    for (const r of rows) {
-      if (r.location === "local") {
-        process.stdout.write(`| local    | ${r.cli.padEnd(36)} | ${r.short_id.padEnd(10)} | ${r.when.padEnd(16)} |\n`);
-      } else {
-        const shortCommit = (r.commit ?? "").slice(0, 10);
-        process.stdout.write(`| remote   | ${r.branch.padEnd(36)} | ${"".padEnd(10)} | ${shortCommit.padEnd(16)} |\n`);
-      }
+    process.stdout.write("| Location | CLI     | Short UUID | When             |\n");
+    process.stdout.write("| -------- | ------- | ---------- | ---------------- |\n");
+    for (const r of capped) {
+      process.stdout.write(
+        `| ${r.location.padEnd(8)} | ${(r.cli ?? "").padEnd(7)} | ${(r.short_id ?? "").padEnd(10)} | ${(r.when ?? "").padEnd(16)} |\n`,
+      );
     }
     process.exit(EXIT_CODES.OK);
   }

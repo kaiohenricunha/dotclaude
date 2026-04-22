@@ -123,7 +123,7 @@ wins.
 | `/handoff <query>`    | Local cross-agent: emit `<handoff>` block in place    |
 | `/handoff push [<q>]` | Upload to transport; zero-arg = host latest           |
 | `/handoff pull [<q>]` | Fetch from transport; zero-arg = newest branch        |
-| `/handoff list`       | Unified local + remote table (`--local` / `--remote`) |
+| `/handoff list`       | Unified local + remote table (`--local`/`--remote`, `--from`, `--since`, `--limit`/`--all`) |
 
 Every `<query>` can be a full UUID, short UUID (first 8 hex), `latest`,
 a Claude `customTitle`, or a Codex `thread_name`.
