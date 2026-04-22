@@ -4,12 +4,18 @@ Status: **done** (v0.2.0 productization landing across PRs 1–7)
 
 ## Context
 
-`@dotclaude/dotclaude` is a portable npm package + Claude Code plugin that
-bootstraps spec-driven-development governance into consumer repos. It ships a
-CLI surface (`dotclaude`, `dotclaude-doctor`, `dotclaude-validate-skills`, …), a
-programmatic Node API (`import { validateSpecs, createHarnessContext, … }`),
-a gold-standard shell settings validator, and a destructive-git PreToolUse
-guard hook.
+`@dotclaude/dotclaude` is an opinionated Claude Code toolkit, shipped as a
+portable npm package + Claude Code plugin. It bundles a curated library of
+skills, slash commands, and cloud/IaC specialists; a global `CLAUDE.md` rule
+floor; an umbrella CLI surface (`dotclaude`, `dotclaude-doctor`,
+`dotclaude-validate-skills`, …); a programmatic Node API
+(`import { validateSpecs, createHarnessContext, … }`); a gold-standard shell
+settings validator; and a destructive-git PreToolUse guard hook.
+
+Spec-driven-development governance is one consumer-facing module of that
+toolkit — repos that want PR-time spec gates can opt in via
+`dotclaude-validate-specs` and `dotclaude-check-spec-coverage`; the rest of
+the toolkit works without it.
 
 This repository — `dotclaude` — is the canonical checkout. It
 dogfoods its own validators on every push (dogfood.yml in PR 7) and ships the
