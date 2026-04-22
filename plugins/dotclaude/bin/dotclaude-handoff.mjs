@@ -107,6 +107,7 @@ const META = {
     verify: { type: "boolean" },
     "force-collision": { type: "boolean" },
     all: { type: "boolean" },
+    fixed: { type: "boolean", short: "F" },
   },
 };
 
@@ -371,18 +372,19 @@ function truncate(s, max) {
 }
 
 /**
- * Port of SKILL.md's `search` algorithm (L258-324 in v0.8.0). Walks
- * each CLI's session roots, mtime-prefilters against `--since`,
- * matches the raw JSONL via a case-insensitive regex, then refines
- * the hit against the extracted user prompts so matches in
- * tool-use / metadata noise are dropped.
+ * Port of SKILL.md's `search` algorithm (L258-324 in v0.8.0). Two-pass
+ * design: fast raw-regex pass over JSONL to narrow candidates, then a
+ * clean pass over extractPrompts + extractTurns output (tool-use and
+ * env-context noise already stripped by handoff-extract.sh) to confirm
+ * the hit. `fixed` escapes regex metachars for literal-string queries.
  *
- * Returns a newest-first array of {cli, short_id, cwd, mtime,
- * snippet} objects capped at `limit`. The binary caller handles
- * table rendering vs `--json` serialization.
+ * Returns a newest-first array of {cli, short_id, session_id, path,
+ * cwd, mtime, match_snippet} objects capped at `limit`. The binary
+ * caller handles table rendering vs `--json` serialization.
  */
-function searchSessions({ query, cli, since, limit }) {
-  const re = new RegExp(query, "i");
+function searchSessions({ query, cli, since, limit, fixed }) {
+  const pattern = fixed ? query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : query;
+  const re = new RegExp(pattern, "i");
   const sinceMs = parseSinceOrFail(since, { defaultDays: 30 });
   const clis = cli ? [cli] : Object.keys(CLI_LAYOUTS);
   const out = [];
@@ -406,17 +408,22 @@ function searchSessions({ query, cli, since, limit }) {
         continue;
       }
       if (!re.test(raw)) continue;
-      const prompts = extractPrompts(c, file);
-      const hit = prompts.find((p) => re.test(p));
-      if (!hit) continue;
+      const promptHit = extractPrompts(c, file).find((p) => re.test(p));
+      const turnHit = promptHit ? null : extractTurns(c, file).find((t) => re.test(t));
+      if (!promptHit && !turnHit) continue;
+      const snippet = promptHit
+        ? truncate(`user: ${promptHit}`, 80)
+        : truncate(`assistant: ${turnHit}`, 80);
       const meta = extractMeta(c, file);
       const m = file.match(UUID_HEAD_RE);
       out.push({
         cli: c,
         short_id: m ? m[1] : "?",
+        session_id: meta.session_id ?? null,
+        path: file,
         cwd: meta.cwd ?? null,
         mtime: stat.mtimeMs,
-        snippet: truncate(`user: ${hit}`, 80),
+        match_snippet: snippet,
       });
     }
   }
@@ -538,9 +545,10 @@ async function main() {
     }
     const enriched = enrichWithDescriptions(candidates);
     const sinceMs = parseSinceOrFail(argv.flags.since, { defaultDays: 30 });
-    const filterCli = argv.flags.cli ? String(argv.flags.cli) : null;
+    const filterCli =
+      fromCli ?? (argv.flags.cli ? String(argv.flags.cli) : null);
     if (filterCli !== null && !CLIS.has(filterCli)) {
-      fail(EXIT_CODES.USAGE, `--cli must be one of: ${[...CLIS].join(", ")}`);
+      fail(EXIT_CODES.USAGE, `--from must be one of: ${[...CLIS].join(", ")}`);
     }
     const rows = [];
     for (const c of enriched) {
@@ -579,15 +587,17 @@ async function main() {
   if (first === "search") {
     const query = second;
     if (!query) fail(EXIT_CODES.USAGE, "search requires a <query> argument");
-    const filterCli = argv.flags.cli ? String(argv.flags.cli) : null;
+    const filterCli =
+      fromCli ?? (argv.flags.cli ? String(argv.flags.cli) : null);
     if (filterCli !== null && !CLIS.has(filterCli)) {
-      fail(EXIT_CODES.USAGE, `--cli must be one of: ${[...CLIS].join(", ")}`);
+      fail(EXIT_CODES.USAGE, `--from must be one of: ${[...CLIS].join(", ")}`);
     }
     const hits = searchSessions({
       query,
       cli: filterCli,
       since: argv.flags.since ? String(argv.flags.since) : null,
       limit: limit.toString(),
+      fixed: Boolean(argv.flags.fixed),
     });
     if (argv.json) {
       process.stdout.write(JSON.stringify(hits, null, 2) + "\n");
@@ -602,7 +612,7 @@ async function main() {
     for (const h of hits) {
       const when = new Date(h.mtime).toISOString().replace("T", " ").slice(0, 19);
       process.stdout.write(
-        `| ${h.cli.padEnd(7)} | ${h.short_id.padEnd(10)} | ${(h.cwd ?? "").padEnd(37)} | ${when.padEnd(19)} | ${h.snippet.padEnd(40)} |\n`
+        `| ${h.cli.padEnd(7)} | ${h.short_id.padEnd(10)} | ${(h.cwd ?? "").padEnd(37)} | ${when.padEnd(19)} | ${h.match_snippet.padEnd(40)} |\n`
       );
     }
     process.stdout.write("\nDrill in with `dotclaude handoff describe <cli> <short-uuid>`.\n");

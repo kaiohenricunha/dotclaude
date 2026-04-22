@@ -106,7 +106,16 @@ teardown() {
 @test "remote-list --cli with an invalid value exits 64" {
   run node "$BIN" remote-list --cli bogus
   [ "$status" -eq 64 ]
-  [[ "$output" == *"--cli must be one of"* ]]
+  [[ "$output" == *"--from must be one of"* ]]
+}
+
+@test "remote-list --from claude filters to claude-only (canonical flag)" {
+  run node "$BIN" push my-feature
+  run node "$BIN" push my-codex-task
+  run node "$BIN" remote-list --from claude
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ handoff/demo/claude/[0-9]{4}-[0-9]{2}/aaaa1111 ]]
+  [[ "$output" != *"bbbb2222"* ]]
 }
 
 # ---- search ------------------------------------------------------------
@@ -137,10 +146,17 @@ teardown() {
   [[ "$output" == *"search requires a <query>"* ]]
 }
 
-@test "search --cli bogus exits 64" {
-  run node "$BIN" search migration --cli bogus
+@test "search --from bogus exits 64" {
+  run node "$BIN" search migration --from bogus
   [ "$status" -eq 64 ]
-  [[ "$output" == *"--cli must be one of"* ]]
+  [[ "$output" == *"--from must be one of"* ]]
+}
+
+@test "search --from codex narrows to codex (canonical flag)" {
+  run node "$BIN" search migration --from codex
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"bbbb2222"* ]]
+  [[ "$output" != *"aaaa1111"* ]]
 }
 
 @test "search --since with an invalid date exits 64" {
@@ -149,12 +165,80 @@ teardown() {
   [[ "$output" == *"--since must be ISO-8601"* ]]
 }
 
-@test "search --json emits JSON parsable by callers" {
+@test "search --json emits the documented shape (cli/short_id/session_id/path/cwd/mtime/match_snippet)" {
   run node "$BIN" --json search migration
   [ "$status" -eq 0 ]
   [[ "$output" == *'"cli":'* ]]
   [[ "$output" == *'"short_id":'* ]]
-  [[ "$output" == *'"snippet":'* ]]
+  [[ "$output" == *'"session_id":'* ]]
+  [[ "$output" == *'"path":'* ]]
+  [[ "$output" == *'"cwd":'* ]]
+  [[ "$output" == *'"mtime":'* ]]
+  [[ "$output" == *'"match_snippet":'* ]]
+}
+
+@test "search --fixed makes regex metacharacters literal (no regex parse error, only literal match)" {
+  # Seed a claude session whose prompt contains literal parens.
+  local fixed_home
+  fixed_home=$(mktemp -d)
+  mkdir -p "$fixed_home/.claude/projects/-home-u-demo"
+  cat > "$fixed_home/.claude/projects/-home-u-demo/cccc3333-3333-3333-3333-333333333333.jsonl" <<'EOF'
+{"type":"user","cwd":"/home/u/demo","sessionId":"cccc3333-3333-3333-3333-333333333333","version":"2.1","message":{"content":"Call foo.bar() from the handler"}}
+EOF
+
+  # Regex-mode `foo.bar` matches `foobar` too, but here it happens to match
+  # the literal. The real signal is that the literal-paren query `foo.bar()`
+  # would fail as a regex (unescaped `(`) — `--fixed` must let it through.
+  run env HOME="$fixed_home" node "$BIN" search "foo.bar()" --fixed
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"cccc3333"* ]]
+  rm -rf "$fixed_home"
+}
+
+@test "search -F short flag matches --fixed" {
+  local fixed_home
+  fixed_home=$(mktemp -d)
+  mkdir -p "$fixed_home/.claude/projects/-home-u-demo"
+  cat > "$fixed_home/.claude/projects/-home-u-demo/dddd4444-4444-4444-4444-444444444444.jsonl" <<'EOF'
+{"type":"user","cwd":"/home/u/demo","sessionId":"dddd4444-4444-4444-4444-444444444444","version":"2.1","message":{"content":"Grep for a+b literally"}}
+EOF
+  run env HOME="$fixed_home" node "$BIN" search "a+b" -F
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"dddd4444"* ]]
+  rm -rf "$fixed_home"
+}
+
+@test "search drops candidates whose only raw match is inside a tool_use payload" {
+  # A claude session where 'widgetizer' appears only as a tool_use block,
+  # never in any user prompt or assistant text. The raw-regex pass catches
+  # it, but the clean pass (extractPrompts + extractTurns) must drop it.
+  local tu_home
+  tu_home=$(mktemp -d)
+  mkdir -p "$tu_home/.claude/projects/-home-u-demo"
+  cat > "$tu_home/.claude/projects/-home-u-demo/eeee5555-5555-5555-5555-555555555555.jsonl" <<'EOF'
+{"type":"user","cwd":"/home/u/demo","sessionId":"eeee5555-5555-5555-5555-555555555555","version":"2.1","message":{"content":"Do something unrelated"}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"widgetizer --run"}}]}}
+EOF
+  run env HOME="$tu_home" node "$BIN" search widgetizer
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"No sessions matching"* ]]
+  rm -rf "$tu_home"
+}
+
+@test "search matches terms that only appear in assistant turns" {
+  # Word appears only in an assistant text block, never in user prompts.
+  local asst_home
+  asst_home=$(mktemp -d)
+  mkdir -p "$asst_home/.claude/projects/-home-u-demo"
+  cat > "$asst_home/.claude/projects/-home-u-demo/ffff6666-6666-6666-6666-666666666666.jsonl" <<'EOF'
+{"type":"user","cwd":"/home/u/demo","sessionId":"ffff6666-6666-6666-6666-666666666666","version":"2.1","message":{"content":"plain user prompt"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Zephyrine is the codename for this rollout"}]}}
+EOF
+  run env HOME="$asst_home" node "$BIN" search Zephyrine
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ffff6666"* ]]
+  [[ "$output" == *"assistant:"* ]]
+  rm -rf "$asst_home"
 }
 
 # ---- self-bootstrap ----------------------------------------------------
