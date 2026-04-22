@@ -131,23 +131,26 @@ prompts_claude() {
         elif $a == null or ($a.a // "") == "" then $n.n
         else "\($n.n) \($a.a)"
         end;
-    [inputs | select(.type == "user")]
-    | reduce .[] as $r (
-        {out: [], prevWasCommand: false, prevPid: null};
+    foreach (inputs | select(.type == "user")) as $r (
+        {emit: null, prevWasCommand: false, prevPid: null};
         ($r.message.content | text_of) as $t
         | ($r.promptId // "") as $pid
-        | if $t == "" or ($t | is_noise) then .
+        | if $t == "" or ($t | is_noise) then
+            .emit = null
           elif ($t | is_command_wrapper) then
-            .out += [$t | compact_command]
+            .emit = ($t | compact_command)
             | .prevWasCommand = true
             | .prevPid = $pid
           elif .prevWasCommand and .prevPid == $pid then
-            .prevWasCommand = false
+            .emit = null
+            | .prevWasCommand = false
           else
-            .out += [$t] | .prevWasCommand = false | .prevPid = $pid
-          end
+            .emit = $t
+            | .prevWasCommand = false
+            | .prevPid = $pid
+          end;
+        .emit | select(. != null)
       )
-    | .out[]
   ' "$file" 2>/dev/null
 }
 
