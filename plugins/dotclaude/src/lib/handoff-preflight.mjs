@@ -29,6 +29,7 @@ import {
 import { runScript } from "./handoff-remote.mjs";
 import { debug } from "./debug.mjs";
 
+/** Cache schema version — increment to invalidate all existing entries. */
 export const CACHE_SCHEMA_VERSION = 1;
 
 /** 5 minutes per rollout-doc acceptance (docs/plans/handoff-issue-rollout.md). */
@@ -39,6 +40,7 @@ export const DOCTOR_CACHE_TTL_MS = 5 * 60 * 1000;
 // without hitting a cyclic-init TDZ error.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPTS = resolvePath(__dirname, "..", "..", "scripts");
+/** Absolute path to the bundled `handoff-doctor.sh` preflight script. */
 export const DOCTOR_SH = join(SCRIPTS, "handoff-doctor.sh");
 
 /**
@@ -51,6 +53,7 @@ function resolveDoctorScript() {
   return override && override.length > 0 ? override : DOCTOR_SH;
 }
 
+/** Returns the directory that holds the preflight cache, honoring XDG_CACHE_HOME. */
 export function currentCacheDir() {
   return join(
     process.env.XDG_CACHE_HOME || join(process.env.HOME || "", ".cache"),
@@ -58,6 +61,7 @@ export function currentCacheDir() {
   );
 }
 
+/** Returns the absolute path to the preflight cache file. */
 export function currentCacheFile() {
   return join(currentCacheDir(), "handoff-doctor.json");
 }
@@ -73,6 +77,12 @@ export function readCache() {
   }
 }
 
+/**
+ * Returns true when a cache entry is valid and within the TTL window.
+ * @param {unknown} entry - parsed JSON from the cache file, or null
+ * @param {string} repo - the current transport repo URL
+ * @param {number} now - `Date.now()` at call time
+ */
 export function isFresh(entry, repo, now) {
   if (!entry || typeof entry !== "object") return false;
   if (entry.version !== CACHE_SCHEMA_VERSION) return false;
