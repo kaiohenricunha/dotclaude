@@ -28,8 +28,10 @@ import { scrubDigest } from "./handoff-scrub.mjs";
 
 // ---- constants ---------------------------------------------------------
 
+/** Matches v2 handoff branch names: handoff/<project>/<cli>/<YYYY-MM>/<shortId>. */
 export const V2_BRANCH_RE =
   /^handoff\/[a-z0-9-]+\/(claude|copilot|codex)\/\d{4}-\d{2}\/[0-9a-f]{8}$/;
+/** Matches legacy v1 handoff branch names: handoff/<cli>/<shortId>. */
 export const V1_BRANCH_RE = /^handoff\/(claude|copilot|codex)\/[0-9a-f]{8}$/;
 
 // Callers that read state at run time (loadPersistedEnv,
@@ -47,6 +49,7 @@ function currentConfigDir() {
 function currentConfigFile() {
   return join(currentConfigDir(), "handoff.env");
 }
+/** Path to the persisted handoff env file; evaluated at library-init time. */
 export const CONFIG_FILE = currentConfigFile();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -65,6 +68,7 @@ function fail(code, msg) {
 
 // ---- subprocess primitives ---------------------------------------------
 
+/** Spawn a shell script via spawnSync, returning {status, stdout, stderr}. */
 export function runScript(script, args, opts = {}) {
   const res = spawnSync(script, args, { encoding: "utf8", ...opts });
   return {
@@ -74,10 +78,12 @@ export function runScript(script, args, opts = {}) {
   };
 }
 
+/** Run git with spawnSync, returning the raw SpawnSyncReturns result. */
 export function runGit(args, cwd) {
   return spawnSync("git", args, { encoding: "utf8", cwd });
 }
 
+/** Run git and throw a descriptive Error on non-zero exit. */
 export function runGitOrThrow(args, cwd) {
   const r = runGit(args, cwd);
   if (r.status !== 0) {
@@ -90,6 +96,7 @@ export function runGitOrThrow(args, cwd) {
 
 // ---- session extraction ------------------------------------------------
 
+/** Extract JSON session metadata via handoff-extract.sh meta. */
 export function extractMeta(cli, file) {
   const r = runScript(EXTRACT_SH, ["meta", cli, file]);
   if (r.status !== 0) fail(2, r.stderr.trim() || `meta extraction failed for ${cli}`);
@@ -100,6 +107,7 @@ export function extractMeta(cli, file) {
   }
 }
 
+/** Extract newline-delimited output via handoff-extract.sh <sub>. */
 export function extractLines(sub, cli, file, extra = []) {
   const r = runScript(EXTRACT_SH, [sub, cli, file, ...extra]);
   if (r.status !== 0) {
@@ -110,12 +118,15 @@ export function extractLines(sub, cli, file, extra = []) {
   return r.stdout.split("\n").filter((line) => line.trim().length > 0);
 }
 
+/** Extract user prompt lines from a session file. */
 export const extractPrompts = (cli, file) => extractLines("prompts", cli, file);
+/** Extract assistant turn lines from a session file (optionally capped). */
 export const extractTurns = (cli, file, limit) =>
   extractLines("turns", cli, file, limit ? [String(limit)] : []);
 
 // ---- rendering ---------------------------------------------------------
 
+/** Return a target-CLI-specific continuation hint for the next-step text. */
 export function nextStepFor(toCli) {
   if (toCli === "codex") {
     return "Read the prompts and assistant turns above, then continue the task using the file paths mentioned. Treat this as a task specification.";
@@ -126,6 +137,7 @@ export function nextStepFor(toCli) {
   return "Continue from the last assistant turn using the same file scope and goals summarized above.";
 }
 
+/** Produce a one-sentence summary: first prompt + last assistant turn (clipped). */
 export function mechanicalSummary(prompts, turns) {
   const first = prompts[0] ?? "(no user prompts captured)";
   const last = turns[turns.length - 1] ?? "(no assistant turns captured)";
@@ -133,6 +145,7 @@ export function mechanicalSummary(prompts, turns) {
   return `Session opened with: "${clip(first, 160)}". Last assistant output (truncated): "${clip(last, 160)}". Full prompt log and assistant tail follow for context.`;
 }
 
+/** Render the full <handoff> block for push or standalone describe. */
 export function renderHandoffBlock(meta, prompts, turns, toCli) {
   const summary = mechanicalSummary(prompts, turns);
   const promptsCapped = prompts.slice(-10);
@@ -171,8 +184,10 @@ export function renderHandoffBlock(meta, prompts, turns, toCli) {
 
 // ---- URL / path primitives ---------------------------------------------
 
-// Reject ext:: and other exec-triggering Git URL schemes (CVE-2017-1000117-class).
-// Allow: https://, http://, git@, ssh://, file://, and absolute paths (bare repos).
+/**
+ * Reject ext:: and other exec-triggering Git URL schemes (CVE-2017-1000117-class).
+ * Allows: https://, http://, git@, ssh://, file://, and absolute paths.
+ */
 export function validateTransportUrl(url) {
   if (!/^(https?:\/\/|git@|ssh:\/\/|file:\/\/|\/)/.test(url))
     fail(
@@ -182,9 +197,10 @@ export function validateTransportUrl(url) {
   return url;
 }
 
-// Detect the "remote repo doesn't exist / auth failed" class of errors
-// from `git push` stderr. GitHub, GitLab, Gitea and plain SSH all phrase
-// it slightly differently, so match on the union.
+/**
+ * Return true if stderr matches the union of "repo missing / auth failed"
+ * messages from GitHub, GitLab, Gitea, and plain SSH.
+ */
 export function isRepoMissingError(stderr) {
   const s = (stderr || "").toLowerCase();
   return (
@@ -197,9 +213,10 @@ export function isRepoMissingError(stderr) {
   );
 }
 
-// Mirror of the shell `slugify` in handoff-description.sh so JS-side
-// encoders and the shell decoder agree on the edge cases (dash-run
-// collapse, trimmed edges, "" → "adhoc" fallback).
+/**
+ * Lowercase, replace non-alphanumeric runs with dashes, trim edges, cap at 40 chars.
+ * Mirrors handoff-description.sh slugify so JS and shell agree on edge cases.
+ */
 export function slugify(s) {
   if (!s) return "adhoc";
   const out = s
@@ -210,9 +227,10 @@ export function slugify(s) {
   return out.slice(0, 40) || "adhoc";
 }
 
-// Best-effort slugify matching what `gh repo create` will accept. Stricter
-// than handoff-description.sh's slugify because GitHub repo names reject
-// leading/trailing dashes and double-dashes.
+/**
+ * Slugify to GitHub-acceptable repo name: [a-z0-9-], no leading/trailing dashes,
+ * max 100 chars.
+ */
 export function slugifyRepoName(input) {
   const s = (input || "")
     .trim()
@@ -223,9 +241,10 @@ export function slugifyRepoName(input) {
   return s.slice(0, 100);
 }
 
-// Walk up to the git-repo root so a session deep in `~/foo/services/api`
-// groups under `foo`, not `api`. Falls back to the cwd basename outside
-// a git repo.
+/**
+ * Return the slugified top-level git repo name for `cwd`, or the basename.
+ * A session inside ~/foo/services/api groups under "foo", not "api".
+ */
 export function projectSlugFromCwd(cwd) {
   if (!cwd) return "adhoc";
   const r = runGit(["-C", cwd, "rev-parse", "--show-toplevel"]);
@@ -234,6 +253,7 @@ export function projectSlugFromCwd(cwd) {
   return slugify(last);
 }
 
+/** Return YYYY-MM for an ISO timestamp, or for the current UTC month if null/invalid. */
 export function monthBucket(isoOrNull) {
   const d = isoOrNull ? new Date(isoOrNull) : new Date();
   if (Number.isNaN(d.getTime())) return monthBucket(null);
@@ -242,16 +262,19 @@ export function monthBucket(isoOrNull) {
   return `${yyyy}-${mm}`;
 }
 
+/** Assemble the canonical v2 branch name from {project, cli, month, shortId}. */
 export function v2BranchName({ project, cli, month, shortId }) {
   return `handoff/${slugify(project)}/${cli}/${month}/${shortId}`;
 }
 
+/** Return true when both stdin and stderr are interactive TTYs. */
 export function isTty() {
   return Boolean(process.stdin.isTTY && process.stderr.isTTY);
 }
 
 // ---- metadata encoding / decoding --------------------------------------
 
+/** Encode handoff metadata into an opaque description string via handoff-description.sh. */
 export function encodeDescription({ cli, shortId, project, host, month, tag }) {
   const args = [
     "encode",
@@ -272,6 +295,7 @@ export function encodeDescription({ cli, shortId, project, host, month, tag }) {
   return r.stdout.trim();
 }
 
+/** Decode a handoff description string back into a metadata object, or null on failure. */
 export function decodeDescription(desc) {
   if (!desc) return null;
   if (!desc.startsWith("handoff:v1:") && !desc.startsWith("handoff:v2:")) return null;
@@ -286,9 +310,10 @@ export function decodeDescription(desc) {
 
 // ---- persisted env / bootstrap helpers --------------------------------
 
-// Source ~/.config/dotclaude/handoff.env if present, seeding any missing
-// env var. Shell rc users can `source` the same file; bypass is trivial
-// via an explicit `DOTCLAUDE_HANDOFF_REPO=...` on the command line.
+/**
+ * Source ~/.config/dotclaude/handoff.env if present, seeding any missing env var.
+ * Shell rc users can `source` the same file; bypass via an explicit env var.
+ */
 export function loadPersistedEnv() {
   const configFile = currentConfigFile();
   if (!existsSync(configFile)) return;
@@ -317,11 +342,13 @@ export function loadPersistedEnv() {
   }
 }
 
+/** Return true if `gh` is on PATH and exits 0. */
 export function ghAvailable() {
   const r = spawnSync("gh", ["--version"], { encoding: "utf8" });
   return r.status === 0;
 }
 
+/** Return true if `gh auth status` exits 0 (authenticated to github.com). */
 export function ghAuthenticated() {
   const r = spawnSync("gh", ["auth", "status", "-h", "github.com"], {
     encoding: "utf8",
@@ -329,6 +356,7 @@ export function ghAuthenticated() {
   return r.status === 0;
 }
 
+/** Return the authenticated GitHub username, or null on failure. */
 export function ghLogin() {
   const r = spawnSync("gh", ["api", "user", "-q", ".login"], {
     encoding: "utf8",
@@ -337,8 +365,10 @@ export function ghLogin() {
   return r.stdout.trim() || null;
 }
 
-// Three-line manual-setup block. Printed when we can't (or shouldn't)
-// auto-create — non-TTY, no `gh`, or user declines the prompt.
+/**
+ * Print a manual-setup hint block to stderr when auto-bootstrap can't proceed.
+ * Triggered for non-TTY, missing gh, or user abort.
+ */
 export function printManualSetupBlock(reason) {
   const msg = [
     "",
@@ -356,9 +386,10 @@ export function printManualSetupBlock(reason) {
   process.stderr.write(msg.join("\n"));
 }
 
-// Synchronous readline prompt that mirrors the existing collision-prompt
-// pattern (createInterface + rl.question + close). Returns the trimmed
-// answer, or "" for empty input.
+/**
+ * Async readline prompt via createInterface; returns the trimmed answer.
+ * Returns "" for empty input.
+ */
 export async function promptLine(message) {
   const rl = createInterface({ input: process.stdin, output: process.stderr });
   try {
@@ -370,15 +401,11 @@ export async function promptLine(message) {
   }
 }
 
-// Interactive repo creation. Prompts for a name (default
-// `dotclaude-handoff-store`), confirms, runs `gh repo create --private`,
-// writes the URL to ~/.config/dotclaude/handoff.env, and exports it
-// in-process so the current run continues without re-reading.
-//
-// Exits 2 with a manual-setup block when we can't proceed:
-//   - no TTY (cron/CI)
-//   - `gh` missing or unauthenticated
-//   - the user aborts
+/**
+ * Interactively create a private GitHub repo for handoff storage via `gh`.
+ * Writes the URL to the persisted env file and sets DOTCLAUDE_HANDOFF_REPO.
+ * Exits 2 with a manual-setup block when non-TTY, gh missing, or user aborts.
+ */
 export async function bootstrapTransportRepo() {
   if (!isTty()) {
     printManualSetupBlock("not running in an interactive terminal");
@@ -492,9 +519,10 @@ export async function bootstrapTransportRepo() {
   return url;
 }
 
-// Public entry point: return a validated transport URL, bootstrapping
-// interactively if the env var is missing. Called by push/pull/list/
-// doctor, i.e. anywhere the remote is required.
+/**
+ * Return a validated transport URL, bootstrapping interactively if the env var
+ * is missing. Call site for push/pull/list/doctor.
+ */
 export async function requireTransportRepo() {
   const existing = process.env.DOTCLAUDE_HANDOFF_REPO;
   if (existing) return validateTransportUrl(existing);
@@ -502,9 +530,10 @@ export async function requireTransportRepo() {
   return validateTransportUrl(fresh);
 }
 
-// Synchronous variant for read-only paths (list, remote-list, doctor
-// shell script) that can't meaningfully trigger an interactive bootstrap
-// mid-command. Fails hard instead.
+/**
+ * Synchronous variant: return a validated transport URL or fail hard.
+ * Use for read-only paths (list, doctor) that cannot trigger interactive bootstrap.
+ */
 export function requireTransportRepoStrict() {
   const url = process.env.DOTCLAUDE_HANDOFF_REPO;
   if (!url)
@@ -517,6 +546,7 @@ export function requireTransportRepoStrict() {
 
 // ---- remote I/O --------------------------------------------------------
 
+/** Push a local session to the transport repo as a handoff branch. */
 export async function pushRemote({ cli, path: sessionFile, tag }) {
   let repoUrl = await requireTransportRepo();
   const meta = extractMeta(cli, sessionFile);
@@ -661,6 +691,7 @@ export function enrichWithDescriptions(candidates) {
   });
 }
 
+/** Return true if a candidate {branch, description, commit} matches the query string. */
 export function matchesQuery(candidate, query) {
   const q = query.toLowerCase();
   if (candidate.branch.toLowerCase().includes(q)) return true;
@@ -670,6 +701,7 @@ export function matchesQuery(candidate, query) {
   return false;
 }
 
+/** Resolve a remote handoff branch by query, pick interactively on collision. */
 export async function pullRemote(query, fromCli = null) {
   let candidates = listRemoteCandidates();
   if (candidates.length === 0) fail(2, "no handoffs found on transport");

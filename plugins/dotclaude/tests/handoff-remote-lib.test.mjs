@@ -79,20 +79,24 @@ describe("v2BranchName", () => {
 });
 
 describe("monthBucket", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-22T12:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("returns YYYY-MM for a valid ISO input", () => {
     expect(lib.monthBucket("2026-04-22T12:00:00Z")).toBe("2026-04");
   });
 
   it("falls back to the current month when given null", () => {
-    const now = new Date();
-    const expected = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-    expect(lib.monthBucket(null)).toBe(expected);
+    expect(lib.monthBucket(null)).toBe("2026-04");
   });
 
   it("falls back to the current month when given a nonsense date", () => {
-    const now = new Date();
-    const expected = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-    expect(lib.monthBucket("not-a-date")).toBe(expected);
+    expect(lib.monthBucket("not-a-date")).toBe("2026-04");
   });
 });
 
@@ -205,5 +209,175 @@ describe("slugify / slugifyRepoName edge cases", () => {
   it("slugifyRepoName caps at 100 chars and trims edges", () => {
     expect(lib.slugifyRepoName("  -Handoff-Store-  ")).toBe("handoff-store");
     expect(lib.slugifyRepoName("a".repeat(200)).length).toBeLessThanOrEqual(100);
+  });
+
+  it("slugifyRepoName returns empty string for null/undefined input", () => {
+    expect(lib.slugifyRepoName(null)).toBe("");
+    expect(lib.slugifyRepoName(undefined)).toBe("");
+  });
+});
+
+describe("nextStepFor", () => {
+  it("returns codex task-specification text", () => {
+    expect(lib.nextStepFor("codex")).toContain("task specification");
+  });
+  it("returns copilot pick-up text", () => {
+    expect(lib.nextStepFor("copilot")).toContain("pick up where");
+  });
+  it("returns default continue text for any other CLI", () => {
+    expect(lib.nextStepFor("claude")).toContain("Continue from");
+    expect(lib.nextStepFor("unknown")).toContain("Continue from");
+  });
+});
+
+describe("mechanicalSummary", () => {
+  it("uses placeholder text when both arrays are empty", () => {
+    const s = lib.mechanicalSummary([], []);
+    expect(s).toContain("(no user prompts captured)");
+    expect(s).toContain("(no assistant turns captured)");
+  });
+
+  it("uses first prompt and last turn when both arrays are non-empty", () => {
+    const s = lib.mechanicalSummary(["first", "second"], ["turn1", "turn2"]);
+    expect(s).toContain("first");
+    expect(s).toContain("turn2");
+  });
+
+  it("clips strings longer than 160 chars with an ellipsis", () => {
+    const long = "a".repeat(300);
+    const s = lib.mechanicalSummary([long], [long]);
+    expect(s).toContain("…");
+  });
+
+  it("does not clip strings that are 160 chars or shorter", () => {
+    const exact = "b".repeat(160);
+    const s = lib.mechanicalSummary([exact], [exact]);
+    expect(s).not.toContain("…");
+  });
+});
+
+describe("renderHandoffBlock", () => {
+  const meta = { cli: "claude", short_id: "abc12345", cwd: "/projects/foo" };
+  const metaNull = { cli: "codex", short_id: null, cwd: null };
+
+  it("produces opening and closing <handoff> tags", () => {
+    const block = lib.renderHandoffBlock(meta, ["p"], ["t"], "codex");
+    expect(block).toMatch(/^<handoff /);
+    expect(block).toContain("</handoff>");
+  });
+
+  it("uses empty string fallbacks for null short_id and cwd", () => {
+    const block = lib.renderHandoffBlock(metaNull, [], [], "claude");
+    expect(block).toContain('session=""');
+    expect(block).toContain('cwd=""');
+  });
+
+  it("renders the fallback when prompts are empty", () => {
+    const block = lib.renderHandoffBlock(meta, [], [], "claude");
+    expect(block).toContain("(no user prompts captured)");
+  });
+
+  it("renders the fallback when turns are empty", () => {
+    const block = lib.renderHandoffBlock(meta, [], [], "claude");
+    expect(block).toContain("_(no assistant output captured)_");
+  });
+
+  it("renders prompts and turns when present", () => {
+    const block = lib.renderHandoffBlock(meta, ["user prompt"], ["assistant turn"], "claude");
+    expect(block).toContain("user prompt");
+    expect(block).toContain("assistant turn");
+  });
+
+  it("caps prompts at the last 10 and numbers them 1..10", () => {
+    const prompts = Array.from({ length: 15 }, (_, i) => `p${i}`);
+    const block = lib.renderHandoffBlock(meta, prompts, [], "claude");
+    expect(block).toContain("10. p14");
+    expect(block).not.toContain("11. ");
+  });
+
+  it("truncates prompts longer than 300 chars", () => {
+    const long = "x".repeat(500);
+    const block = lib.renderHandoffBlock(meta, [long], [], "claude");
+    expect(block).toContain("…");
+  });
+
+  it("truncates turns longer than 400 chars", () => {
+    const long = "y".repeat(600);
+    const block = lib.renderHandoffBlock(meta, [], [long], "claude");
+    expect(block).toContain("…");
+  });
+});
+
+describe("isTty", () => {
+  it("returns false in the vitest environment (no TTY)", () => {
+    expect(lib.isTty()).toBe(false);
+  });
+});
+
+describe("printManualSetupBlock", () => {
+  it("writes a setup message containing the reason to stderr", () => {
+    const spy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    lib.printManualSetupBlock("test-reason-xyz");
+    const out = spy.mock.calls.map((c) => c[0]).join("");
+    expect(out).toContain("test-reason-xyz");
+    expect(out).toContain("DOTCLAUDE_HANDOFF_REPO");
+    spy.mockRestore();
+  });
+});
+
+describe("requireTransportRepoStrict", () => {
+  let exitSpy;
+  let stderrSpy;
+
+  beforeEach(() => {
+    exitSpy = vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`__exit__${code}`);
+    });
+    stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+  });
+  afterEach(() => {
+    exitSpy.mockRestore();
+    stderrSpy.mockRestore();
+    delete process.env.DOTCLAUDE_HANDOFF_REPO;
+  });
+
+  it("returns the validated URL when env var is set", () => {
+    process.env.DOTCLAUDE_HANDOFF_REPO = "https://github.com/x/y.git";
+    expect(lib.requireTransportRepoStrict()).toBe("https://github.com/x/y.git");
+  });
+
+  it("exits 2 when DOTCLAUDE_HANDOFF_REPO is not set", () => {
+    delete process.env.DOTCLAUDE_HANDOFF_REPO;
+    expect(() => lib.requireTransportRepoStrict()).toThrow(/__exit__2/);
+  });
+});
+
+describe("requireTransportRepo (env-var-set fast path)", () => {
+  let exitSpy;
+  let stderrSpy;
+
+  beforeEach(() => {
+    exitSpy = vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`__exit__${code}`);
+    });
+    stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+  });
+  afterEach(() => {
+    exitSpy.mockRestore();
+    stderrSpy.mockRestore();
+    delete process.env.DOTCLAUDE_HANDOFF_REPO;
+  });
+
+  it("returns the validated URL without bootstrapping when env var is already set", async () => {
+    process.env.DOTCLAUDE_HANDOFF_REPO = "git@github.com:x/y.git";
+    const url = await lib.requireTransportRepo();
+    expect(url).toBe("git@github.com:x/y.git");
+  });
+
+  it("calls bootstrapTransportRepo and exits 2 when env var is absent in a non-TTY context", async () => {
+    delete process.env.DOTCLAUDE_HANDOFF_REPO;
+    // bootstrapTransportRepo detects non-TTY (isTty() returns false in vitest), prints
+    // a manual-setup block to stderr, then calls process.exit(2).
+    await expect(lib.requireTransportRepo()).rejects.toThrow(/__exit__2/);
   });
 });
