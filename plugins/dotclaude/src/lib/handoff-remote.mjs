@@ -199,6 +199,17 @@ export function validateTransportUrl(url) {
 }
 
 /**
+ * Redact `user:token@` credentials from URLs embedded in a string before it
+ * goes to stderr. Guards against CWE-532 leaks when a user sets
+ * DOTCLAUDE_HANDOFF_REPO=https://user:token@host/... and git echoes the
+ * full URL on transport failure.
+ */
+function redactUrlSecrets(s) {
+  if (typeof s !== "string") return s;
+  return s.replace(/(\bhttps?:\/\/|\bssh:\/\/)[^\s/@]+@/gu, "$1***@");
+}
+
+/**
  * Return true if stderr matches the union of "repo missing / auth failed"
  * messages from GitHub, GitLab, Gitea, and plain SSH.
  */
@@ -582,8 +593,9 @@ function withShallowFetch(slug, repoUrl, refspecs, fn) {
 
 /**
  * Read `metadata.json` from the tip of a remote handoff branch.
- * Throws on transport, missing metadata (legacy branch), or parse failure;
- * the caller distinguishes via error-message inspection.
+ * Throws on transport, missing metadata (legacy branch), or parse failure.
+ * The thrown message includes the underlying git/JSON error text but no
+ * structured type — callers treat all three conservatively.
  *
  * @param {string} branch
  * @param {string} repoUrl
@@ -638,7 +650,7 @@ export function probeCollision(repoUrl, branch, localSessionId, { force = false 
   }
   const ls = runGit(["ls-remote", repoUrl, `refs/heads/${branch}`]);
   if (ls.status !== 0) {
-    return forceOrFail(`collision probe failed: ls-remote: ${ls.stderr.trim()}`);
+    return forceOrFail(`collision probe failed: ls-remote: ${redactUrlSecrets(ls.stderr.trim())}`);
   }
   if (ls.stdout.trim() === "") {
     return { mode: "create" };
@@ -647,9 +659,10 @@ export function probeCollision(repoUrl, branch, localSessionId, { force = false 
   try {
     remote = fetchRemoteMetadata(branch, repoUrl);
   } catch (err) {
+    const safeMsg = redactUrlSecrets(err.message);
     return forceOrFail(
-      `short-id collision on ${branch}: existing branch has no provable owner (${err.message}); rerun with --force-collision to override`,
-      `collision probe failed: ${err.message}`,
+      `short-id collision on ${branch}: existing branch has no provable owner (${safeMsg}); rerun with --force-collision to override`,
+      `collision probe failed: ${safeMsg}`,
     );
   }
   const remoteSessionId = typeof remote?.session_id === "string" ? remote.session_id : null;

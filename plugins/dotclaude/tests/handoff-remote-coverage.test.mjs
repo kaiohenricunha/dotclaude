@@ -1176,6 +1176,25 @@ describe("probeCollision", () => {
     expect(r).toEqual({ mode: "force" });
   });
 
+  it("redacts user:token@ from ls-remote stderr before echoing to the user", () => {
+    spawnSync.mockReturnValueOnce({
+      status: 1,
+      stdout: "",
+      stderr:
+        "fatal: unable to access 'https://user:s3cr3t-token@github.com/x/y.git/': auth denied",
+    });
+    const r = lib.probeCollision(
+      "https://user:s3cr3t-token@github.com/x/y.git",
+      "handoff/a/claude/2026-04/aaaaaaaa",
+      "sess-A",
+      { force: true },
+    );
+    expect(r).toEqual({ mode: "force" });
+    const warnText = stderrSpy.mock.calls.map((c) => c[0]).join("");
+    expect(warnText).not.toContain("s3cr3t-token");
+    expect(warnText).toContain("https://***@github.com");
+  });
+
   it("fails closed when remote metadata is missing (legacy branch)", () => {
     spawnSync.mockReturnValueOnce({
       status: 0,
