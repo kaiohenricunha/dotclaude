@@ -93,8 +93,8 @@ Cross-cutting flags (consult `--help` for the canonical list):
 - `--to <cli>` tunes the `<handoff>` block's next-step wording for a
   target agent. Defaults to the auto-detected host.
 - `--cli <cli>` filters `search` and `remote-list` to one CLI.
-- `--since <ISO>` cuts off `list`, `search`, and `remote-list`
-  (default 30 days).
+- `--since <ISO>` cuts off `list` when explicitly provided, and
+  cuts off `search` and `remote-list` (default 30 days).
 - `--limit <N>` caps the row count (default 20). `--all` (on `list`)
   disables the cap.
 - `--tag <label>` annotates a `push` for fuzzy `pull` later.
