@@ -19,7 +19,6 @@
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  existsSync,
   mkdirSync,
   readFileSync,
   renameSync,
@@ -28,16 +27,18 @@ import {
 } from "node:fs";
 
 import { runScript } from "./handoff-remote.mjs";
+import { debug } from "./debug.mjs";
 
-/** Schema version for the handoff-doctor cache entry. Bumped on breaking changes. */
 export const CACHE_SCHEMA_VERSION = 1;
 
-/** Cache time-to-live in milliseconds. 5 minutes per rollout-doc acceptance. */
+/** 5 minutes per rollout-doc acceptance (docs/plans/handoff-issue-rollout.md). */
 export const DOCTOR_CACHE_TTL_MS = 5 * 60 * 1000;
 
+// SCRIPTS is duplicated from handoff-remote.mjs on purpose: handoff-remote.mjs
+// imports from this module, so we can't import a non-hoisted `const` back
+// without hitting a cyclic-init TDZ error.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPTS = resolvePath(__dirname, "..", "..", "scripts");
-/** Absolute path to the handoff-doctor.sh shell script. */
 export const DOCTOR_SH = join(SCRIPTS, "handoff-doctor.sh");
 
 /**
@@ -50,7 +51,6 @@ function resolveDoctorScript() {
   return override && override.length > 0 ? override : DOCTOR_SH;
 }
 
-/** Resolve the active cache directory (honors XDG_CACHE_HOME, falls back to $HOME/.cache). */
 export function currentCacheDir() {
   return join(
     process.env.XDG_CACHE_HOME || join(process.env.HOME || "", ".cache"),
@@ -58,24 +58,21 @@ export function currentCacheDir() {
   );
 }
 
-/** Resolve the active cache file path. */
 export function currentCacheFile() {
   return join(currentCacheDir(), "handoff-doctor.json");
 }
 
-/** Read and parse the preflight cache entry, returning `null` on any failure (treated as miss). */
+/** Returns `null` on any failure (missing, unreadable, unparseable) — treated as miss. */
 export function readCache() {
-  const file = currentCacheFile();
-  if (!existsSync(file)) return null;
   try {
-    const raw = readFileSync(file, "utf8");
+    const raw = readFileSync(currentCacheFile(), "utf8");
     return JSON.parse(raw);
-  } catch {
+  } catch (err) {
+    if (err?.code !== "ENOENT") debug("preflight:readCache", err);
     return null;
   }
 }
 
-/** Return true if a cache entry is usable for `repo` at time `now`. */
 export function isFresh(entry, repo, now) {
   if (!entry || typeof entry !== "object") return false;
   if (entry.version !== CACHE_SCHEMA_VERSION) return false;
@@ -87,24 +84,23 @@ export function isFresh(entry, repo, now) {
 }
 
 /**
- * Atomically write a cache entry. Writes to a sibling tmp file and renames
- * into place so a concurrent reader never sees a half-written JSON blob.
+ * Writes to a sibling tmp file and renames into place so a concurrent reader
+ * never sees a half-written JSON blob.
  */
 export function writeCacheAtomic(entry) {
-  const dir = currentCacheDir();
-  mkdirSync(dir, { recursive: true });
   const final = currentCacheFile();
+  mkdirSync(currentCacheDir(), { recursive: true });
   const tmp = `${final}.${process.pid}.tmp`;
   try {
     writeFileSync(tmp, JSON.stringify(entry) + "\n", "utf8");
     renameSync(tmp, final);
   } catch (err) {
-    // Best-effort cleanup of the stray tmp file. A failure here is not fatal:
-    // the next successful preflight will overwrite it.
+    // Best-effort cleanup. Stray tmp files are self-healing — the next
+    // successful preflight overwrites them.
     try {
-      if (existsSync(tmp)) unlinkSync(tmp);
-    } catch {
-      // ignore
+      unlinkSync(tmp);
+    } catch (cleanupErr) {
+      if (cleanupErr?.code !== "ENOENT") debug("preflight:writeCacheAtomic:cleanup", cleanupErr);
     }
     throw err;
   }
