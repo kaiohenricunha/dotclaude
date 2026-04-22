@@ -3,7 +3,7 @@
  * dotclaude-handoff — five-form cross-agent / cross-machine handoff.
  *
  * Usage:
- *   dotclaude handoff                              push host's latest session
+ *   dotclaude handoff                              print usage and exit 0 (#86)
  *   dotclaude handoff <query>                      local cross-agent: emit <handoff> block
  *   dotclaude handoff push [<query>] [--tag <label>]
  *   dotclaude handoff pull [<query>]
@@ -458,6 +458,16 @@ function shortIdFromPath(path) {
 }
 
 async function main() {
+  // Issue #86: bare `dotclaude handoff` (no positionals, no flags that
+  // already short-circuited) prints usage and exits 0. The previous
+  // behavior — silently pushing the host's latest session — carried two
+  // contradictory SKILL.md contracts and mutated remote state as a
+  // zero-arg default, which is unsafe. Every other verb is explicit.
+  if (argv.positional.length === 0) {
+    process.stdout.write(helpText(META) + "\n");
+    process.exit(EXIT_CODES.OK);
+  }
+
   // ---- breaking-change shim ---------------------------------------------
   // A lone CLI name is never a valid query under the new surface, so
   // catch `push/pull claude|copilot|codex` (with or without a trailing
@@ -620,12 +630,10 @@ async function main() {
     process.exit(EXIT_CODES.OK);
   }
 
-  // Bare `dotclaude-handoff` (no positionals) is an alias for `push`.
-  // Aligns the binary with SKILL.md's "zero-arg = push host's latest
-  // session" contract.
-  const isPush = first === "push" || argv.positional.length === 0;
-  if (isPush) {
-    const explicitQuery = first === "push" ? second : null;
+  // `push` is the only path to remote-mutation now (#86 removed the
+  // zero-arg alias). Everything below this guard handles the push flow.
+  if (first === "push") {
+    const explicitQuery = second ?? null;
     let sessionHit;
     let fallbackNote;
     if (explicitQuery) {

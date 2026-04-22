@@ -48,6 +48,23 @@ teardown() {
   [[ "$output" == *"list"* ]]
 }
 
+# Issue #86: bare invocation no longer aliases `push`. A zero-arg call
+# prints usage and exits 0. Silent-pushing-the-latest-session was too
+# ambiguous (two SKILL.md definitions) and too unsafe (mutates remote,
+# needs transport config) to be the default.
+@test "bare dotclaude-handoff prints usage and exits 0 (no push)" {
+  run node "$BIN"
+  [ "$status" -eq 0 ]
+  # Same synopsis as --help: mentions every verb.
+  [[ "$output" == *"push"* ]]
+  [[ "$output" == *"pull"* ]]
+  [[ "$output" == *"list"* ]]
+  # Guardrail: must not have executed a push. A successful push emits
+  # the `[scrubbed N secrets]` line and a `handoff/<cli>/...` branch.
+  [[ "$output" != *"scrubbed"* ]]
+  [[ "$output" != *"handoff/dotclaude/"* ]]
+}
+
 @test "resolve missing args exits 64" {
   run node "$BIN" resolve
   [ "$status" -eq 64 ]
