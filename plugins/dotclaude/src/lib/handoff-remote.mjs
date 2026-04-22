@@ -199,6 +199,17 @@ export function validateTransportUrl(url) {
 }
 
 /**
+ * Redact `user:token@` credentials from URLs embedded in a string before it
+ * goes to stderr. Guards against CWE-532 leaks when a user sets
+ * DOTCLAUDE_HANDOFF_REPO=https://user:token@host/... and git echoes the
+ * full URL on transport failure.
+ */
+function redactUrlSecrets(s) {
+  if (typeof s !== "string") return s;
+  return s.replace(/(\bhttps?:\/\/|\bssh:\/\/)[^\s/@]+@/gu, "$1***@");
+}
+
+/**
  * Return true if stderr matches the union of "repo missing / auth failed"
  * messages from GitHub, GitLab, Gitea, and plain SSH.
  */
@@ -547,8 +558,132 @@ export function requireTransportRepoStrict() {
 
 // ---- remote I/O --------------------------------------------------------
 
+/**
+ * Init a throwaway bare repo, shallow-fetch the given refspecs, run `fn`
+ * against the tmp path, and clean up. Throws on init/fetch failure with
+ * a message prefixed for caller matching. Callers that want a soft
+ * fallback (e.g. `sortByCommitterDate`) wrap the call in try/catch.
+ *
+ * @template T
+ * @param {string} slug         mkdtemp prefix, e.g. "probe" or "sort"
+ * @param {string} repoUrl
+ * @param {string[]} refspecs
+ * @param {(tmp: string) => T} fn
+ * @returns {T}
+ */
+function withShallowFetch(slug, repoUrl, refspecs, fn) {
+  const tmp = mkdtempSync(join(tmpdir(), `handoff-${slug}-`));
+  try {
+    const init = runGit(["init", "-q", "--bare"], tmp);
+    if (init.status !== 0) {
+      throw new Error(`git init failed: ${init.stderr.trim()}`);
+    }
+    const fetched = runGit(
+      ["fetch", "--depth=1", "--no-tags", "-q", repoUrl, ...refspecs],
+      tmp,
+    );
+    if (fetched.status !== 0) {
+      throw new Error(`fetch failed: ${fetched.stderr.trim()}`);
+    }
+    return fn(tmp);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Read `metadata.json` from the tip of a remote handoff branch.
+ * Throws on transport, missing metadata (legacy branch), or parse failure.
+ * The thrown message includes the underlying git/JSON error text but no
+ * structured type — callers treat all three conservatively.
+ *
+ * @param {string} branch
+ * @param {string} repoUrl
+ * @returns {{ session_id: string|null, [k: string]: any }}
+ */
+export function fetchRemoteMetadata(branch, repoUrl) {
+  return withShallowFetch(
+    "probe",
+    repoUrl,
+    [`+refs/heads/${branch}:refs/heads/${branch}`],
+    (tmp) => {
+      const shown = runGit(["show", `refs/heads/${branch}:metadata.json`], tmp);
+      if (shown.status !== 0) {
+        // Most common path here is "path 'metadata.json' does not exist" —
+        // a legacy branch predating the session_id invariant. Surface the
+        // underlying git message so the caller can match on it.
+        throw new Error(`metadata.json missing: ${shown.stderr.trim()}`);
+      }
+      try {
+        return JSON.parse(shown.stdout);
+      } catch (err) {
+        throw new Error(`metadata.json parse failed: ${err.message}`);
+      }
+    },
+  );
+}
+
+/**
+ * Pre-push collision probe. Returns `{ mode: "create" | "update" | "force" }`.
+ * Fails closed (exit 2) on ls-remote errors, missing/unreadable remote
+ * metadata, or session_id mismatch, unless `force` is true — in which
+ * case the same conditions emit a stderr warning and return mode:"force".
+ *
+ * @param {string} repoUrl
+ * @param {string} branch
+ * @param {string|null|undefined} localSessionId
+ * @param {{ force?: boolean }} [opts]
+ * @returns {{ mode: "create" | "update" | "force" }}
+ */
+export function probeCollision(repoUrl, branch, localSessionId, { force = false } = {}) {
+  const forceOrFail = (closedMsg, warnMsg = closedMsg) => {
+    if (!force) fail(2, closedMsg);
+    process.stderr.write(`dotclaude-handoff: ${warnMsg}; forcing\n`);
+    return { mode: /** @type {const} */ ("force") };
+  };
+  if (!localSessionId) {
+    // session_id should always be populated via extractMeta, but the
+    // schema allows null — refuse rather than silently match-on-null.
+    return forceOrFail(
+      "collision probe refused: local session_id is missing; rerun with --force-collision to override",
+    );
+  }
+  const ls = runGit(["ls-remote", repoUrl, `refs/heads/${branch}`]);
+  if (ls.status !== 0) {
+    return forceOrFail(`collision probe failed: ls-remote: ${redactUrlSecrets(ls.stderr.trim())}`);
+  }
+  if (ls.stdout.trim() === "") {
+    return { mode: "create" };
+  }
+  let remote;
+  try {
+    remote = fetchRemoteMetadata(branch, repoUrl);
+  } catch (err) {
+    const safeMsg = redactUrlSecrets(err.message);
+    return forceOrFail(
+      `short-id collision on ${branch}: existing branch has no provable owner (${safeMsg}); rerun with --force-collision to override`,
+      `collision probe failed: ${safeMsg}`,
+    );
+  }
+  const remoteSessionId = typeof remote?.session_id === "string" ? remote.session_id : null;
+  if (remoteSessionId === localSessionId) {
+    return { mode: "update" };
+  }
+  const ownerHint = remoteSessionId ? `remote-session=${remoteSessionId}` : "remote-session=unknown";
+  return forceOrFail(
+    `short-id collision on ${branch}: local-session=${localSessionId} ${ownerHint}; rerun with --force-collision to override`,
+  );
+}
+
 /** Push a local session to the transport repo as a handoff branch. */
-export async function pushRemote({ cli, path: sessionFile, tag, verify = false, verbose = false }) {
+export async function pushRemote({
+  cli,
+  path: sessionFile,
+  tag,
+  verify = false,
+  verbose = false,
+  force = false,
+}) {
   let repoUrl = await requireTransportRepo();
   autoPreflight({ repo: repoUrl, verify, verbose });
   const meta = extractMeta(cli, sessionFile);
@@ -589,24 +724,59 @@ export async function pushRemote({ cli, path: sessionFile, tag, verify = false, 
     tag: tag || null,
   };
 
-  const doPush = (url) => {
+  const branch = v2BranchName({ project, cli: meta.cli, month, shortId });
+
+  // Pre-push collision probe: compare the remote branch's
+  // metadata.session_id (if any) against the local session_id. Without
+  // this, two sessions with the same 8-hex-char short_id prefix would
+  // silently force-push over each other (issue #90 Gap 3).
+  const attemptPush = (url, mode) => {
     const tmp = mkdtempSync(join(tmpdir(), "handoff-push-"));
     try {
       runGitOrThrow(["init", "-q"], tmp);
       runGitOrThrow(["remote", "add", "origin", url], tmp);
       runGitOrThrow(["config", "user.email", "handoff@dotclaude.local"], tmp);
       runGitOrThrow(["config", "user.name", "dotclaude-handoff"], tmp);
-      const branch = v2BranchName({ project, cli: meta.cli, month, shortId });
       runGitOrThrow(["checkout", "-q", "-b", branch], tmp);
       writeFileSync(join(tmp, "handoff.md"), scrubbed + "\n");
       writeFileSync(join(tmp, "metadata.json"), JSON.stringify(metadata, null, 2) + "\n");
       writeFileSync(join(tmp, "description.txt"), description + "\n");
       runGitOrThrow(["add", "."], tmp);
       runGitOrThrow(["commit", "-q", "-m", description], tmp);
-      runGitOrThrow(["push", "-q", "-f", "origin", branch], tmp);
+      // `create` pushes without -f so a racing session that claimed the
+      // short-id between our probe and our push produces a non-fast-forward
+      // error rather than a silent clobber. `update`/`force` keep -f because
+      // every push writes an orphan commit (no shared history with the
+      // existing ref), so a fast-forward is structurally impossible — but
+      // the probe has already proven either same-session ownership or an
+      // explicit user override.
+      runGitOrThrow(
+        mode === "create"
+          ? ["push", "-q", "origin", branch]
+          : ["push", "-q", "-f", "origin", branch],
+        tmp,
+      );
       return { branch, url, description, scrubbedCount };
     } finally {
       rmSync(tmp, { recursive: true, force: true });
+    }
+  };
+
+  const RACE_RE = /non-fast-forward|fetch first|\(fetch first\)|rejected.*non-fast|already exists/i;
+
+  const doPush = (url) => {
+    const mode = probeCollision(url, branch, meta.session_id, { force }).mode;
+    try {
+      return attemptPush(url, mode);
+    } catch (err) {
+      // TOCTOU: in create mode, someone may have claimed the branch
+      // between the probe (ls-remote) and our push. Git reports that as
+      // a non-fast-forward rejection. Re-probe once and retry with the
+      // fresh decision — this closes the race without ever force-pushing
+      // over a verifiably-different session.
+      if (mode !== "create" || !RACE_RE.test(err.message ?? "")) throw err;
+      const retryMode = probeCollision(url, branch, meta.session_id, { force }).mode;
+      return attemptPush(url, retryMode);
     }
   };
 
@@ -657,7 +827,6 @@ export async function pushRemote({ cli, path: sessionFile, tag, verify = false, 
  */
 function sortByCommitterDate(candidates, repoUrl) {
   if (candidates.length <= 1) return candidates;
-  const tmp = mkdtempSync(join(tmpdir(), "handoff-sort-"));
   const warnAndFallback = (reason) => {
     const msg = String(reason).trim().replace(/\s+/gu, " ") || "unknown error";
     process.stderr.write(
@@ -665,49 +834,40 @@ function sortByCommitterDate(candidates, repoUrl) {
     );
     return null;
   };
+  const refspecs = candidates.map(
+    (c) => `+refs/heads/${c.branch}:refs/heads/${c.branch}`,
+  );
   try {
-    const init = runGit(["init", "-q", "--bare"], tmp);
-    if (init.status !== 0) {
-      return warnAndFallback(`git init failed: ${init.stderr.trim()}`);
-    }
-    const refspecs = candidates.map(
-      (c) => `+refs/heads/${c.branch}:refs/heads/${c.branch}`,
-    );
-    const fetched = runGit(
-      ["fetch", "--depth=1", "--no-tags", "-q", repoUrl, ...refspecs],
-      tmp,
-    );
-    if (fetched.status !== 0) {
-      return warnAndFallback(`fetch failed: ${fetched.stderr.trim()}`);
-    }
-    const fer = runGit(
-      [
-        "for-each-ref",
-        "--sort=-committerdate",
-        "--format=%(refname:short)",
-        "refs/heads/handoff/",
-      ],
-      tmp,
-    );
-    if (fer.status !== 0) {
-      return warnAndFallback(`for-each-ref failed: ${fer.stderr.trim()}`);
-    }
-    const byBranch = new Map(candidates.map((c) => [c.branch, c]));
-    const sorted = [];
-    for (const line of fer.stdout.split("\n")) {
-      const ref = line.trim();
-      if (!ref) continue;
-      const c = byBranch.get(ref);
-      if (c) sorted.push(c);
-    }
-    if (sorted.length !== candidates.length) {
-      return warnAndFallback(
-        `partial sort (${sorted.length}/${candidates.length} refs resolved)`,
+    return withShallowFetch("sort", repoUrl, refspecs, (tmp) => {
+      const fer = runGit(
+        [
+          "for-each-ref",
+          "--sort=-committerdate",
+          "--format=%(refname:short)",
+          "refs/heads/handoff/",
+        ],
+        tmp,
       );
-    }
-    return sorted;
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
+      if (fer.status !== 0) {
+        throw new Error(`for-each-ref failed: ${fer.stderr.trim()}`);
+      }
+      const byBranch = new Map(candidates.map((c) => [c.branch, c]));
+      const sorted = [];
+      for (const line of fer.stdout.split("\n")) {
+        const ref = line.trim();
+        if (!ref) continue;
+        const c = byBranch.get(ref);
+        if (c) sorted.push(c);
+      }
+      if (sorted.length !== candidates.length) {
+        throw new Error(
+          `partial sort (${sorted.length}/${candidates.length} refs resolved)`,
+        );
+      }
+      return sorted;
+    });
+  } catch (err) {
+    return warnAndFallback(err.message);
   }
 }
 
