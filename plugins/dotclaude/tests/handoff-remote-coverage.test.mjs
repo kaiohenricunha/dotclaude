@@ -1222,16 +1222,15 @@ describe("probeCollision", () => {
     ).toThrow(/__exit__2/);
   });
 
-  it("skips the null-session guard when force=true and proceeds to ls-remote", () => {
-    // With force=true and no local session, ls-remote empty → create.
-    spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" });
+  it("returns force mode with a warning when localSessionId is null and force=true", () => {
     const r = lib.probeCollision(
       "url",
       "handoff/a/claude/2026-04/aaaaaaaa",
       null,
       { force: true },
     );
-    expect(r).toEqual({ mode: "create" });
+    expect(r).toEqual({ mode: "force" });
+    expect(stderrSpy).toHaveBeenCalled();
   });
 
   it("treats non-string session_id in remote metadata as mismatch", () => {

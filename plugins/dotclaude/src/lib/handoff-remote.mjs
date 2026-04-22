@@ -548,76 +548,74 @@ export function requireTransportRepoStrict() {
 // ---- remote I/O --------------------------------------------------------
 
 /**
- * Read `metadata.json` from the tip of a remote handoff branch.
+ * Init a throwaway bare repo, shallow-fetch the given refspecs, run `fn`
+ * against the tmp path, and clean up. Throws on init/fetch failure with
+ * a message prefixed for caller matching. Callers that want a soft
+ * fallback (e.g. `sortByCommitterDate`) wrap the call in try/catch.
  *
- * Does one bulk shallow fetch of the single branch into a throwaway bare
- * repo, then `git show refs/heads/<branch>:metadata.json`. Returns the
- * parsed object.
- *
- * Throws on:
- *   - transport / fetch failure
- *   - missing metadata.json on the branch (legacy branch)
- *   - malformed JSON
- * The caller (probeCollision) distinguishes those cases via error
- * message inspection and decides fail-closed vs --force-collision.
- *
- * @param {string} branch
+ * @template T
+ * @param {string} slug         mkdtemp prefix, e.g. "probe" or "sort"
  * @param {string} repoUrl
- * @returns {{ session_id: string|null, [k: string]: any }}
+ * @param {string[]} refspecs
+ * @param {(tmp: string) => T} fn
+ * @returns {T}
  */
-export function fetchRemoteMetadata(branch, repoUrl) {
-  const tmp = mkdtempSync(join(tmpdir(), "handoff-probe-"));
+function withShallowFetch(slug, repoUrl, refspecs, fn) {
+  const tmp = mkdtempSync(join(tmpdir(), `handoff-${slug}-`));
   try {
     const init = runGit(["init", "-q", "--bare"], tmp);
     if (init.status !== 0) {
       throw new Error(`git init failed: ${init.stderr.trim()}`);
     }
     const fetched = runGit(
-      [
-        "fetch",
-        "--depth=1",
-        "--no-tags",
-        "-q",
-        repoUrl,
-        `+refs/heads/${branch}:refs/heads/${branch}`,
-      ],
+      ["fetch", "--depth=1", "--no-tags", "-q", repoUrl, ...refspecs],
       tmp,
     );
     if (fetched.status !== 0) {
       throw new Error(`fetch failed: ${fetched.stderr.trim()}`);
     }
-    const shown = runGit(["show", `refs/heads/${branch}:metadata.json`], tmp);
-    if (shown.status !== 0) {
-      // Most common path here is "path 'metadata.json' does not exist" —
-      // that's a legacy branch predating the session_id invariant. Surface
-      // the underlying git message so the caller can match on it.
-      throw new Error(`metadata.json missing: ${shown.stderr.trim()}`);
-    }
-    try {
-      return JSON.parse(shown.stdout);
-    } catch (err) {
-      throw new Error(`metadata.json parse failed: ${err.message}`);
-    }
+    return fn(tmp);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
 }
 
 /**
- * Pre-push collision probe. Decides whether a push can safely proceed
- * and in which mode (create vs update vs forced override).
+ * Read `metadata.json` from the tip of a remote handoff branch.
+ * Throws on transport, missing metadata (legacy branch), or parse failure;
+ * the caller distinguishes via error-message inspection.
  *
- * Returns `{ mode: "create" | "update" | "force" }`.
- *
- * Fails closed (exit 2 via fail()) on:
- *   - ls-remote transport errors (can't prove branch absence)
- *   - metadata fetch/parse errors on an existing branch (can't prove
- *     ownership), UNLESS `force` is true
- *   - remote session_id mismatch, UNLESS `force` is true
- *
- * Under `force`, the same failures emit a stderr warning and return
- * `{ mode: "force" }`. `force` is a per-invocation override from the
- * user's `--force-collision` flag; it is never persisted.
+ * @param {string} branch
+ * @param {string} repoUrl
+ * @returns {{ session_id: string|null, [k: string]: any }}
+ */
+export function fetchRemoteMetadata(branch, repoUrl) {
+  return withShallowFetch(
+    "probe",
+    repoUrl,
+    [`+refs/heads/${branch}:refs/heads/${branch}`],
+    (tmp) => {
+      const shown = runGit(["show", `refs/heads/${branch}:metadata.json`], tmp);
+      if (shown.status !== 0) {
+        // Most common path here is "path 'metadata.json' does not exist" —
+        // a legacy branch predating the session_id invariant. Surface the
+        // underlying git message so the caller can match on it.
+        throw new Error(`metadata.json missing: ${shown.stderr.trim()}`);
+      }
+      try {
+        return JSON.parse(shown.stdout);
+      } catch (err) {
+        throw new Error(`metadata.json parse failed: ${err.message}`);
+      }
+    },
+  );
+}
+
+/**
+ * Pre-push collision probe. Returns `{ mode: "create" | "update" | "force" }`.
+ * Fails closed (exit 2) on ls-remote errors, missing/unreadable remote
+ * metadata, or session_id mismatch, unless `force` is true — in which
+ * case the same conditions emit a stderr warning and return mode:"force".
  *
  * @param {string} repoUrl
  * @param {string} branch
@@ -626,22 +624,21 @@ export function fetchRemoteMetadata(branch, repoUrl) {
  * @returns {{ mode: "create" | "update" | "force" }}
  */
 export function probeCollision(repoUrl, branch, localSessionId, { force = false } = {}) {
-  // Without a local session_id we cannot prove ownership of any existing
-  // branch. This is a defensive check — session_id should always be
-  // populated via extractMeta, but the schema allows null, so refuse
-  // rather than silently match-on-null.
-  if (!localSessionId && !force) {
-    fail(
-      2,
+  const forceOrFail = (closedMsg, warnMsg = closedMsg) => {
+    if (!force) fail(2, closedMsg);
+    process.stderr.write(`dotclaude-handoff: ${warnMsg}; forcing\n`);
+    return { mode: /** @type {const} */ ("force") };
+  };
+  if (!localSessionId) {
+    // session_id should always be populated via extractMeta, but the
+    // schema allows null — refuse rather than silently match-on-null.
+    return forceOrFail(
       "collision probe refused: local session_id is missing; rerun with --force-collision to override",
     );
   }
   const ls = runGit(["ls-remote", repoUrl, `refs/heads/${branch}`]);
   if (ls.status !== 0) {
-    const msg = `collision probe failed: ls-remote: ${ls.stderr.trim()}`;
-    if (!force) fail(2, msg);
-    process.stderr.write(`dotclaude-handoff: ${msg}; forcing\n`);
-    return { mode: "force" };
+    return forceOrFail(`collision probe failed: ls-remote: ${ls.stderr.trim()}`);
   }
   if (ls.stdout.trim() === "") {
     return { mode: "create" };
@@ -650,25 +647,19 @@ export function probeCollision(repoUrl, branch, localSessionId, { force = false 
   try {
     remote = fetchRemoteMetadata(branch, repoUrl);
   } catch (err) {
-    const msg = `collision probe failed: ${err.message}`;
-    if (!force) {
-      fail(
-        2,
-        `short-id collision on ${branch}: existing branch has no provable owner (${err.message}); rerun with --force-collision to override`,
-      );
-    }
-    process.stderr.write(`dotclaude-handoff: ${msg}; forcing\n`);
-    return { mode: "force" };
+    return forceOrFail(
+      `short-id collision on ${branch}: existing branch has no provable owner (${err.message}); rerun with --force-collision to override`,
+      `collision probe failed: ${err.message}`,
+    );
   }
-  const remoteSessionId = remote && typeof remote.session_id === "string" ? remote.session_id : null;
-  if (remoteSessionId && remoteSessionId === localSessionId) {
+  const remoteSessionId = typeof remote?.session_id === "string" ? remote.session_id : null;
+  if (remoteSessionId === localSessionId) {
     return { mode: "update" };
   }
   const ownerHint = remoteSessionId ? `remote-session=${remoteSessionId}` : "remote-session=unknown";
-  const detail = `short-id collision on ${branch}: local-session=${localSessionId ?? "unknown"} ${ownerHint}; rerun with --force-collision to override`;
-  if (!force) fail(2, detail);
-  process.stderr.write(`dotclaude-handoff: ${detail}; forcing\n`);
-  return { mode: "force" };
+  return forceOrFail(
+    `short-id collision on ${branch}: local-session=${localSessionId} ${ownerHint}; rerun with --force-collision to override`,
+  );
 }
 
 /** Push a local session to the transport repo as a handoff branch. */
@@ -746,21 +737,19 @@ export async function pushRemote({
       // existing ref), so a fast-forward is structurally impossible — but
       // the probe has already proven either same-session ownership or an
       // explicit user override.
-      const pushArgs =
+      runGitOrThrow(
         mode === "create"
           ? ["push", "-q", "origin", branch]
-          : ["push", "-q", "-f", "origin", branch];
-      const pushed = runGit(pushArgs, tmp);
-      if (pushed.status !== 0) {
-        const err = new Error(pushed.stderr.trim() || "push failed");
-        /** @type {any} */ (err).pushStderr = pushed.stderr;
-        throw err;
-      }
+          : ["push", "-q", "-f", "origin", branch],
+        tmp,
+      );
       return { branch, url, description, scrubbedCount };
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
   };
+
+  const RACE_RE = /non-fast-forward|fetch first|\(fetch first\)|rejected.*non-fast|already exists/i;
 
   const doPush = (url) => {
     const mode = probeCollision(url, branch, meta.session_id, { force }).mode;
@@ -772,13 +761,7 @@ export async function pushRemote({
       // a non-fast-forward rejection. Re-probe once and retry with the
       // fresh decision — this closes the race without ever force-pushing
       // over a verifiably-different session.
-      if (mode !== "create") throw err;
-      const stderr = String(/** @type {any} */ (err).pushStderr ?? err.message ?? "");
-      const looksLikeRace =
-        /non-fast-forward|fetch first|\(fetch first\)|rejected.*non-fast|already exists/i.test(
-          stderr,
-        );
-      if (!looksLikeRace) throw err;
+      if (mode !== "create" || !RACE_RE.test(err.message ?? "")) throw err;
       const retryMode = probeCollision(url, branch, meta.session_id, { force }).mode;
       return attemptPush(url, retryMode);
     }
@@ -831,7 +814,6 @@ export async function pushRemote({
  */
 function sortByCommitterDate(candidates, repoUrl) {
   if (candidates.length <= 1) return candidates;
-  const tmp = mkdtempSync(join(tmpdir(), "handoff-sort-"));
   const warnAndFallback = (reason) => {
     const msg = String(reason).trim().replace(/\s+/gu, " ") || "unknown error";
     process.stderr.write(
@@ -839,49 +821,40 @@ function sortByCommitterDate(candidates, repoUrl) {
     );
     return null;
   };
+  const refspecs = candidates.map(
+    (c) => `+refs/heads/${c.branch}:refs/heads/${c.branch}`,
+  );
   try {
-    const init = runGit(["init", "-q", "--bare"], tmp);
-    if (init.status !== 0) {
-      return warnAndFallback(`git init failed: ${init.stderr.trim()}`);
-    }
-    const refspecs = candidates.map(
-      (c) => `+refs/heads/${c.branch}:refs/heads/${c.branch}`,
-    );
-    const fetched = runGit(
-      ["fetch", "--depth=1", "--no-tags", "-q", repoUrl, ...refspecs],
-      tmp,
-    );
-    if (fetched.status !== 0) {
-      return warnAndFallback(`fetch failed: ${fetched.stderr.trim()}`);
-    }
-    const fer = runGit(
-      [
-        "for-each-ref",
-        "--sort=-committerdate",
-        "--format=%(refname:short)",
-        "refs/heads/handoff/",
-      ],
-      tmp,
-    );
-    if (fer.status !== 0) {
-      return warnAndFallback(`for-each-ref failed: ${fer.stderr.trim()}`);
-    }
-    const byBranch = new Map(candidates.map((c) => [c.branch, c]));
-    const sorted = [];
-    for (const line of fer.stdout.split("\n")) {
-      const ref = line.trim();
-      if (!ref) continue;
-      const c = byBranch.get(ref);
-      if (c) sorted.push(c);
-    }
-    if (sorted.length !== candidates.length) {
-      return warnAndFallback(
-        `partial sort (${sorted.length}/${candidates.length} refs resolved)`,
+    return withShallowFetch("sort", repoUrl, refspecs, (tmp) => {
+      const fer = runGit(
+        [
+          "for-each-ref",
+          "--sort=-committerdate",
+          "--format=%(refname:short)",
+          "refs/heads/handoff/",
+        ],
+        tmp,
       );
-    }
-    return sorted;
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
+      if (fer.status !== 0) {
+        throw new Error(`for-each-ref failed: ${fer.stderr.trim()}`);
+      }
+      const byBranch = new Map(candidates.map((c) => [c.branch, c]));
+      const sorted = [];
+      for (const line of fer.stdout.split("\n")) {
+        const ref = line.trim();
+        if (!ref) continue;
+        const c = byBranch.get(ref);
+        if (c) sorted.push(c);
+      }
+      if (sorted.length !== candidates.length) {
+        throw new Error(
+          `partial sort (${sorted.length}/${candidates.length} refs resolved)`,
+        );
+      }
+      return sorted;
+    });
+  } catch (err) {
+    return warnAndFallback(err.message);
   }
 }
 
