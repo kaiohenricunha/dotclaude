@@ -70,6 +70,7 @@ import {
   CONFIG_FILE,
   V1_BRANCH_RE,
   V2_BRANCH_RE,
+  parseHandoffBranch,
 } from "../src/lib/handoff-remote.mjs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -119,6 +120,20 @@ const DOCTOR_SH = join(SCRIPTS, "handoff-doctor.sh");
 function fail(code, msg) {
   if (msg) process.stderr.write(`dotclaude-handoff: ${msg}\n`);
   process.exit(code);
+}
+
+// --since <ISO> → epoch ms, or the default-N-days fallback when raw is
+// absent. Pass `defaultDays: null` for "no filter" (used by `list`).
+// Exits USAGE on non-ISO input.
+function parseSinceOrFail(raw, { defaultDays = null } = {}) {
+  if (!raw) {
+    return defaultDays === null
+      ? null
+      : Date.now() - defaultDays * 24 * 60 * 60 * 1000;
+  }
+  const ms = Date.parse(String(raw));
+  if (Number.isNaN(ms)) fail(EXIT_CODES.USAGE, `--since must be ISO-8601, got: ${raw}`);
+  return ms;
 }
 
 // ---- resolver / extractor bridge ---------------------------------------
@@ -299,21 +314,6 @@ function listAllLocalSessions() {
   );
 }
 
-/**
- * Parse a transport branch name of the form
- * `handoff/<project>/<cli>/<YYYY-MM>/<shortUuid>` into its parts.
- * Returns `{cli: "?", shortId: "", yearMonth: ""}` for malformed names so
- * the list renderer degrades gracefully rather than crashing on a legacy
- * branch that predates the current scheme.
- */
-function parseHandoffBranch(branch) {
-  const parts = (branch ?? "").split("/");
-  if (parts.length !== 5 || parts[0] !== "handoff") {
-    return { cli: "?", shortId: "", yearMonth: "" };
-  }
-  return { cli: parts[2], shortId: parts[4], yearMonth: parts[3] };
-}
-
 // ---- host session detection --------------------------------------------
 
 /**
@@ -383,10 +383,7 @@ function truncate(s, max) {
  */
 function searchSessions({ query, cli, since, limit }) {
   const re = new RegExp(query, "i");
-  const sinceMs = since
-    ? Date.parse(since)
-    : Date.now() - 30 * 24 * 60 * 60 * 1000;
-  if (Number.isNaN(sinceMs)) fail(EXIT_CODES.USAGE, `--since must be ISO-8601, got: ${since}`);
+  const sinceMs = parseSinceOrFail(since, { defaultDays: 30 });
   const clis = cli ? [cli] : Object.keys(CLI_LAYOUTS);
   const out = [];
   for (const c of clis) {
@@ -540,12 +537,7 @@ async function main() {
       fail(2, `remote-list failed: ${err.message}`);
     }
     const enriched = enrichWithDescriptions(candidates);
-    const sinceMs = argv.flags.since
-      ? Date.parse(String(argv.flags.since))
-      : Date.now() - 30 * 24 * 60 * 60 * 1000;
-    if (Number.isNaN(sinceMs)) {
-      fail(EXIT_CODES.USAGE, `--since must be ISO-8601, got: ${argv.flags.since}`);
-    }
+    const sinceMs = parseSinceOrFail(argv.flags.since, { defaultDays: 30 });
     const filterCli = argv.flags.cli ? String(argv.flags.cli) : null;
     if (filterCli !== null && !CLIS.has(filterCli)) {
       fail(EXIT_CODES.USAGE, `--cli must be one of: ${[...CLIS].join(", ")}`);
@@ -619,18 +611,10 @@ async function main() {
 
   // ---- top-level subs: push / pull / list --------------------------------
   if (first === "list") {
-    let sinceMs = null;
-    if (argv.flags.since) {
-      sinceMs = Date.parse(String(argv.flags.since));
-      if (Number.isNaN(sinceMs)) {
-        fail(EXIT_CODES.USAGE, `--since must be ISO-8601, got: ${argv.flags.since}`);
-      }
-    }
-    const listCap = Boolean(argv.flags.all) ? Infinity : Number.parseInt(limit.toString(), 10);
-
+    const sinceMs = parseSinceOrFail(argv.flags.since);
+    const listCap = argv.flags.all ? Infinity : Number(limit);
     const showLocal = !argv.flags.remote;
     const showRemote = !argv.flags.local;
-    const onlyRemote = Boolean(argv.flags.remote) && !argv.flags.local;
     const rows = [];
 
     if (showLocal) {
@@ -641,10 +625,10 @@ async function main() {
       }
     }
 
-    let remoteMissingRepo = false;
+    let remoteSkipped = false;
     if (showRemote) {
       if (!process.env.DOTCLAUDE_HANDOFF_REPO) {
-        remoteMissingRepo = true;
+        remoteSkipped = true;
         process.stderr.write(
           "dotclaude-handoff: list --remote: DOTCLAUDE_HANDOFF_REPO not set; skipping remote enumeration\n",
         );
@@ -668,11 +652,7 @@ async function main() {
       }
     }
 
-    rows.sort((a, b) => {
-      const ta = a.mtime ?? 0;
-      const tb = b.mtime ?? 0;
-      return tb - ta;
-    });
+    rows.sort((a, b) => (b.mtime ?? 0) - (a.mtime ?? 0));
     const capped = Number.isFinite(listCap) ? rows.slice(0, listCap) : rows;
 
     if (argv.json) {
@@ -680,7 +660,9 @@ async function main() {
       process.exit(EXIT_CODES.OK);
     }
     if (capped.length === 0) {
-      if (onlyRemote && remoteMissingRepo) process.exit(2);
+      // --remote + no transport env + no local rows = hard failure so
+      // piped callers don't silently treat an empty list as success.
+      if (argv.flags.remote && !argv.flags.local && remoteSkipped) process.exit(2);
       process.stdout.write("No sessions found\n");
       process.exit(EXIT_CODES.OK);
     }
