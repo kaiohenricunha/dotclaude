@@ -168,8 +168,6 @@ Headless runs skip the interactive bootstrap — set
   before upload.
 - **The handoff store is private by default** — the auto-bootstrap runs
   `gh repo create --private`. Don't flip it to public.
-- **`--include-transcript` is opt-in** — uploading raw turns increases secret
-  leakage blast radius. Off by default.
 - The skill never invokes another CLI itself — it produces the digest and hands
   you a paste-ready block. This is deliberate: it keeps the transfer auditable
   and prevents unintended cross-session execution.

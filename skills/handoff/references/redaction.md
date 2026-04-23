@@ -1,7 +1,6 @@
 # Handoff redaction — patterns and semantics
 
-The `push` sub-command pipes the rendered digest (and, when
-`--include-transcript` is set, the raw transcript slice) through a
+The `push` sub-command pipes the rendered digest through a
 redaction pass before uploading. This file is the authoritative list
 of patterns. The reusable implementation lives at
 `plugins/dotclaude/scripts/handoff-scrub.sh`.
