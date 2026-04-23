@@ -78,16 +78,16 @@ with a TSV candidate list on stderr.
 The binary's `--help` lists the full surface and authoritative flag
 semantics. Brief summary:
 
-| Sub                   | Purpose                                                                                              |
-| --------------------- | ---------------------------------------------------------------------------------------------------- |
-| `pull [<id>]`         | Render local session to stdout (`<handoff>` block); `--summary` for prose; `-o` to write to disk    |
-| `resolve <cli> <id>`  | Print the absolute JSONL path                                                                        |
-| `list`                | Unified local + remote table (`--local`/`--remote`, `--from`, `--since`, `--limit`/`--all`)          |
-| `search <query>`      | Substring/regex match across local sessions; `--from` / `--since` / `--limit` / `--fixed` / `--json` |
-| `push [<query>]`      | Push to `$DOTCLAUDE_HANDOFF_REPO`; `--tag` / `--include-transcript`                                  |
-| `fetch [<handle>]`    | Fetch from `$DOTCLAUDE_HANDOFF_REPO`; `--from-file` for offline                                      |
-| `remote-list`         | List handoffs on the transport; `--from` / `--since` / `--limit`                                     |
-| `doctor`              | Verify `git` + `$DOTCLAUDE_HANDOFF_REPO` + `gh` fallback                                             |
+| Sub                  | Purpose                                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `pull [<id>]`        | Render local session to stdout (`<handoff>` block); `--summary` for prose; `-o` to write to disk     |
+| `resolve <cli> <id>` | Print the absolute JSONL path                                                                        |
+| `list`               | Unified local + remote table (`--local`/`--remote`, `--from`, `--since`, `--limit`/`--all`)          |
+| `search <query>`     | Substring/regex match across local sessions; `--from` / `--since` / `--limit` / `--fixed` / `--json` |
+| `push [<query>]`     | Push to `$DOTCLAUDE_HANDOFF_REPO`; `--tag` / `--include-transcript`                                  |
+| `fetch [<handle>]`   | Fetch from `$DOTCLAUDE_HANDOFF_REPO`; `--from-file` for offline                                      |
+| `remote-list`        | List handoffs on the transport; `--from` / `--since` / `--limit`                                     |
+| `doctor`             | Verify `git` + `$DOTCLAUDE_HANDOFF_REPO` + `gh` fallback                                             |
 
 Cross-cutting flags (consult `--help` for the canonical list):
 
@@ -210,13 +210,13 @@ proceeding.
 The following forms are deprecated as of 0.12.0 and removed in 0.14.0.
 They still function but emit a stderr warning on every invocation.
 
-| Old form                       | New form                          |
-| ------------------------------ | --------------------------------- |
-| `describe <cli> <id>`          | `pull <id> --summary`             |
-| `describe <cli> <id> --json`   | `pull <id> --summary --json`      |
-| `digest <cli> <id>`            | `pull <id>`                       |
-| `file <cli> <id>`              | `pull <id> -o auto`               |
-| `pull <query>` (remote fetch)  | `fetch <query>`                   |
+| Old form                      | New form                     |
+| ----------------------------- | ---------------------------- |
+| `describe <cli> <id>`         | `pull <id> --summary`        |
+| `describe <cli> <id> --json`  | `pull <id> --summary --json` |
+| `digest <cli> <id>`           | `pull <id>`                  |
+| `file <cli> <id>`             | `pull <id> -o auto`          |
+| `pull <query>` (remote fetch) | `fetch <query>`              |
 
 Set `DOTCLAUDE_QUIET=1` to suppress deprecation stderr in CI pipelines
 that cannot update callers immediately. Real errors (exit 2 / exit 64)
