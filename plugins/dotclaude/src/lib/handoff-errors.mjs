@@ -14,6 +14,10 @@
  */
 export class PreflightHandledError extends Error {}
 
+/**
+ * Structured error for remote handoff transport failures.
+ * Carries four actionable fields rendered by {@link formatHandoffError}.
+ */
 export class HandoffError extends Error {
   /**
    * @param {{stage: string, cause: string, fix: string, retry: string}} fields
