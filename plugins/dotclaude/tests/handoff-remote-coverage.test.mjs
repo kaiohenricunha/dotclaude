@@ -3,6 +3,7 @@
 // code paths can be exercised without touching the real system.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { HandoffError } from "../src/lib/handoff-errors.mjs";
 
 vi.mock("node:child_process", () => ({
   spawnSync: vi.fn(),
@@ -93,7 +94,9 @@ describe("runGitOrThrow", () => {
 
 describe("extractMeta", () => {
   let exitSpy;
-  beforeEach(() => { exitSpy = mockExit(); });
+  beforeEach(() => {
+    exitSpy = mockExit();
+  });
   afterEach(() => exitSpy.mockRestore());
 
   it("returns parsed JSON meta on success", () => {
@@ -273,7 +276,9 @@ describe("isTty", () => {
 
 describe("encodeDescription", () => {
   let exitSpy;
-  beforeEach(() => { exitSpy = mockExit(); });
+  beforeEach(() => {
+    exitSpy = mockExit();
+  });
   afterEach(() => exitSpy.mockRestore());
 
   it("returns the trimmed encoded string on success", () => {
@@ -296,7 +301,12 @@ describe("encodeDescription", () => {
   it("includes tag arg when tag is provided", () => {
     spawnSync.mockReturnValueOnce({ status: 0, stdout: "encoded\n", stderr: "" });
     lib.encodeDescription({
-      cli: "claude", shortId: "abc", project: "proj", host: "host", month: "2026-04", tag: "mywork",
+      cli: "claude",
+      shortId: "abc",
+      project: "proj",
+      host: "host",
+      month: "2026-04",
+      tag: "mywork",
     });
     expect(spawnSync).toHaveBeenCalledWith(
       expect.any(String),
@@ -307,9 +317,16 @@ describe("encodeDescription", () => {
 
   it("exits 2 on encode failure", () => {
     spawnSync.mockReturnValueOnce({ status: 1, stdout: "", stderr: "encode failed" });
-    expect(() => lib.encodeDescription({
-      cli: "claude", shortId: "x", project: "p", host: "h", month: "2026-04", tag: null,
-    })).toThrow(/__exit__2/);
+    expect(() =>
+      lib.encodeDescription({
+        cli: "claude",
+        shortId: "x",
+        project: "p",
+        host: "h",
+        month: "2026-04",
+        tag: null,
+      }),
+    ).toThrow(/__exit__2/);
   });
 });
 
@@ -422,9 +439,7 @@ describe("loadPersistedEnv", () => {
 
   it("sets env vars from file content (quoted)", () => {
     existsSync.mockReturnValueOnce(true);
-    readFileSync.mockReturnValueOnce(
-      'export DOTCLAUDE_HANDOFF_REPO="git@github.com:x/y.git"\n',
-    );
+    readFileSync.mockReturnValueOnce('export DOTCLAUDE_HANDOFF_REPO="git@github.com:x/y.git"\n');
     delete process.env.DOTCLAUDE_HANDOFF_REPO;
     lib.loadPersistedEnv();
     expect(process.env.DOTCLAUDE_HANDOFF_REPO).toBe("git@github.com:x/y.git");
@@ -465,7 +480,9 @@ describe("loadPersistedEnv", () => {
 
   it("swallows a readFileSync error silently", () => {
     existsSync.mockReturnValueOnce(true);
-    readFileSync.mockImplementationOnce(() => { throw new Error("EACCES"); });
+    readFileSync.mockImplementationOnce(() => {
+      throw new Error("EACCES");
+    });
     expect(() => lib.loadPersistedEnv()).not.toThrow();
   });
 
@@ -536,9 +553,9 @@ describe("requireTransportRepoStrict", () => {
     expect(lib.requireTransportRepoStrict()).toBe("https://github.com/x/y.git");
   });
 
-  it("exits 2 when env var is absent", () => {
+  it("throws HandoffError when env var is absent", () => {
     delete process.env.DOTCLAUDE_HANDOFF_REPO;
-    expect(() => lib.requireTransportRepoStrict()).toThrow(/__exit__2/);
+    expect(() => lib.requireTransportRepoStrict()).toThrow(HandoffError);
   });
 });
 
@@ -602,9 +619,9 @@ describe("listRemoteCandidates", () => {
     expect(lib.listRemoteCandidates()).toEqual([]);
   });
 
-  it("exits 2 on ls-remote failure", () => {
+  it("throws HandoffError on ls-remote failure", () => {
     spawnSync.mockReturnValueOnce({ status: 1, stdout: "", stderr: "auth failed" });
-    expect(() => lib.listRemoteCandidates()).toThrow(/__exit__2/);
+    expect(() => lib.listRemoteCandidates()).toThrow(HandoffError);
   });
 
   it("skips malformed lines (not exactly 2 parts)", () => {
@@ -639,10 +656,10 @@ describe("fetchRemoteBranch", () => {
   it("returns content and description on success", () => {
     mkdtempSync.mockReturnValue("/tmp/mock-pull");
     spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" }); // clone
-    existsSync.mockReturnValueOnce(true);  // handoff.md exists
-    readFileSync.mockReturnValueOnce("# Handoff content");  // handoff.md
-    existsSync.mockReturnValueOnce(true);  // description.txt exists
-    readFileSync.mockReturnValueOnce("handoff:v2:claude/abc/proj/host");  // description.txt
+    existsSync.mockReturnValueOnce(true); // handoff.md exists
+    readFileSync.mockReturnValueOnce("# Handoff content"); // handoff.md
+    existsSync.mockReturnValueOnce(true); // description.txt exists
+    readFileSync.mockReturnValueOnce("handoff:v2:claude/abc/proj/host"); // description.txt
     const result = lib.fetchRemoteBranch("handoff/proj/claude/2026-04/abc12345");
     expect(result.content).toBe("# Handoff content");
     expect(result.description).toBe("handoff:v2:claude/abc/proj/host");
@@ -651,9 +668,9 @@ describe("fetchRemoteBranch", () => {
   it("returns empty description when description.txt is absent", () => {
     mkdtempSync.mockReturnValue("/tmp/mock-pull2");
     spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" }); // clone
-    existsSync.mockReturnValueOnce(true);   // handoff.md exists
+    existsSync.mockReturnValueOnce(true); // handoff.md exists
     readFileSync.mockReturnValueOnce("# Content");
-    existsSync.mockReturnValueOnce(false);  // description.txt absent
+    existsSync.mockReturnValueOnce(false); // description.txt absent
     const result = lib.fetchRemoteBranch("handoff/proj/claude/2026-04/abc12345");
     expect(result.description).toBe("");
   });
@@ -669,7 +686,7 @@ describe("fetchRemoteBranch", () => {
   it("throws when handoff.md is missing after clone", () => {
     mkdtempSync.mockReturnValue("/tmp/mock-pull4");
     spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" }); // clone ok
-    existsSync.mockReturnValueOnce(false);  // handoff.md missing
+    existsSync.mockReturnValueOnce(false); // handoff.md missing
     expect(() => lib.fetchRemoteBranch("handoff/proj/claude/2026-04/abc12345")).toThrow(
       "handoff.md missing",
     );
@@ -701,14 +718,20 @@ describe("enrichWithDescriptions", () => {
     readFileSync.mockReturnValueOnce("content");
     existsSync.mockReturnValueOnce(true);
     readFileSync.mockReturnValueOnce("handoff:v2:claude/abc/proj/host");
-    const result = lib.enrichWithDescriptions([{ branch: "handoff/proj/claude/2026-04/abc", commit: "abc123", description: "" }]);
+    const result = lib.enrichWithDescriptions([
+      { branch: "handoff/proj/claude/2026-04/abc", commit: "abc123", description: "" },
+    ]);
     expect(result[0].description).toBe("handoff:v2:claude/abc/proj/host");
   });
 
   it("keeps the original candidate when fetchRemoteBranch throws", () => {
     mkdtempSync.mockReturnValue("/tmp/enrich-2");
     spawnSync.mockReturnValueOnce({ status: 1, stdout: "", stderr: "clone failed" });
-    const original = { branch: "handoff/proj/claude/2026-04/abc", commit: "abc123", description: "original" };
+    const original = {
+      branch: "handoff/proj/claude/2026-04/abc",
+      commit: "abc123",
+      description: "original",
+    };
     const result = lib.enrichWithDescriptions([original]);
     expect(result[0].description).toBe("original");
   });
@@ -739,9 +762,9 @@ describe("pullRemote", () => {
 
   function mockFetchBranch(content = "# content", description = "handoff:v2:claude/abc/proj/host") {
     spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" }); // clone
-    existsSync.mockReturnValueOnce(true);  // handoff.md exists
+    existsSync.mockReturnValueOnce(true); // handoff.md exists
     readFileSync.mockReturnValueOnce(content);
-    existsSync.mockReturnValueOnce(true);  // description.txt exists
+    existsSync.mockReturnValueOnce(true); // description.txt exists
     readFileSync.mockReturnValueOnce(description);
   }
 
@@ -789,9 +812,9 @@ describe("pullRemote", () => {
   // The stderr warning signals the user that the pick is best-effort.
 
   function mockLsRemoteMulti(...shortIds) {
-    const lines = shortIds
-      .map((s, i) => `c${i}  refs/heads/handoff/proj/claude/2026-04/${s}`)
-      .join("\n") + "\n";
+    const lines =
+      shortIds.map((s, i) => `c${i}  refs/heads/handoff/proj/claude/2026-04/${s}`).join("\n") +
+      "\n";
     spawnSync.mockReturnValueOnce({ status: 0, stdout: lines, stderr: "" });
   }
 
@@ -852,32 +875,33 @@ describe("pullRemote", () => {
     expect(result.branch).toBe("handoff/proj/claude/2026-04/bbbbbbbb");
   });
 
-  it("exits 2 when no candidates exist", async () => {
+  it("throws HandoffError when no candidates exist", async () => {
     // Override: ls-remote returns empty output → candidates = []
     spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" });
-    await expect(lib.pullRemote(null)).rejects.toThrow(/__exit__2/);
+    await expect(lib.pullRemote(null)).rejects.toThrow(HandoffError);
   });
 
   it("filters by fromCli when provided, returning only the matching CLI's branch", async () => {
     spawnSync.mockReturnValueOnce({
       status: 0,
-      stdout: [
-        "abc  refs/heads/handoff/proj/claude/2026-04/aaa",
-        "def  refs/heads/handoff/proj/copilot/2026-04/bbb",
-      ].join("\n") + "\n",
+      stdout:
+        [
+          "abc  refs/heads/handoff/proj/claude/2026-04/aaa",
+          "def  refs/heads/handoff/proj/copilot/2026-04/bbb",
+        ].join("\n") + "\n",
       stderr: "",
     });
     const result = await lib.pullRemote(null, "claude");
     expect(result.branch).toContain("claude");
   });
 
-  it("exits 2 when fromCli filter yields no candidates", async () => {
+  it("throws HandoffError when fromCli filter yields no candidates", async () => {
     spawnSync.mockReturnValueOnce({
       status: 0,
       stdout: "abc  refs/heads/handoff/proj/copilot/2026-04/aaa\n",
       stderr: "",
     });
-    await expect(lib.pullRemote(null, "claude")).rejects.toThrow(/__exit__2/);
+    await expect(lib.pullRemote(null, "claude")).rejects.toThrow(HandoffError);
   });
 
   it("matches by query against branch name and returns the single hit", async () => {
@@ -900,7 +924,7 @@ describe("pullRemote", () => {
     expect(result.description).toContain("myproject");
   });
 
-  it("exits 2 when no candidates match the query after description enrichment", async () => {
+  it("throws HandoffError when no candidates match the query after description enrichment", async () => {
     // Branch name and description both don't contain the query.
     spawnSync.mockReturnValueOnce({
       status: 0,
@@ -908,17 +932,18 @@ describe("pullRemote", () => {
       stderr: "",
     });
     mockFetchBranch("content", "handoff:v2:claude/abc/proj/host");
-    await expect(lib.pullRemote("zzz-no-match")).rejects.toThrow(/__exit__2/);
+    await expect(lib.pullRemote("zzz-no-match")).rejects.toThrow(HandoffError);
   });
 
   it("exits 2 on non-TTY collision when multiple hits share the query", async () => {
     // Two branches both containing "abc" in the name.
     spawnSync.mockReturnValueOnce({
       status: 0,
-      stdout: [
-        "aaa  refs/heads/handoff/proj/claude/2026-04/abc12345",
-        "bbb  refs/heads/handoff/proj/claude/2026-04/abc67890",
-      ].join("\n") + "\n",
+      stdout:
+        [
+          "aaa  refs/heads/handoff/proj/claude/2026-04/abc12345",
+          "bbb  refs/heads/handoff/proj/claude/2026-04/abc67890",
+        ].join("\n") + "\n",
       stderr: "",
     });
     // enrichWithDescriptions is called for both hits (both match on branch name)
@@ -932,10 +957,11 @@ describe("pullRemote", () => {
     // Two hits, user answers "1" → returns hits[0].
     spawnSync.mockReturnValueOnce({
       status: 0,
-      stdout: [
-        "aaa  refs/heads/handoff/proj/claude/2026-04/abc12345",
-        "bbb  refs/heads/handoff/proj/claude/2026-04/abc67890",
-      ].join("\n") + "\n",
+      stdout:
+        [
+          "aaa  refs/heads/handoff/proj/claude/2026-04/abc12345",
+          "bbb  refs/heads/handoff/proj/claude/2026-04/abc67890",
+        ].join("\n") + "\n",
       stderr: "",
     });
     mockFetchBranch("c1", "handoff:v2:claude/abc/proj/host");
@@ -960,17 +986,18 @@ describe("pullRemote", () => {
   it("exits 2 on TTY collision when user enters an invalid pick", async () => {
     spawnSync.mockReturnValueOnce({
       status: 0,
-      stdout: [
-        "aaa  refs/heads/handoff/proj/claude/2026-04/abc12345",
-        "bbb  refs/heads/handoff/proj/claude/2026-04/abc67890",
-      ].join("\n") + "\n",
+      stdout:
+        [
+          "aaa  refs/heads/handoff/proj/claude/2026-04/abc12345",
+          "bbb  refs/heads/handoff/proj/claude/2026-04/abc67890",
+        ].join("\n") + "\n",
       stderr: "",
     });
     mockFetchBranch("c1", "handoff:v2:claude/abc/proj/host");
     mockFetchBranch("c2", "handoff:v2:claude/abc/proj/host");
 
     createInterface.mockReturnValueOnce({
-      question: (_prompt, cb) => cb("x"),  // non-numeric → abort
+      question: (_prompt, cb) => cb("x"), // non-numeric → abort
       close: vi.fn(),
     });
 
@@ -1053,17 +1080,17 @@ describe("fetchRemoteMetadata", () => {
 
   it("throws when git init fails", () => {
     spawnSync.mockReturnValueOnce({ status: 1, stdout: "", stderr: "disk full" });
-    expect(() =>
-      lib.fetchRemoteMetadata("handoff/a/claude/2026-04/aaaaaaaa", "url"),
-    ).toThrow(/git init failed/);
+    expect(() => lib.fetchRemoteMetadata("handoff/a/claude/2026-04/aaaaaaaa", "url")).toThrow(
+      /git init failed/,
+    );
   });
 
   it("throws when fetch fails", () => {
     spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" });
     spawnSync.mockReturnValueOnce({ status: 1, stdout: "", stderr: "network error" });
-    expect(() =>
-      lib.fetchRemoteMetadata("handoff/a/claude/2026-04/aaaaaaaa", "url"),
-    ).toThrow(/fetch failed/);
+    expect(() => lib.fetchRemoteMetadata("handoff/a/claude/2026-04/aaaaaaaa", "url")).toThrow(
+      /fetch failed/,
+    );
   });
 
   it("throws when metadata.json is missing (legacy branch)", () => {
@@ -1074,18 +1101,18 @@ describe("fetchRemoteMetadata", () => {
       stdout: "",
       stderr: "fatal: path 'metadata.json' does not exist",
     });
-    expect(() =>
-      lib.fetchRemoteMetadata("handoff/a/claude/2026-04/aaaaaaaa", "url"),
-    ).toThrow(/metadata.json missing/);
+    expect(() => lib.fetchRemoteMetadata("handoff/a/claude/2026-04/aaaaaaaa", "url")).toThrow(
+      /metadata.json missing/,
+    );
   });
 
   it("throws when metadata.json is malformed", () => {
     spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" });
     spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" });
     spawnSync.mockReturnValueOnce({ status: 0, stdout: "not { valid json", stderr: "" });
-    expect(() =>
-      lib.fetchRemoteMetadata("handoff/a/claude/2026-04/aaaaaaaa", "url"),
-    ).toThrow(/parse failed/);
+    expect(() => lib.fetchRemoteMetadata("handoff/a/claude/2026-04/aaaaaaaa", "url")).toThrow(
+      /parse failed/,
+    );
   });
 });
 
@@ -1143,9 +1170,9 @@ describe("probeCollision", () => {
       stdout: JSON.stringify({ session_id: "sess-OTHER" }),
       stderr: "",
     });
-    expect(() =>
-      lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A"),
-    ).toThrow(/__exit__2/);
+    expect(() => lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A")).toThrow(
+      /__exit__2/,
+    );
   });
 
   it("returns force on session mismatch with force=true and warns to stderr", () => {
@@ -1161,31 +1188,25 @@ describe("probeCollision", () => {
       stdout: JSON.stringify({ session_id: "sess-OTHER" }),
       stderr: "",
     });
-    const r = lib.probeCollision(
-      "url",
-      "handoff/a/claude/2026-04/aaaaaaaa",
-      "sess-A",
-      { force: true },
-    );
+    const r = lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A", {
+      force: true,
+    });
     expect(r).toEqual({ mode: "force" });
     expect(stderrSpy).toHaveBeenCalled();
   });
 
   it("fails closed when ls-remote itself errors", () => {
     spawnSync.mockReturnValueOnce({ status: 1, stdout: "", stderr: "auth denied" });
-    expect(() =>
-      lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A"),
-    ).toThrow(/__exit__2/);
+    expect(() => lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A")).toThrow(
+      /__exit__2/,
+    );
   });
 
   it("returns force when ls-remote errors and force=true", () => {
     spawnSync.mockReturnValueOnce({ status: 1, stdout: "", stderr: "auth denied" });
-    const r = lib.probeCollision(
-      "url",
-      "handoff/a/claude/2026-04/aaaaaaaa",
-      "sess-A",
-      { force: true },
-    );
+    const r = lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A", {
+      force: true,
+    });
     expect(r).toEqual({ mode: "force" });
   });
 
@@ -1221,9 +1242,9 @@ describe("probeCollision", () => {
       stdout: "",
       stderr: "fatal: path 'metadata.json' does not exist",
     });
-    expect(() =>
-      lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A"),
-    ).toThrow(/__exit__2/);
+    expect(() => lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A")).toThrow(
+      /__exit__2/,
+    );
   });
 
   it("returns force when remote metadata is missing and force=true", () => {
@@ -1239,28 +1260,20 @@ describe("probeCollision", () => {
       stdout: "",
       stderr: "fatal: path 'metadata.json' does not exist",
     });
-    const r = lib.probeCollision(
-      "url",
-      "handoff/a/claude/2026-04/aaaaaaaa",
-      "sess-A",
-      { force: true },
-    );
+    const r = lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A", {
+      force: true,
+    });
     expect(r).toEqual({ mode: "force" });
   });
 
   it("fails closed when localSessionId is null without force", () => {
-    expect(() =>
-      lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", null),
-    ).toThrow(/__exit__2/);
+    expect(() => lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", null)).toThrow(
+      /__exit__2/,
+    );
   });
 
   it("returns force mode with a warning when localSessionId is null and force=true", () => {
-    const r = lib.probeCollision(
-      "url",
-      "handoff/a/claude/2026-04/aaaaaaaa",
-      null,
-      { force: true },
-    );
+    const r = lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", null, { force: true });
     expect(r).toEqual({ mode: "force" });
     expect(stderrSpy).toHaveBeenCalled();
   });
@@ -1278,8 +1291,8 @@ describe("probeCollision", () => {
       stdout: JSON.stringify({ session_id: null }),
       stderr: "",
     });
-    expect(() =>
-      lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A"),
-    ).toThrow(/__exit__2/);
+    expect(() => lib.probeCollision("url", "handoff/a/claude/2026-04/aaaaaaaa", "sess-A")).toThrow(
+      /__exit__2/,
+    );
   });
 });
