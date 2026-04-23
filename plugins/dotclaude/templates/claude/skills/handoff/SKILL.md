@@ -40,7 +40,7 @@ bash tool.
 
 ```
 /handoff pull [<id>] [--from <cli>] [--to <cli>] [--summary] [-o <path>]
-/handoff push [<query>] [--from <cli>] [--tag <label>] [--include-transcript]
+/handoff push [<query>] [--from <cli>] [--tag <label>]
 /handoff fetch [<query>] [--from <cli>] [--verify]
 /handoff list [--local|--remote] [--from <cli>] [--since <ISO>] [--limit N|--all]
 ```
@@ -81,7 +81,7 @@ semantics. Brief summary:
 | `resolve <cli> <id>` | Print the absolute JSONL path                                                                        |
 | `list`               | Unified local + remote table (`--local`/`--remote`, `--from`, `--since`, `--limit`/`--all`)          |
 | `search <query>`     | Substring/regex match across local sessions; `--from` / `--since` / `--limit` / `--fixed` / `--json` |
-| `push [<query>]`     | Push to `$DOTCLAUDE_HANDOFF_REPO`; `--tag` / `--include-transcript`                                  |
+| `push [<query>]`     | Push to `$DOTCLAUDE_HANDOFF_REPO`; `--tag`                                                           |
 | `fetch [<handle>]`   | Fetch from `$DOTCLAUDE_HANDOFF_REPO`; `--from-file` for offline                                      |
 | `remote-list`        | List handoffs on the transport; `--from` / `--since` / `--limit`                                     |
 | `doctor`             | Verify `git` + `$DOTCLAUDE_HANDOFF_REPO` + `gh` fallback                                             |
@@ -109,8 +109,6 @@ Cross-cutting flags (consult `--help` for the canonical list):
 - `--fixed` / `-F` treats the `search` query as a literal string
   instead of a regex.
 - `--tag <label>` annotates a `push` for fuzzy `fetch` later.
-- `--include-transcript` adds the last 50 raw turns to a `push`
-  (off by default to minimise leakage).
 - `--from-file <path>` lets `fetch` load a local markdown file written
   by `pull -o`. Works without network access.
 - `--json` is honoured by `list`, `pull`, `remote-list`, `search`.
