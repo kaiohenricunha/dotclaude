@@ -698,10 +698,9 @@ export async function pushRemote({
   force = false,
   dryRun = false,
 }) {
-  // Dry-run uses the strict variant: it must never bootstrap (bootstrap is
-  // an online action) and must never call autoPreflight (network probe).
-  // Strict throws a HandoffError with stage=preflight if the env var is
-  // unset, which the bin's emitRemoteError formats for the user.
+  // Dry-run must stay fully offline — no interactive bootstrap, no preflight
+  // probe. The bin's emitRemoteError formats the HandoffError thrown here
+  // when the env var is unset.
   let repoUrl = dryRun ? requireTransportRepoStrict() : await requireTransportRepo();
   if (!dryRun) autoPreflight({ repo: repoUrl, verify, verbose });
   const meta = extractMeta(cli, sessionFile);
@@ -787,7 +786,7 @@ export async function pushRemote({
           : ["push", "-q", "-f", "origin", branch],
         tmp,
       );
-      return { branch, url, description, scrubbedCount };
+      return { dryRun: false, branch, url, description, scrubbedCount };
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

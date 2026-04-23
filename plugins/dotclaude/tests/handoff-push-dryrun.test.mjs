@@ -78,7 +78,8 @@ describe("pushRemote({ dryRun: true })", () => {
 
     expect(result.dryRun).toBe(true);
     expect(result.url).toBe("git@example.com:me/store.git");
-    expect(result.branch).toMatch(/^handoff\/.+\/claude\/\d{4}-\d{2}\/abc12345$/);
+    // meta.cwd is null → projectSlugFromCwd returns "adhoc" deterministically.
+    expect(result.branch).toMatch(/^handoff\/adhoc\/claude\/\d{4}-\d{2}\/abc12345$/);
     expect(result.scrubbedCount).toBe(0);
     expect(result.digestBytes).toBeGreaterThan(0);
     expect(result.metadata.cli).toBe("claude");

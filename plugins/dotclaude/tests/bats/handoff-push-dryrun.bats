@@ -88,10 +88,12 @@ teardown() {
 # ---- test 4: dry-run does NOT invoke the doctor script --------------------
 
 @test "push --dry-run: autoPreflight is skipped (doctor stub never runs)" {
-  # Replace the passing stub with one that writes to a sentinel file and
-  # fails. If dry-run invokes preflight, the sentinel appears and the
-  # command exits non-zero.
-  local sentinel; sentinel=$(mktemp -u)
+  # Replace the passing stub with one that writes a sentinel file and
+  # exits non-zero. If dry-run invokes preflight, the sentinel appears
+  # and the command fails. Using a fresh dir + fixed name avoids the
+  # mktemp -u race (path not reserved).
+  local sentinel_dir; sentinel_dir=$(mktemp -d)
+  local sentinel="$sentinel_dir/preflight-ran"
   cat > "$STUB_DOCTOR" <<SH
 #!/usr/bin/env bash
 echo "preflight-ran" > "$sentinel"
@@ -102,4 +104,5 @@ SH
   run --separate-stderr node "$BIN" push --dry-run
   [ "$status" -eq 0 ]
   [ ! -f "$sentinel" ]
+  rm -rf "$sentinel_dir"
 }
