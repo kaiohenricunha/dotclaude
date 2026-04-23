@@ -31,6 +31,7 @@
  * Exits: 0 ok, 2 not-found / runtime error, 64 usage error.
  */
 
+import { HandoffError, classifyGitError, formatHandoffError } from "../src/lib/handoff-errors.mjs";
 import { parse, helpText } from "../src/lib/argv.mjs";
 import { EXIT_CODES } from "../src/lib/exit-codes.mjs";
 import { version, escapeRegex } from "../src/index.mjs";
@@ -69,12 +70,15 @@ import {
   listRemoteCandidates,
   enrichWithDescriptions,
   matchesQuery,
+  // error class (re-exported for tests)
+  HandoffError as _HandoffError,
   // constants
   CONFIG_FILE,
   V1_BRANCH_RE,
   V2_BRANCH_RE,
   parseHandoffBranch,
 } from "../src/lib/handoff-remote.mjs";
+export { _HandoffError as HandoffError };
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join, resolve as resolvePath } from "node:path";
@@ -842,7 +846,18 @@ async function main() {
       );
       process.exit(EXIT_CODES.OK);
     } catch (err) {
-      fail(2, `push failed: ${err.message}`);
+      // autoPreflight already streams the doctor output to stderr; a second block
+      // would be redundant. All other failures get the structured format.
+      if (err.message !== "preflight failed") {
+        const structured =
+          err instanceof HandoffError
+            ? err
+            : classifyGitError(err.message, "push", {
+                shortId: sessionHit ? shortIdFromPath(sessionHit.path) : undefined,
+              });
+        process.stderr.write(formatHandoffError(structured, "push"));
+      }
+      process.exit(2);
     }
   }
 
@@ -890,7 +905,14 @@ async function main() {
       process.stdout.write(content.endsWith("\n") ? content : content + "\n");
       process.exit(EXIT_CODES.OK);
     } catch (err) {
-      fail(2, `fetch failed: ${err.message}`);
+      if (err.message !== "preflight failed") {
+        const structured =
+          err instanceof HandoffError
+            ? err
+            : classifyGitError(err.message, "fetch", { query: second ?? undefined });
+        process.stderr.write(formatHandoffError(structured, "fetch"));
+      }
+      process.exit(2);
     }
   }
 

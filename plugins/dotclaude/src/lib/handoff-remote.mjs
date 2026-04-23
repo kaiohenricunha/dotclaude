@@ -10,6 +10,8 @@
  * copy-pasting implementation across the boundary.
  */
 
+import { HandoffError, classifyGitError } from "./handoff-errors.mjs";
+export { HandoffError } from "./handoff-errors.mjs";
 import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { dirname, join, resolve as resolvePath } from "node:path";
@@ -586,10 +588,12 @@ export async function requireTransportRepo() {
 export function requireTransportRepoStrict() {
   const url = process.env.DOTCLAUDE_HANDOFF_REPO;
   if (!url)
-    fail(
-      2,
-      "DOTCLAUDE_HANDOFF_REPO is not set — run `dotclaude handoff push` to auto-bootstrap, or set it manually",
-    );
+    throw new HandoffError({
+      stage: "preflight",
+      cause: "transport not configured",
+      fix: "Run `dotclaude handoff push` to auto-bootstrap, or set DOTCLAUDE_HANDOFF_REPO manually",
+      retry: "dotclaude handoff push",
+    });
   return validateTransportUrl(url);
 }
 
@@ -915,7 +919,13 @@ function sortByCommitterDate(candidates, repoUrl) {
 export function listRemoteCandidates() {
   const repoUrl = requireTransportRepoStrict();
   const r = runGit(["ls-remote", repoUrl, "refs/heads/handoff/*"]);
-  if (r.status !== 0) fail(2, `ls-remote failed: ${r.stderr.trim()}`);
+  if (r.status !== 0)
+    throw new HandoffError({
+      stage: "preflight",
+      cause: "repo unreachable",
+      fix: `Run \`dotclaude handoff doctor\` to diagnose — ls-remote failed: ${r.stderr.trim()}`,
+      retry: "dotclaude handoff doctor",
+    });
   const rows = [];
   for (const line of r.stdout.split("\n")) {
     const parts = line.trim().split(/\s+/);
@@ -937,7 +947,8 @@ export function fetchRemoteBranch(branch) {
   try {
     const r = runGit(["clone", "-q", "--depth", "1", "--branch", branch, repoUrl, "."], tmp);
     if (r.status !== 0) {
-      throw new Error(`clone --branch ${branch} failed: ${r.stderr.trim()}`);
+      const raw = `clone --branch ${branch} failed: ${r.stderr.trim()}`;
+      throw classifyGitError(raw, "fetch", {});
     }
     const handoffPath = join(tmp, "handoff.md");
     if (!existsSync(handoffPath)) {
@@ -981,7 +992,13 @@ export async function pullRemote(query, fromCli = null, { verify = false, verbos
   const repoUrl = requireTransportRepoStrict();
   autoPreflight({ repo: repoUrl, verify, verbose });
   let candidates = listRemoteCandidates();
-  if (candidates.length === 0) fail(2, "no handoffs found on transport");
+  if (candidates.length === 0)
+    throw new HandoffError({
+      stage: "resolve",
+      cause: "no handoffs on transport",
+      fix: "Push a session first: `dotclaude handoff push`",
+      retry: "dotclaude handoff push",
+    });
 
   // v2 carries the CLI in segment 2 (handoff/<project>/<cli>/...);
   // v1 legacy carries it in segment 1 (handoff/<cli>/<short>).
@@ -990,7 +1007,13 @@ export async function pullRemote(query, fromCli = null, { verify = false, verbos
       const segs = c.branch.split("/");
       return segs[2] === fromCli || segs[1] === fromCli;
     });
-    if (candidates.length === 0) fail(2, `no ${fromCli} handoffs found on transport`);
+    if (candidates.length === 0)
+      throw new HandoffError({
+        stage: "resolve",
+        cause: `no ${fromCli} handoffs on transport`,
+        fix: `Push a session first: \`dotclaude handoff push --from ${fromCli}\``,
+        retry: `dotclaude handoff push --from ${fromCli}`,
+      });
   }
 
   // Bare: pick the newest by commit date. Short UUIDs are 8 hex chars
@@ -1015,10 +1038,12 @@ export async function pullRemote(query, fromCli = null, { verify = false, verbos
   }
 
   if (hits.length === 0) {
-    fail(
-      2,
-      fromCli ? `no ${fromCli} handoffs match: ${query}` : `no handoffs match: ${query}`,
-    );
+    throw new HandoffError({
+      stage: "resolve",
+      cause: fromCli ? `no ${fromCli} handoffs match: ${query}` : `no handoffs match: ${query}`,
+      fix: "Run `dotclaude handoff remote-list` to see what's available",
+      retry: `dotclaude handoff fetch ${query}`,
+    });
   }
   if (hits.length === 1) return hits[0];
 

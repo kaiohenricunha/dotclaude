@@ -24,6 +24,7 @@ describe("export shape", () => {
     "extractTurns",
     "fetchRemoteBranch",
     "fetchRemoteMetadata",
+    "HandoffError",
     "ghAuthenticated",
     "ghAvailable",
     "ghLogin",
@@ -76,7 +77,12 @@ describe("v2BranchName", () => {
 
   it("slugifies the project segment", () => {
     expect(
-      lib.v2BranchName({ project: "My Project!", cli: "codex", month: "2026-04", shortId: "ff00aa11" }),
+      lib.v2BranchName({
+        project: "My Project!",
+        cli: "codex",
+        month: "2026-04",
+        shortId: "ff00aa11",
+      }),
     ).toBe("handoff/my-project/codex/2026-04/ff00aa11");
   });
 });
@@ -180,9 +186,9 @@ describe("isRepoMissingError (phrasing union)", () => {
   });
 
   it("matches GitLab's wording", () => {
-    expect(
-      lib.isRepoMissingError("The project you were looking for could not be found."),
-    ).toBe(true);
+    expect(lib.isRepoMissingError("The project you were looking for could not be found.")).toBe(
+      true,
+    );
   });
 
   it("matches raw SSH / git phrasings", () => {
@@ -349,9 +355,9 @@ describe("requireTransportRepoStrict", () => {
     expect(lib.requireTransportRepoStrict()).toBe("https://github.com/x/y.git");
   });
 
-  it("exits 2 when DOTCLAUDE_HANDOFF_REPO is not set", () => {
+  it("throws HandoffError when DOTCLAUDE_HANDOFF_REPO is not set", () => {
     delete process.env.DOTCLAUDE_HANDOFF_REPO;
-    expect(() => lib.requireTransportRepoStrict()).toThrow(/__exit__2/);
+    expect(() => lib.requireTransportRepoStrict()).toThrow(lib.HandoffError);
   });
 });
 

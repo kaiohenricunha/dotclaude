@@ -117,7 +117,7 @@ EOF
   mv "$backup" "$SCRUB"
 
   [ "$push_status" -eq 2 ]
-  [[ "$push_output" == *"scrub not applied"* ]]
+  [[ "$push_output" == *"stage:  scrub"* ]]
 
   # Remote must carry no branch for this session.
   local branch

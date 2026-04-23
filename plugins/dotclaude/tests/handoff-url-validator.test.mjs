@@ -11,6 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   validateTransportUrl,
   requireTransportRepoStrict,
+  HandoffError,
 } from "../bin/dotclaude-handoff.mjs";
 
 describe("validateTransportUrl", () => {
@@ -30,12 +31,12 @@ describe("validateTransportUrl", () => {
   });
 
   const accepted = [
-    ["https URL",          "https://github.com/x/y.git"],
-    ["http URL",           "http://ghe.example.com/x/y.git"],
+    ["https URL", "https://github.com/x/y.git"],
+    ["http URL", "http://ghe.example.com/x/y.git"],
     ["git@ SSH shorthand", "git@github.com:x/y.git"],
-    ["ssh:// URL",         "ssh://git@host:22/x.git"],
-    ["file:// URL",        "file:///tmp/bare.git"],
-    ["absolute path",      "/tmp/bare-repo"],
+    ["ssh:// URL", "ssh://git@host:22/x.git"],
+    ["file:// URL", "file:///tmp/bare.git"],
+    ["absolute path", "/tmp/bare-repo"],
   ];
 
   for (const [label, url] of accepted) {
@@ -46,11 +47,11 @@ describe("validateTransportUrl", () => {
   }
 
   const rejected = [
-    ["ext:: exec scheme",     "ext::sh -c evil"],
-    ["data: URI",             "data:text/plain,x"],
-    ["javascript: URI",       "javascript:alert(1)"],
-    ["relative path",         "relative/path/to/repo"],
-    ["bare hostname",         "github.com/x/y"],
+    ["ext:: exec scheme", "ext::sh -c evil"],
+    ["data: URI", "data:text/plain,x"],
+    ["javascript: URI", "javascript:alert(1)"],
+    ["relative path", "relative/path/to/repo"],
+    ["bare hostname", "github.com/x/y"],
   ];
 
   for (const [label, url] of rejected) {
@@ -91,14 +92,19 @@ describe("requireTransportRepoStrict", () => {
 
   it("rejects unset env with a clear pointer at push auto-bootstrap", () => {
     delete process.env.DOTCLAUDE_HANDOFF_REPO;
-    expect(() => requireTransportRepoStrict()).toThrow(/__exit__2/);
-    const stderrArgs = stderrSpy.mock.calls.map((c) => c[0]).join("");
-    expect(stderrArgs).toContain("DOTCLAUDE_HANDOFF_REPO");
-    expect(stderrArgs).toContain("push");
+    let err;
+    try {
+      requireTransportRepoStrict();
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(HandoffError);
+    expect(err.fix).toContain("DOTCLAUDE_HANDOFF_REPO");
+    expect(err.fix).toContain("push");
   });
 
   it("rejects empty string env", () => {
     process.env.DOTCLAUDE_HANDOFF_REPO = "";
-    expect(() => requireTransportRepoStrict()).toThrow(/__exit__2/);
+    expect(() => requireTransportRepoStrict()).toThrow(HandoffError);
   });
 });
