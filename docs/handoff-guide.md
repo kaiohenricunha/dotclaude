@@ -33,7 +33,7 @@ scrubbed digest.
 **On machine A**, from any Claude / Copilot / Codex session:
 
 ```
-/handoff push --tag "finishing auth refactor"
+/handoff push --tag finishing-auth-refactor --tag shipping
 ```
 
 On the **first** push the binary walks you through a one-time setup:
@@ -66,9 +66,12 @@ to your `~/.bashrc` or `~/.zshrc`.
 /handoff pull finishing-auth-refactor
 ```
 
-Bare `/handoff pull` fetches the newest handoff; the positional is a
-fuzzy-match query against tag, short UUID, project slug, hostname, or
-CLI name.
+Bare `/handoff pull` fetches the newest handoff. With a positional, the
+resolver first prefers exact-tag matches (`/handoff fetch shipping`
+resolves the branch tagged exactly `shipping` even if "shipping" appears
+as a substring of another branch's description), and otherwise
+fuzzy-matches against tag, short UUID, project slug, hostname, or CLI
+name.
 
 ---
 

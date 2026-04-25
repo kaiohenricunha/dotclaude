@@ -43,9 +43,9 @@ bash tool.
 
 ```
 /handoff pull [<id>] [--from <cli>] [--to <cli>] [--summary] [-o <path>]
-/handoff push [<query>] [--from <cli>] [--tag <label>]
+/handoff push [<query>] [--from <cli>] [--tag <label> ...]
 /handoff fetch [<query>] [--from <cli>] [--verify]
-/handoff list [--local|--remote] [--from <cli>] [--since <ISO>] [--limit N|--all]
+/handoff list [--local|--remote] [--from <cli>] [--since <ISO>] [--limit N|--all] [--tag <name>] [--tags]
 ```
 
 A bare `/handoff` with no arguments prints usage and exits 0. Every
@@ -78,16 +78,16 @@ with a TSV candidate list on stderr.
 The binary's `--help` lists the full surface and authoritative flag
 semantics. Brief summary:
 
-| Sub                  | Purpose                                                                                              |
-| -------------------- | ---------------------------------------------------------------------------------------------------- |
-| `pull [<id>]`        | Render local session to stdout (`<handoff>` block); `--summary` for prose; `-o` to write to disk     |
-| `resolve <cli> <id>` | Print the absolute JSONL path                                                                        |
-| `list`               | Unified local + remote table (`--local`/`--remote`, `--from`, `--since`, `--limit`/`--all`)          |
-| `search <query>`     | Substring/regex match across local sessions; `--from` / `--since` / `--limit` / `--fixed` / `--json` |
-| `push [<query>]`     | Push to `$DOTCLAUDE_HANDOFF_REPO`; `--tag`                                                           |
-| `fetch [<handle>]`   | Fetch from `$DOTCLAUDE_HANDOFF_REPO`; `--from-file` for offline                                      |
-| `remote-list`        | List handoffs on the transport; `--from` / `--since` / `--limit`                                     |
-| `doctor`             | Verify `git` + `$DOTCLAUDE_HANDOFF_REPO` + `gh` fallback                                             |
+| Sub                  | Purpose                                                                                                               |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `pull [<id>]`        | Render local session to stdout (`<handoff>` block); `--summary` for prose; `-o` to write to disk                      |
+| `resolve <cli> <id>` | Print the absolute JSONL path                                                                                         |
+| `list`               | Unified local + remote table (`--local`/`--remote`, `--from`, `--since`, `--limit`/`--all`, `--tag <name>`, `--tags`) |
+| `search <query>`     | Substring/regex match across local sessions; `--from` / `--since` / `--limit` / `--fixed` / `--json`                  |
+| `push [<query>]`     | Push to `$DOTCLAUDE_HANDOFF_REPO`; `--tag`                                                                            |
+| `fetch [<handle>]`   | Fetch from `$DOTCLAUDE_HANDOFF_REPO`; `--from-file` for offline                                                       |
+| `remote-list`        | List handoffs on the transport; `--from` / `--since` / `--limit`                                                      |
+| `doctor`             | Verify `git` + `$DOTCLAUDE_HANDOFF_REPO` + `gh` fallback                                                              |
 
 Cross-cutting flags (consult `--help` for the canonical list):
 
@@ -111,7 +111,11 @@ Cross-cutting flags (consult `--help` for the canonical list):
   disables the cap.
 - `--fixed` / `-F` treats the `search` query as a literal string
   instead of a regex.
-- `--tag <label>` annotates a `push` for fuzzy `fetch` later.
+- `--tag <label>` annotates a `push`. Repeatable for multi-tag
+  (`--tag shipping --tag perf`). On `list --remote`, `--tag <name>`
+  filters by exact tag and `--tags` switches to a tag-frequency
+  histogram. On `fetch <tag>`, exact-tag matches are preferred over
+  description substring fallback.
 - `--from-file <path>` lets `fetch` load a local markdown file written
   by `pull -o`. Works without network access.
 - `--json` is honoured by `list`, `pull`, `remote-list`, `search`.

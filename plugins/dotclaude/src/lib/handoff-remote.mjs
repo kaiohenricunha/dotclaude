@@ -333,6 +333,46 @@ export function encodeDescription({ cli, shortId, project, host, month, tag }) {
   return r.stdout.trim();
 }
 
+/**
+ * Read tags from a metadata object, transparently handling both the
+ * v0 single-string `tag` field (deployed before #91 Gap 7) and the
+ * current `tags: string[]` array. Returns [] when neither is set.
+ *
+ * Array shape always wins when present (even if empty) so an explicit
+ * empty array does NOT fall back to legacy `tag`.
+ */
+export function tagsFromMeta(meta) {
+  if (Array.isArray(meta?.tags)) return meta.tags;
+  if (typeof meta?.tag === "string" && meta.tag.length > 0) return [meta.tag];
+  return [];
+}
+
+/**
+ * Extract the tag list from the description-string segment-8 (or v1
+ * segment-7) without round-tripping through `decodeDescription`. The
+ * tag segment is comma-joined per #91 Gap 7; a single-tag segment with
+ * no comma is read as a one-element list. Returns [] on shape mismatch.
+ *
+ * This stays in sync with the description.txt encoder so list/pull
+ * filters can avoid an extra `metadata.json` fetch per branch.
+ */
+export function parseTagsFromDescription(desc) {
+  if (typeof desc !== "string" || desc.length === 0) return [];
+  const parts = desc.split(":");
+  // v2: handoff:v2:<project>:<cli>:<YYYY-MM>:<short>:<host>[:<tag>]
+  // v1: handoff:v1:<cli>:<short>:<project>:<host>[:<tag>]
+  let tagSeg = "";
+  if (parts[0] === "handoff" && parts[1] === "v2" && parts.length === 8) {
+    tagSeg = parts[7];
+  } else if (parts[0] === "handoff" && parts[1] === "v1" && parts.length === 7) {
+    tagSeg = parts[6];
+  } else {
+    return [];
+  }
+  if (!tagSeg) return [];
+  return tagSeg.split(",").filter((t) => t.length > 0);
+}
+
 /** Decode a handoff description string back into a metadata object, or null on failure. */
 export function decodeDescription(desc) {
   if (!desc) return null;
@@ -693,11 +733,19 @@ export async function pushRemote({
   cli,
   path: sessionFile,
   tag,
+  tags,
   verify = false,
   verbose = false,
   force = false,
   dryRun = false,
 }) {
+  // #91 Gap 7: accept either `tags: string[]` (new, multi-tag) or the legacy
+  // `tag: string` (single). Internally everything below works on `tagList`.
+  const tagList = Array.isArray(tags)
+    ? tags.filter((t) => typeof t === "string" && t.length > 0)
+    : tag
+      ? [tag]
+      : [];
   // Dry-run must stay fully offline — no interactive bootstrap, no preflight
   // probe. The bin's emitRemoteError formats the HandoffError thrown here
   // when the env var is unset.
@@ -719,13 +767,16 @@ export async function pushRemote({
   const host = slugify(hostname());
   const project = projectSlugFromCwd(meta.cwd);
   const month = monthBucket();
+  // Pass tags pre-joined with commas; the encode script splits, slugifies
+  // each token, validates, and rejoins so single-tag input stays
+  // backward-compatible with the v0 single-tag segment shape.
   const description = encodeDescription({
     cli: meta.cli,
     shortId,
     project,
     host,
     month,
-    tag: tag || null,
+    tag: tagList.length > 0 ? tagList.join(",") : null,
   });
 
   const metadata = {
@@ -738,7 +789,12 @@ export async function pushRemote({
     hostname: host,
     created_at: new Date().toISOString(),
     scrubbed_count: scrubbedCount,
-    tag: tag || null,
+    // #91 Gap 7: write both shapes for one release cycle so deployed installs
+    // that only know about `metadata.tag` keep working. New readers prefer
+    // `metadata.tags` via tagsFromMeta().
+    // TODO(#91 Gap 7 follow-up, after 0.13.0): drop the legacy `tag` field.
+    tags: tagList,
+    tag: tagList[0] ?? null,
   };
 
   const branch = v2BranchName({ project, cli: meta.cli, month, shortId });
@@ -752,7 +808,8 @@ export async function pushRemote({
       scrubbedCount,
       digestBytes: Buffer.byteLength(scrubbed, "utf8"),
       metadata,
-      tag: tag || null,
+      tags: tagList,
+      tag: tagList[0] ?? null,
     };
   }
 
@@ -786,7 +843,7 @@ export async function pushRemote({
           : ["push", "-q", "-f", "origin", branch],
         tmp,
       );
-      return { dryRun: false, branch, url, description, scrubbedCount };
+      return { dryRun: false, branch, url, description, scrubbedCount, tags: tagList };
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
@@ -1199,14 +1256,34 @@ export async function pullRemote(query, fromCli = null, { verify = false, verbos
     return sorted ? sorted[0] : candidates[candidates.length - 1];
   }
 
-  // Cheap pass: filter by branch name.
-  let hits = candidates.filter((c) => matchesQuery(c, query));
-  if (hits.length === 0) {
-    // Expensive pass: enrich with descriptions and re-match.
-    const enriched = enrichWithDescriptions(candidates);
-    hits = enriched.filter((c) => matchesQuery(c, query));
+  // Cheap pass: filter by branch name (no description fetch). Preserves the
+  // O(1)-network behavior for `pull <short-uuid>` against large transports.
+  const cheap = candidates.filter((c) => matchesQuery(c, query));
+  // Description-side tags are always slugified by handoff-description.sh,
+  // so slugify the query once here. Lets `fetch "Foo Bar!"` match a branch
+  // tagged `foo-bar` instead of silently failing the exact-match pre-pass.
+  const querySlug = slugify(query);
+  let hits;
+  if (cheap.length === 1) {
+    // Unambiguous cheap hit — return without enriching. Saves one
+    // description fetch on the common `fetch <short-uuid>` path.
+    hits = cheap;
+  } else if (cheap.length > 1) {
+    // Multiple cheap hits — enrich for the collision UI and prefer exact-tag
+    // matches within (#91 Gap 7).
+    const enriched = enrichWithDescriptions(cheap);
+    const tagHits = enriched.filter((c) =>
+      parseTagsFromDescription(c.description).includes(querySlug),
+    );
+    hits = tagHits.length > 0 ? tagHits : enriched;
   } else {
-    hits = enrichWithDescriptions(hits);
+    // No cheap match — enrich everyone, try exact-tag first (#91 Gap 7),
+    // fall back to description substring.
+    const enriched = enrichWithDescriptions(candidates);
+    const tagHits = enriched.filter((c) =>
+      parseTagsFromDescription(c.description).includes(querySlug),
+    );
+    hits = tagHits.length > 0 ? tagHits : enriched.filter((c) => matchesQuery(c, query));
   }
 
   if (hits.length === 0) {
