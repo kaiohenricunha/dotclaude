@@ -38,6 +38,7 @@ describe("export shape", () => {
     "mechanicalSummary",
     "monthBucket",
     "nextStepFor",
+    "PRUNE_SKIP_BUCKETS",
     "parseDuration",
     "parseHandoffBranch",
     "printManualSetupBlock",

@@ -21,30 +21,6 @@ this_host_slug() {
   hostname | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/--*/-/g; s/^-//; s/-$//' | cut -c1-40
 }
 
-# make_aged_handoff_branch <transport> <branch> <hostname> <cli> <days_ago>
-# Pushes a stub handoff branch with a backdated commit and a metadata.json
-# whose `hostname` field matches the third argument.
-make_aged_handoff_branch() {
-  local transport="$1" branch="$2" host="$3" cli="$4" days_ago="$5"
-  local when; when=$(date -u -d "$days_ago days ago" +"%Y-%m-%dT%H:%M:%S+0000")
-  local tmp; tmp=$(mktemp -d)
-  (
-    cd "$tmp"
-    git init -q
-    git config user.email handoff@dotclaude.local
-    git config user.name dotclaude-handoff
-    git checkout -q -b "$branch"
-    printf 'stub handoff body for %s\n' "$branch" > handoff.md
-    printf '{"cli":"%s","hostname":"%s","short_id":"%s"}\n' \
-      "$cli" "$host" "${branch##*/}" > metadata.json
-    git add . >/dev/null
-    GIT_COMMITTER_DATE="$when" GIT_AUTHOR_DATE="$when" \
-      git commit -q -m "fixture" >/dev/null
-    git push -q "$transport" "$branch" >/dev/null
-  )
-  rm -rf "$tmp"
-}
-
 # Count handoff/* refs on the bare transport.
 count_transport_refs() {
   git --git-dir="$1" for-each-ref refs/heads/handoff/ --format='%(refname:short)' | wc -l | tr -d ' '

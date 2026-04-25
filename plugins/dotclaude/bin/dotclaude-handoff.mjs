@@ -80,6 +80,9 @@ import {
   parseDuration,
   listPruneCandidates,
   deleteRemoteBranches,
+  PRUNE_SKIP_BUCKETS,
+  // io helpers shared with bootstrap/push paths — exported for downstream
+  // bin-callers that need the same TTY/prompt semantics
   isTty,
   promptLine,
   // error class (re-exported for tests)
@@ -585,12 +588,13 @@ function renderPrunePreview({ candidates, skipped, total }, { dryRun }) {
   const lines = [
     `dotclaude-handoff prune: ${candidates.length} of ${total} branch(es) eligible for delete`,
   ];
-  if (skipped.byHost || skipped.byMissingMeta || skipped.byFromCli || skipped.byAge) {
+  const B = PRUNE_SKIP_BUCKETS;
+  if (skipped[B.byHost] || skipped[B.byMissingMeta] || skipped[B.byFromCli] || skipped[B.byAge]) {
     const parts = [];
-    if (skipped.byAge) parts.push(`${skipped.byAge} too new`);
-    if (skipped.byHost) parts.push(`${skipped.byHost} pushed from another host`);
-    if (skipped.byFromCli) parts.push(`${skipped.byFromCli} different cli`);
-    if (skipped.byMissingMeta) parts.push(`${skipped.byMissingMeta} missing metadata`);
+    if (skipped[B.byAge]) parts.push(`${skipped[B.byAge]} too new`);
+    if (skipped[B.byHost]) parts.push(`${skipped[B.byHost]} pushed from another host`);
+    if (skipped[B.byFromCli]) parts.push(`${skipped[B.byFromCli]} different cli`);
+    if (skipped[B.byMissingMeta]) parts.push(`${skipped[B.byMissingMeta]} missing metadata`);
     lines.push(`  skipped: ${parts.join(", ")}`);
   }
   if (candidates.length === 0) {

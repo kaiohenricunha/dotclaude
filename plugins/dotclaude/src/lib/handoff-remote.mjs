@@ -978,6 +978,18 @@ const PRUNE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * Skip-bucket keys for `listPruneCandidates` — single source of truth so
+ * the renderer in the bin and the unit tests can reference the same names
+ * without typo drift.
+ */
+export const PRUNE_SKIP_BUCKETS = Object.freeze({
+  byHost: "byHost",
+  byMissingMeta: "byMissingMeta",
+  byFromCli: "byFromCli",
+  byAge: "byAge",
+});
+
+/**
  * Parse a duration into a cutoff epoch (ms). Branches whose committer-date
  * is ≤ this value are eligible for prune.
  *
@@ -1042,7 +1054,7 @@ export function parseDuration(raw) {
  */
 export function listPruneCandidates({ olderThanMs, fromCli = null, repoUrl }) {
   const inventory = listRemoteCandidates();
-  const skipped = { byHost: 0, byMissingMeta: 0, byFromCli: 0, byAge: 0 };
+  const skipped = Object.fromEntries(Object.values(PRUNE_SKIP_BUCKETS).map((k) => [k, 0]));
   if (inventory.length === 0) {
     return { candidates: [], skipped, total: 0 };
   }
