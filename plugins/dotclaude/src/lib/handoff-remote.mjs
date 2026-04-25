@@ -1259,6 +1259,10 @@ export async function pullRemote(query, fromCli = null, { verify = false, verbos
   // Cheap pass: filter by branch name (no description fetch). Preserves the
   // O(1)-network behavior for `pull <short-uuid>` against large transports.
   const cheap = candidates.filter((c) => matchesQuery(c, query));
+  // Description-side tags are always slugified by handoff-description.sh,
+  // so slugify the query once here. Lets `fetch "Foo Bar!"` match a branch
+  // tagged `foo-bar` instead of silently failing the exact-match pre-pass.
+  const querySlug = slugify(query);
   let hits;
   if (cheap.length === 1) {
     // Unambiguous cheap hit — return without enriching. Saves one
@@ -1268,13 +1272,17 @@ export async function pullRemote(query, fromCli = null, { verify = false, verbos
     // Multiple cheap hits — enrich for the collision UI and prefer exact-tag
     // matches within (#91 Gap 7).
     const enriched = enrichWithDescriptions(cheap);
-    const tagHits = enriched.filter((c) => parseTagsFromDescription(c.description).includes(query));
+    const tagHits = enriched.filter((c) =>
+      parseTagsFromDescription(c.description).includes(querySlug),
+    );
     hits = tagHits.length > 0 ? tagHits : enriched;
   } else {
     // No cheap match — enrich everyone, try exact-tag first (#91 Gap 7),
     // fall back to description substring.
     const enriched = enrichWithDescriptions(candidates);
-    const tagHits = enriched.filter((c) => parseTagsFromDescription(c.description).includes(query));
+    const tagHits = enriched.filter((c) =>
+      parseTagsFromDescription(c.description).includes(querySlug),
+    );
     hits = tagHits.length > 0 ? tagHits : enriched.filter((c) => matchesQuery(c, query));
   }
 

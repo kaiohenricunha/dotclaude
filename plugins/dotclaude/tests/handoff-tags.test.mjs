@@ -33,6 +33,16 @@ describe("tagsFromMeta", () => {
   });
 });
 
+describe("description-tag matching is slug-aware (#91 Gap 7 review fix)", () => {
+  it("a description-side tag survives the slugify roundtrip", () => {
+    // Description tags are always slugified by handoff-description.sh.
+    // The exact-tag matcher in pullRemote slugifies the query before
+    // comparing so `fetch \"Foo Bar!\"` matches a branch tagged `foo-bar`.
+    const tags = parseTagsFromDescription("handoff:v2:p:claude:2026-04:abc12345:h:foo-bar");
+    expect(tags).toEqual(["foo-bar"]);
+  });
+});
+
 describe("parseTagsFromDescription", () => {
   it("returns [] for null/empty/non-handoff descriptions", () => {
     expect(parseTagsFromDescription(null)).toEqual([]);

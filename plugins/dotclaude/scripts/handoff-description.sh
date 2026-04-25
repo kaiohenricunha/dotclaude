@@ -45,13 +45,11 @@ valid_segment() {
 
 # Validates a tag segment: comma-joined slugified tokens, each [a-z0-9-]{1,40}.
 # Used for the optional 8th segment in v2 (and v1's optional 7th).
+# Single regex to also reject `a,,b`, `,a`, `a,` (bash word-splitting on
+# IFS=',' silently dropped empty fields, which would have let those
+# malformed segments through).
 valid_tag_segment() {
-  local seg="$1" IFS=','
-  [[ -z "$seg" ]] && return 1
-  for token in $seg; do
-    [[ "$token" =~ ^[a-z0-9-]{1,40}$ ]] || return 1
-  done
-  return 0
+  [[ "$1" =~ ^[a-z0-9-]{1,40}(,[a-z0-9-]{1,40})*$ ]]
 }
 
 # Emits the JSON fragment for tag/tags. Pass empty string for "no tag".
