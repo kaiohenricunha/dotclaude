@@ -971,6 +971,164 @@ export function matchesQuery(candidate, query) {
   return false;
 }
 
+// ---- prune (#91 Gap 5) -------------------------------------------------
+
+const PRUNE_DURATION_RE = /^(\d+)([dmy])$/;
+const PRUNE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Parse a duration into a cutoff epoch (ms). Branches whose committer-date
+ * is ≤ this value are eligible for prune.
+ *
+ * Accepts:
+ *   "Nd"          → N days back from now (N ≥ 0)
+ *   "Nm"          → N × 30 days back (months are a 30-day approximation)
+ *   "Ny"          → N × 365 days back
+ *   "YYYY-MM-DD"  → midnight UTC of that ISO date
+ *
+ * @param {string} raw
+ * @returns {number} epoch ms cutoff
+ */
+export function parseDuration(raw) {
+  if (raw == null) throw new Error("duration is required");
+  const s = String(raw).trim();
+  if (!s) throw new Error("duration is required");
+  const rel = PRUNE_DURATION_RE.exec(s);
+  if (rel) {
+    const n = Number.parseInt(rel[1], 10);
+    const unit = rel[2];
+    const days = unit === "d" ? n : unit === "m" ? n * 30 : n * 365;
+    return Date.now() - days * DAY_MS;
+  }
+  if (PRUNE_DATE_RE.test(s)) {
+    const ms = Date.parse(`${s}T00:00:00Z`);
+    if (!Number.isFinite(ms)) throw new Error(`invalid date: ${s}`);
+    return ms;
+  }
+  throw new Error(`expected Nd | Nm | Ny | YYYY-MM-DD, got: ${s}`);
+}
+
+/**
+ * Find handoff branches eligible for prune. One bulk shallow fetch reads both
+ * the per-branch committer date and the per-branch metadata.json.
+ *
+ * Filters (applied in order):
+ *   1. committer date ≤ olderThanMs
+ *   2. metadata.hostname === slugify(hostname()) — own-host only
+ *   3. metadata.cli === fromCli (when fromCli is provided)
+ *
+ * Branches whose metadata.json is missing or unparseable are conservatively
+ * skipped (counted as `byMissingMeta`); we never prune without provable
+ * ownership.
+ *
+ * @param {{ olderThanMs: number, fromCli?: string|null, repoUrl: string }} opts
+ * @returns {{ candidates: Array<{branch:string,commit:string,committedAt:number,hostname:string|null,cli:string|null}>,
+ *             skipped: { byHost:number, byMissingMeta:number, byFromCli:number, byAge:number },
+ *             total: number }}
+ */
+export function listPruneCandidates({ olderThanMs, fromCli = null, repoUrl }) {
+  const inventory = listRemoteCandidates();
+  const skipped = { byHost: 0, byMissingMeta: 0, byFromCli: 0, byAge: 0 };
+  if (inventory.length === 0) {
+    return { candidates: [], skipped, total: 0 };
+  }
+  const ownHost = slugify(hostname());
+  const refspecs = inventory.map((c) => `+refs/heads/${c.branch}:refs/heads/${c.branch}`);
+  const candidates = withShallowFetch("prune", repoUrl, refspecs, (tmp) => {
+    const fer = runGit(
+      ["for-each-ref", "--format=%(refname:short)|%(committerdate:unix)", "refs/heads/handoff/"],
+      tmp,
+    );
+    if (fer.status !== 0) {
+      throw new Error(`for-each-ref failed: ${fer.stderr.trim()}`);
+    }
+    const dateByBranch = new Map();
+    for (const line of fer.stdout.split("\n")) {
+      const [b, t] = line.split("|");
+      if (!b || !t) continue;
+      dateByBranch.set(b.trim(), Number.parseInt(t, 10) * 1000);
+    }
+    const out = [];
+    for (const c of inventory) {
+      const committedAt = dateByBranch.get(c.branch);
+      if (!Number.isFinite(committedAt)) {
+        skipped.byMissingMeta += 1;
+        continue;
+      }
+      if (committedAt > olderThanMs) {
+        skipped.byAge += 1;
+        continue;
+      }
+      const shown = runGit(["show", `refs/heads/${c.branch}:metadata.json`], tmp);
+      if (shown.status !== 0) {
+        skipped.byMissingMeta += 1;
+        continue;
+      }
+      let meta;
+      try {
+        meta = JSON.parse(shown.stdout);
+      } catch {
+        skipped.byMissingMeta += 1;
+        continue;
+      }
+      if (typeof meta?.hostname !== "string" || meta.hostname !== ownHost) {
+        skipped.byHost += 1;
+        continue;
+      }
+      if (fromCli && meta.cli !== fromCli) {
+        skipped.byFromCli += 1;
+        continue;
+      }
+      out.push({
+        branch: c.branch,
+        commit: c.commit,
+        committedAt,
+        hostname: meta.hostname,
+        cli: meta.cli ?? null,
+      });
+    }
+    return out;
+  });
+  return { candidates, skipped, total: inventory.length };
+}
+
+/**
+ * Delete N remote branches in one `git push --delete` call. Works from a
+ * throwaway tmp git repo — no working tree, no commits required.
+ *
+ * Returns per-branch results: branches absent from the failures array
+ * succeeded. The git protocol surfaces per-ref status, but parsing it
+ * portably is brittle; on a non-zero overall exit we treat the whole batch
+ * as failed and surface the raw stderr for the bin's error formatter.
+ *
+ * @param {string} repoUrl
+ * @param {string[]} branches
+ * @returns {{ deleted: string[], failures: Array<{branch: string, reason: string}> }}
+ */
+export function deleteRemoteBranches(repoUrl, branches) {
+  if (branches.length === 0) return { deleted: [], failures: [] };
+  const tmp = mkdtempSync(join(tmpdir(), "handoff-prune-delete-"));
+  try {
+    const init = runGit(["init", "-q"], tmp);
+    if (init.status !== 0) {
+      throw new Error(`git init failed: ${init.stderr.trim()}`);
+    }
+    const refs = branches.map((b) => `refs/heads/${b}`);
+    const r = runGit(["push", "-q", repoUrl, "--delete", ...refs], tmp);
+    if (r.status === 0) {
+      return { deleted: branches.slice(), failures: [] };
+    }
+    const reason = redactUrlSecrets((r.stderr || r.stdout).trim()) || "unknown error";
+    return {
+      deleted: [],
+      failures: branches.map((branch) => ({ branch, reason })),
+    };
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 /** Resolve a remote handoff branch by query, pick interactively on collision. */
 export async function pullRemote(query, fromCli = null, { verify = false, verbose = false } = {}) {
   const repoUrl = requireTransportRepoStrict();

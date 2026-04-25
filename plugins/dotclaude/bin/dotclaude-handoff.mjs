@@ -39,6 +39,7 @@ import {
 } from "../src/lib/handoff-errors.mjs";
 import { parse, helpText } from "../src/lib/argv.mjs";
 import { EXIT_CODES } from "../src/lib/exit-codes.mjs";
+import { autoPreflight } from "../src/lib/handoff-preflight.mjs";
 import { version, escapeRegex } from "../src/index.mjs";
 import {
   // subprocess primitives
@@ -75,6 +76,12 @@ import {
   listRemoteCandidates,
   enrichWithDescriptions,
   matchesQuery,
+  // prune (#91 Gap 5)
+  parseDuration,
+  listPruneCandidates,
+  deleteRemoteBranches,
+  isTty,
+  promptLine,
   // error class (re-exported for tests)
   HandoffError as _HandoffError,
   // constants
@@ -96,7 +103,7 @@ const CLIS = new Set(["claude", "copilot", "codex"]);
 const META = {
   name: "dotclaude-handoff",
   synopsis:
-    "dotclaude handoff [pull|fetch|list|search|push|doctor|remote-list] [args...] [--from <cli>] [--to <cli>] [--summary] [-o <path>] [--tag <label>] [--cli <cli>] [--since <ISO>] [--limit <N>] [--verify] [--dry-run]",
+    "dotclaude handoff [pull|fetch|list|search|push|prune|doctor|remote-list] [args...] [--from <cli>] [--to <cli>] [--summary] [-o <path>] [--tag <label>] [--cli <cli>] [--since <ISO>] [--limit <N>] [--verify] [--dry-run] [--older-than <30d|6m|1y|YYYY-MM-DD>] [--yes]",
   description:
     "Cross-agent and cross-machine session handoff. `pull <id>` renders a local session as <handoff> block (or --summary / -o <path>). push/fetch handle the remote transport (a user-owned private git repo named by DOTCLAUDE_HANDOFF_REPO). push/fetch auto-run a preflight check (cached 5 min); --verify forces re-run.",
   flags: {
@@ -116,6 +123,8 @@ const META = {
     fixed: { type: "boolean", short: "F" },
     summary: { type: "boolean" },
     "dry-run": { type: "boolean" },
+    "older-than": { type: "string" },
+    yes: { type: "boolean" },
   },
 };
 
@@ -572,6 +581,42 @@ function renderDryRunPreview(r) {
   ].join("\n");
 }
 
+function renderPrunePreview({ candidates, skipped, total }, { dryRun }) {
+  const lines = [
+    `dotclaude-handoff prune: ${candidates.length} of ${total} branch(es) eligible for delete`,
+  ];
+  if (skipped.byHost || skipped.byMissingMeta || skipped.byFromCli || skipped.byAge) {
+    const parts = [];
+    if (skipped.byAge) parts.push(`${skipped.byAge} too new`);
+    if (skipped.byHost) parts.push(`${skipped.byHost} pushed from another host`);
+    if (skipped.byFromCli) parts.push(`${skipped.byFromCli} different cli`);
+    if (skipped.byMissingMeta) parts.push(`${skipped.byMissingMeta} missing metadata`);
+    lines.push(`  skipped: ${parts.join(", ")}`);
+  }
+  if (candidates.length === 0) {
+    lines.push("nothing to prune.", "");
+    return lines.join("\n");
+  }
+  for (const c of candidates) {
+    const ageDays = Math.floor((Date.now() - c.committedAt) / (24 * 60 * 60 * 1000));
+    lines.push(`  ${c.branch}  (${ageDays}d ago)`);
+  }
+  lines.push("");
+  if (dryRun) lines.push("--dry-run: nothing deleted.", "");
+  return lines.join("\n");
+}
+
+function renderPruneResult({ deleted, failures }) {
+  const lines = [];
+  if (deleted.length) lines.push(`deleted ${deleted.length} branch(es).`);
+  if (failures.length) {
+    lines.push(`failed: ${failures.length}`);
+    for (const f of failures) lines.push(`  ${f.branch}: ${f.reason}`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
 // ---- main --------------------------------------------------------------
 
 // Seed env vars from the persisted config before anything else reads
@@ -947,6 +992,53 @@ async function main() {
       process.exit(EXIT_CODES.OK);
     } catch (err) {
       emitRemoteError(err, "fetch", { query: second ?? undefined });
+      process.exit(2);
+    }
+  }
+
+  if (first === "prune") {
+    const raw = argv.flags["older-than"];
+    if (!raw) fail(EXIT_CODES.USAGE, "prune requires --older-than <30d|6m|1y|YYYY-MM-DD>");
+    let olderThanMs;
+    try {
+      olderThanMs = parseDuration(String(raw));
+    } catch (err) {
+      fail(EXIT_CODES.USAGE, `--older-than: ${err.message}`);
+    }
+    const dryRun = Boolean(argv.flags["dry-run"]);
+    const yes = Boolean(argv.flags.yes);
+    const verify = Boolean(argv.flags.verify);
+    const verbose = Boolean(argv.verbose);
+    try {
+      const repoUrl = requireTransportRepoStrict();
+      if (!dryRun) autoPreflight({ repo: repoUrl, verify, verbose });
+      const result = listPruneCandidates({ olderThanMs, fromCli, repoUrl });
+      if (argv.json && dryRun) {
+        process.stdout.write(JSON.stringify({ dryRun: true, ...result }, null, 2) + "\n");
+        process.exit(EXIT_CODES.OK);
+      }
+      process.stdout.write(renderPrunePreview(result, { dryRun }));
+      if (result.candidates.length === 0 || dryRun) process.exit(EXIT_CODES.OK);
+
+      if (!isTty() && !yes) {
+        fail(
+          EXIT_CODES.USAGE,
+          "non-interactive prune requires --yes (or use --dry-run to preview)",
+        );
+      }
+      if (isTty()) {
+        const ans = await promptLine(`Delete ${result.candidates.length} branch(es)? [y/N] `);
+        if (!/^y(es)?$/i.test(ans)) {
+          process.stdout.write("aborted.\n");
+          process.exit(EXIT_CODES.OK);
+        }
+      }
+      const branches = result.candidates.map((c) => c.branch);
+      const dr = deleteRemoteBranches(repoUrl, branches);
+      process.stdout.write(renderPruneResult(dr));
+      process.exit(dr.failures.length > 0 ? 2 : EXIT_CODES.OK);
+    } catch (err) {
+      emitRemoteError(err, "prune", {});
       process.exit(2);
     }
   }
