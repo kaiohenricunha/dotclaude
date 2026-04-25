@@ -235,6 +235,32 @@ make_transport_repo() {
   echo "$dir"
 }
 
+# make_aged_handoff_branch <transport> <branch> <hostname> <cli> <days_ago>
+# Push a stub handoff branch with a backdated commit and a metadata.json
+# whose `hostname`/`cli` fields match the given values. Used by prune
+# tests (and any future test that needs branches at a chosen age) to
+# exercise filter/cleanup paths without waiting on a real clock.
+make_aged_handoff_branch() {
+  local transport="$1" branch="$2" host="$3" cli="$4" days_ago="$5"
+  local when; when=$(date -u -d "$days_ago days ago" +"%Y-%m-%dT%H:%M:%S+0000")
+  local tmp; tmp=$(mktemp -d)
+  (
+    cd "$tmp"
+    git init -q
+    git config user.email handoff@dotclaude.local
+    git config user.name dotclaude-handoff
+    git checkout -q -b "$branch"
+    printf 'stub handoff body for %s\n' "$branch" > handoff.md
+    printf '{"cli":"%s","hostname":"%s","short_id":"%s"}\n' \
+      "$cli" "$host" "${branch##*/}" > metadata.json
+    git add . >/dev/null
+    GIT_COMMITTER_DATE="$when" GIT_AUTHOR_DATE="$when" \
+      git commit -q -m "fixture" >/dev/null
+    git push -q "$transport" "$branch" >/dev/null
+  )
+  rm -rf "$tmp"
+}
+
 # make_session_with_content <path> <content>
 # Overwrite the session JSONL at <path> with <content>. Useful for
 # boundary tests (empty files, unicode, malformed records).

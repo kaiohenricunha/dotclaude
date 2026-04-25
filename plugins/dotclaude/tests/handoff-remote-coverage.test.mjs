@@ -1116,6 +1116,223 @@ describe("fetchRemoteMetadata", () => {
   });
 });
 
+// ---- listPruneCandidates ------------------------------------------------
+
+describe("listPruneCandidates", () => {
+  const REPO = "git@example.test:me/store.git";
+  let origRepo;
+  beforeEach(() => {
+    origRepo = process.env.DOTCLAUDE_HANDOFF_REPO;
+    process.env.DOTCLAUDE_HANDOFF_REPO = REPO;
+    spawnSync.mockReset();
+    mkdtempSync.mockReset().mockReturnValue("/tmp/mock-prune");
+  });
+  afterEach(() => {
+    if (origRepo === undefined) delete process.env.DOTCLAUDE_HANDOFF_REPO;
+    else process.env.DOTCLAUDE_HANDOFF_REPO = origRepo;
+  });
+
+  // Drive the spawnSync mock through:
+  //   1) ls-remote (listRemoteCandidates inventory)
+  //   2) git init (withShallowFetch)
+  //   3) git fetch (withShallowFetch)
+  //   4) for-each-ref
+  //   5..N) git show metadata.json — one per refspec
+  function queueShallowFetch({ inventory, ferRows, metaPerBranch }) {
+    spawnSync.mockReturnValueOnce({
+      status: 0,
+      stdout: inventory.map((b) => `0123456789abcdef\trefs/heads/${b}`).join("\n") + "\n",
+      stderr: "",
+    });
+    spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" });
+    spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" });
+    spawnSync.mockReturnValueOnce({ status: 0, stdout: ferRows.join("\n") + "\n", stderr: "" });
+    for (const m of metaPerBranch) {
+      spawnSync.mockReturnValueOnce(m);
+    }
+  }
+
+  it("returns empty when ls-remote is empty (no candidates, no fetch)", () => {
+    spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" });
+    const r = lib.listPruneCandidates({ olderThanMs: Date.now(), repoUrl: REPO });
+    expect(r.candidates).toEqual([]);
+    expect(r.total).toBe(0);
+    expect(spawnSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("filters in branches older than cutoff and matching ownHost", async () => {
+    const ownHost = (await import("node:os"))
+      .hostname()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-");
+    const olderThanMs = Date.now() - 1000;
+    const oldBranch = "handoff/p/claude/2026-01/aaaaaaaa";
+    queueShallowFetch({
+      inventory: [oldBranch],
+      ferRows: [`${oldBranch}|abcd1234|1700000000`],
+      metaPerBranch: [
+        {
+          status: 0,
+          stdout: JSON.stringify({ cli: "claude", hostname: ownHost, short_id: "aaaaaaaa" }),
+          stderr: "",
+        },
+      ],
+    });
+    const r = lib.listPruneCandidates({ olderThanMs, repoUrl: REPO });
+    expect(r.candidates).toHaveLength(1);
+    expect(r.candidates[0].branch).toBe(oldBranch);
+    expect(r.candidates[0].commit).toBe("abcd1234");
+    expect(r.candidates[0].hostname).toBe(ownHost);
+  });
+
+  it("buckets too-young branches as byAge", async () => {
+    const ownHost = (await import("node:os"))
+      .hostname()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-");
+    const olderThanMs = 1000; // far in the past
+    const young = "handoff/p/claude/2026-04/bbbbbbbb";
+    queueShallowFetch({
+      inventory: [young],
+      ferRows: [`${young}|aaaa|9999999999`],
+      // metadata.show would never run because age skip happens first
+      metaPerBranch: [],
+    });
+    const r = lib.listPruneCandidates({ olderThanMs, repoUrl: REPO });
+    expect(r.candidates).toHaveLength(0);
+    expect(r.skipped.byAge).toBe(1);
+  });
+
+  it("buckets foreign-host branches as byHost", () => {
+    const olderThanMs = Date.now() + 1000; // everything is "old"
+    const branch = "handoff/p/claude/2026-01/cccccccc";
+    queueShallowFetch({
+      inventory: [branch],
+      ferRows: [`${branch}|cccc|1700000000`],
+      metaPerBranch: [
+        {
+          status: 0,
+          stdout: JSON.stringify({ cli: "claude", hostname: "other-host" }),
+          stderr: "",
+        },
+      ],
+    });
+    const r = lib.listPruneCandidates({ olderThanMs, repoUrl: REPO });
+    expect(r.candidates).toHaveLength(0);
+    expect(r.skipped.byHost).toBe(1);
+  });
+
+  it("buckets missing/unparseable metadata as byMissingMeta", () => {
+    const olderThanMs = Date.now() + 1000;
+    const a = "handoff/p/claude/2026-01/dddddddd";
+    const b = "handoff/p/claude/2026-01/eeeeeeee";
+    queueShallowFetch({
+      inventory: [a, b],
+      ferRows: [`${a}|aa|1700000000`, `${b}|bb|1700000000`],
+      metaPerBranch: [
+        { status: 128, stdout: "", stderr: "metadata.json missing" },
+        { status: 0, stdout: "not { json", stderr: "" },
+      ],
+    });
+    const r = lib.listPruneCandidates({ olderThanMs, repoUrl: REPO });
+    expect(r.candidates).toHaveLength(0);
+    expect(r.skipped.byMissingMeta).toBe(2);
+  });
+
+  it("buckets metadata-without-hostname as byMissingMeta (provable-ownership rule)", () => {
+    const olderThanMs = Date.now() + 1000;
+    const branch = "handoff/p/claude/2026-01/ffffffff";
+    queueShallowFetch({
+      inventory: [branch],
+      ferRows: [`${branch}|ff|1700000000`],
+      metaPerBranch: [{ status: 0, stdout: JSON.stringify({ cli: "claude" }), stderr: "" }],
+    });
+    const r = lib.listPruneCandidates({ olderThanMs, repoUrl: REPO });
+    expect(r.candidates).toHaveLength(0);
+    expect(r.skipped.byMissingMeta).toBe(1);
+    expect(r.skipped.byHost).toBe(0);
+  });
+
+  it("applies fromCli filter and counts byFromCli", async () => {
+    const ownHost = (await import("node:os"))
+      .hostname()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-");
+    const olderThanMs = Date.now() + 1000;
+    const a = "handoff/p/claude/2026-01/11111111";
+    const b = "handoff/p/codex/2026-01/22222222";
+    queueShallowFetch({
+      inventory: [a, b],
+      ferRows: [`${a}|11|1700000000`, `${b}|22|1700000000`],
+      metaPerBranch: [
+        { status: 0, stdout: JSON.stringify({ cli: "claude", hostname: ownHost }), stderr: "" },
+        { status: 0, stdout: JSON.stringify({ cli: "codex", hostname: ownHost }), stderr: "" },
+      ],
+    });
+    const r = lib.listPruneCandidates({ olderThanMs, fromCli: "claude", repoUrl: REPO });
+    expect(r.candidates).toHaveLength(1);
+    expect(r.candidates[0].cli).toBe("claude");
+    expect(r.skipped.byFromCli).toBe(1);
+  });
+});
+
+// ---- deleteRemoteBranches -----------------------------------------------
+
+describe("deleteRemoteBranches", () => {
+  beforeEach(() => {
+    spawnSync.mockReset();
+    mkdtempSync.mockReset().mockReturnValue("/tmp/mock-delete");
+  });
+
+  it("returns empty result for empty input without spawning git", () => {
+    const r = lib.deleteRemoteBranches("https://x.test/repo.git", []);
+    expect(r).toEqual({ deleted: [], failures: [] });
+    expect(spawnSync).not.toHaveBeenCalled();
+  });
+
+  it("issues a single batched push --delete and reports all branches deleted on success", () => {
+    spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" }); // init
+    spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" }); // push --delete
+    const r = lib.deleteRemoteBranches("https://x.test/repo.git", [
+      "handoff/p/claude/2026-01/aaaaaaaa",
+      "handoff/p/claude/2026-01/bbbbbbbb",
+    ]);
+    expect(r.deleted).toEqual([
+      "handoff/p/claude/2026-01/aaaaaaaa",
+      "handoff/p/claude/2026-01/bbbbbbbb",
+    ]);
+    expect(r.failures).toEqual([]);
+    // The single push call carried both refs.
+    const pushCall = spawnSync.mock.calls.find(
+      (c) => c[0] === "git" && Array.isArray(c[1]) && c[1].includes("--delete"),
+    );
+    expect(pushCall[1]).toContain("refs/heads/handoff/p/claude/2026-01/aaaaaaaa");
+    expect(pushCall[1]).toContain("refs/heads/handoff/p/claude/2026-01/bbbbbbbb");
+  });
+
+  it("reports per-branch failures with redacted URLs on push error", () => {
+    spawnSync.mockReturnValueOnce({ status: 0, stdout: "", stderr: "" });
+    spawnSync.mockReturnValueOnce({
+      status: 1,
+      stdout: "",
+      stderr: "fatal: unable to access 'https://user:tok@x.test/repo.git/': denied",
+    });
+    const r = lib.deleteRemoteBranches("https://user:tok@x.test/repo.git", [
+      "handoff/p/claude/2026-01/aaaaaaaa",
+    ]);
+    expect(r.deleted).toEqual([]);
+    expect(r.failures).toHaveLength(1);
+    expect(r.failures[0].branch).toBe("handoff/p/claude/2026-01/aaaaaaaa");
+    expect(r.failures[0].reason).not.toMatch(/user:tok/);
+    expect(r.failures[0].reason).toMatch(/\*\*\*@/);
+  });
+
+  it("throws when git init fails", () => {
+    spawnSync.mockReturnValueOnce({ status: 1, stdout: "", stderr: "disk full" });
+    expect(() => lib.deleteRemoteBranches("url", ["handoff/x"])).toThrow(/git init failed/);
+  });
+});
+
 // ---- probeCollision ----------------------------------------------------
 
 describe("probeCollision", () => {
