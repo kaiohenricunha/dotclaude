@@ -1010,20 +1010,33 @@ export function parseDuration(raw) {
 }
 
 /**
- * Find handoff branches eligible for prune. One bulk shallow fetch reads both
- * the per-branch committer date and the per-branch metadata.json.
+ * Find handoff branches eligible for prune.
+ *
+ * One ls-remote inventory + one bulk shallow fetch (the inventory is needed
+ * because a wildcard `git fetch refs/heads/handoff/*:...` errors out on
+ * empty transports, so we'd lose the happy zero-candidate path). The
+ * shallow fetch then services BOTH the per-branch committer date and the
+ * per-branch metadata.json read in a single network round trip.
+ *
+ * `commit` in the returned candidates is sourced from `for-each-ref` *after*
+ * the fetch (not from ls-remote), so we report the SHA we actually pulled —
+ * any ref that moved between ls-remote and fetch surfaces the post-fetch
+ * tip, never a stale one.
  *
  * Filters (applied in order):
  *   1. committer date ≤ olderThanMs
  *   2. metadata.hostname === slugify(hostname()) — own-host only
  *   3. metadata.cli === fromCli (when fromCli is provided)
  *
- * Branches whose metadata.json is missing or unparseable are conservatively
- * skipped (counted as `byMissingMeta`); we never prune without provable
- * ownership.
+ * Skip-bucket semantics (we never prune without provable ownership):
+ *   byMissingMeta — committer date missing, metadata.json missing /
+ *                   unparseable, or metadata lacks a string `hostname` field
+ *   byHost        — metadata.hostname is a string but ≠ ownHost
+ *   byFromCli     — metadata.cli ≠ fromCli (only when fromCli is set)
+ *   byAge         — branch is younger than the cutoff
  *
  * @param {{ olderThanMs: number, fromCli?: string|null, repoUrl: string }} opts
- * @returns {{ candidates: Array<{branch:string,commit:string,committedAt:number,hostname:string|null,cli:string|null}>,
+ * @returns {{ candidates: Array<{branch:string,commit:string,committedAt:number,hostname:string,cli:string|null}>,
  *             skipped: { byHost:number, byMissingMeta:number, byFromCli:number, byAge:number },
  *             total: number }}
  */
@@ -1037,21 +1050,22 @@ export function listPruneCandidates({ olderThanMs, fromCli = null, repoUrl }) {
   const refspecs = inventory.map((c) => `+refs/heads/${c.branch}:refs/heads/${c.branch}`);
   const candidates = withShallowFetch("prune", repoUrl, refspecs, (tmp) => {
     const fer = runGit(
-      ["for-each-ref", "--format=%(refname:short)|%(committerdate:unix)", "refs/heads/handoff/"],
+      [
+        "for-each-ref",
+        "--format=%(refname:short)|%(objectname)|%(committerdate:unix)",
+        "refs/heads/handoff/",
+      ],
       tmp,
     );
     if (fer.status !== 0) {
       throw new Error(`for-each-ref failed: ${fer.stderr.trim()}`);
     }
-    const dateByBranch = new Map();
-    for (const line of fer.stdout.split("\n")) {
-      const [b, t] = line.split("|");
-      if (!b || !t) continue;
-      dateByBranch.set(b.trim(), Number.parseInt(t, 10) * 1000);
-    }
     const out = [];
-    for (const c of inventory) {
-      const committedAt = dateByBranch.get(c.branch);
+    for (const line of fer.stdout.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const [branch, commit, t] = trimmed.split("|");
+      const committedAt = Number.parseInt(t, 10) * 1000;
       if (!Number.isFinite(committedAt)) {
         skipped.byMissingMeta += 1;
         continue;
@@ -1060,7 +1074,7 @@ export function listPruneCandidates({ olderThanMs, fromCli = null, repoUrl }) {
         skipped.byAge += 1;
         continue;
       }
-      const shown = runGit(["show", `refs/heads/${c.branch}:metadata.json`], tmp);
+      const shown = runGit(["show", `refs/heads/${branch}:metadata.json`], tmp);
       if (shown.status !== 0) {
         skipped.byMissingMeta += 1;
         continue;
@@ -1072,7 +1086,11 @@ export function listPruneCandidates({ olderThanMs, fromCli = null, repoUrl }) {
         skipped.byMissingMeta += 1;
         continue;
       }
-      if (typeof meta?.hostname !== "string" || meta.hostname !== ownHost) {
+      if (typeof meta?.hostname !== "string") {
+        skipped.byMissingMeta += 1;
+        continue;
+      }
+      if (meta.hostname !== ownHost) {
         skipped.byHost += 1;
         continue;
       }
@@ -1081,8 +1099,8 @@ export function listPruneCandidates({ olderThanMs, fromCli = null, repoUrl }) {
         continue;
       }
       out.push({
-        branch: c.branch,
-        commit: c.commit,
+        branch,
+        commit,
         committedAt,
         hostname: meta.hostname,
         cli: meta.cli ?? null,
