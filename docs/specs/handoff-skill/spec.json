@@ -1,0 +1,36 @@
+{
+  "id": "handoff-skill",
+  "title": "Handoff skill — cross-CLI / cross-machine session transfer",
+  "status": "draft",
+  "owners": ["dotclaude maintainers"],
+  "linked_paths": [
+    "skills/handoff/SKILL.md",
+    "skills/handoff/references/**",
+    "plugins/dotclaude/bin/dotclaude-handoff.mjs",
+    "plugins/dotclaude/src/lib/handoff-remote.mjs",
+    "plugins/dotclaude/src/lib/handoff-scrub.mjs",
+    "plugins/dotclaude/scripts/handoff-resolve.sh",
+    "plugins/dotclaude/scripts/handoff-extract.sh",
+    "plugins/dotclaude/scripts/handoff-scrub.sh",
+    "plugins/dotclaude/scripts/handoff-description.sh",
+    "plugins/dotclaude/scripts/handoff-doctor.sh",
+    "plugins/dotclaude/tests/bats/handoff-*.bats",
+    "plugins/dotclaude/tests/handoff-*.test.mjs",
+    "docs/handoff-guide.md"
+  ],
+  "acceptance_commands": [
+    "npm test -- handoff-drift",
+    "bats plugins/dotclaude/tests/bats/handoff-*.bats"
+  ],
+  "depends_on_specs": ["dotclaude-core"],
+  "active_prs": [],
+  "_label_history": {
+    "note": "During spec drafting, chat-time NFR labels were renumbered to sequential order in §7. Mapping preserved here for chat-history-to-spec reconciliation. Spec body uses the sequential labels exclusively.",
+    "mappings": [
+      "chat OPS-3 (stdout determinism) -> spec OPS-2",
+      "chat OPS-4 (exit codes are public contract) -> spec OPS-3",
+      "chat SEC-4 (per-branch payload ceiling) -> spec SEC-4 (no shift)",
+      "OPS-2 (bootstrap idempotent) was folded into REL-3, freeing the OPS-2 number"
+    ]
+  }
+}
