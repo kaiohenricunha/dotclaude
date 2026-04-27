@@ -10,6 +10,43 @@ All notable changes to `@dotclaude/dotclaude` land here. Format follows
 
 - **handoff:** push/pull now auto-run preflight on first use within a 5-minute window; `--verify` forces re-run. `doctor` verb unchanged.
 
+## [0.11.1](https://github.com/kaiohenricunha/dotclaude/compare/v0.11.0...v0.11.1) (2026-04-27)
+
+
+### Added
+
+* **handoff:** auto-preflight caching for push/pull ([#91](https://github.com/kaiohenricunha/dotclaude/issues/91) gap 2) ([#94](https://github.com/kaiohenricunha/dotclaude/issues/94)) ([a948837](https://github.com/kaiohenricunha/dotclaude/commit/a9488378839e601abe70cd2e12fb6a08c512ed46))
+* **handoff:** collapse local surface under pull verb, rename remote pull→fetch ([#87](https://github.com/kaiohenricunha/dotclaude/issues/87)) ([#102](https://github.com/kaiohenricunha/dotclaude/issues/102)) ([33d2a34](https://github.com/kaiohenricunha/dotclaude/commit/33d2a3402af62b991c9a7ccb276ede6e8a4276e1))
+* **handoff:** prune verb deletes aged remote branches with safety gates ([#91](https://github.com/kaiohenricunha/dotclaude/issues/91) Gap 5) ([#106](https://github.com/kaiohenricunha/dotclaude/issues/106)) ([7bd9bd8](https://github.com/kaiohenricunha/dotclaude/commit/7bd9bd81abfe01e7fe515e36a729be8b247f6c50))
+* **handoff:** push --dry-run previews without touching the transport ([#91](https://github.com/kaiohenricunha/dotclaude/issues/91) Gap 4) ([#105](https://github.com/kaiohenricunha/dotclaude/issues/105)) ([6dcceef](https://github.com/kaiohenricunha/dotclaude/commit/6dcceefaeb078ad0e8b68e89989ca94a559ddec3))
+* **handoff:** search --fixed, two-pass clean filter, documented JSON shape ([#88](https://github.com/kaiohenricunha/dotclaude/issues/88)) ([#101](https://github.com/kaiohenricunha/dotclaude/issues/101)) ([60e3c04](https://github.com/kaiohenricunha/dotclaude/commit/60e3c04d5bf9a7e10b0aa126902b4a098ae53d3f))
+* **handoff:** structured error normalization for remote failures ([#91](https://github.com/kaiohenricunha/dotclaude/issues/91) Gap 3) ([#104](https://github.com/kaiohenricunha/dotclaude/issues/104)) ([f339510](https://github.com/kaiohenricunha/dotclaude/commit/f3395108d47cf4ce7b82f252b6de65c25289d089))
+* **handoff:** tags first-class — multi-tag push, exact-tag pull, list filter, histogram ([#91](https://github.com/kaiohenricunha/dotclaude/issues/91) Gap 7) ([#107](https://github.com/kaiohenricunha/dotclaude/issues/107)) ([c117418](https://github.com/kaiohenricunha/dotclaude/commit/c117418e1a974996f683a0640155fa6887e3d781))
+
+
+### Fixed
+
+* **ci:** fix markdownlint violations in handoff-skill spec files ([#117](https://github.com/kaiohenricunha/dotclaude/issues/117)) ([726eeac](https://github.com/kaiohenricunha/dotclaude/commit/726eeac89d7a5b7dd60cbaad6f542dce96d4b43c)), closes [#114](https://github.com/kaiohenricunha/dotclaude/issues/114)
+* **ci:** strip tarball directory wrapper in lychee install step ([#116](https://github.com/kaiohenricunha/dotclaude/issues/116)) ([ac30bcd](https://github.com/kaiohenricunha/dotclaude/commit/ac30bcd0d38b4644bee61bf31a733fa896dee7f5)), closes [#115](https://github.com/kaiohenricunha/dotclaude/issues/115)
+* **handoff:** digest prompts group by message, not by line ([#84](https://github.com/kaiohenricunha/dotclaude/issues/84)) ([#97](https://github.com/kaiohenricunha/dotclaude/issues/97)) ([c595ef7](https://github.com/kaiohenricunha/dotclaude/commit/c595ef719810333fe04dd57b56a5f4b9d4b0b542))
+* **handoff:** drop bare /handoff zero-arg alias ([#86](https://github.com/kaiohenricunha/dotclaude/issues/86)) ([#98](https://github.com/kaiohenricunha/dotclaude/issues/98)) ([ced24ca](https://github.com/kaiohenricunha/dotclaude/commit/ced24caf767da5d48c07e0c17309b9f884ef4dea))
+* **handoff:** host-scope `latest` in bare &lt;query&gt; path ([#85](https://github.com/kaiohenricunha/dotclaude/issues/85)) ([#99](https://github.com/kaiohenricunha/dotclaude/issues/99)) ([40cafad](https://github.com/kaiohenricunha/dotclaude/commit/40cafad2eea11ad2c4e508568c396271f66d584c))
+* **handoff:** refine list — filters, transport warnings, uniform row schema ([#100](https://github.com/kaiohenricunha/dotclaude/issues/100)) ([68fb908](https://github.com/kaiohenricunha/dotclaude/commit/68fb9087568e947be4c100c69344b39cc2aa412b))
+* **handoff:** refuse force-push on short-id collision ([#90](https://github.com/kaiohenricunha/dotclaude/issues/90) Gap 3) ([#96](https://github.com/kaiohenricunha/dotclaude/issues/96)) ([a11649b](https://github.com/kaiohenricunha/dotclaude/commit/a11649b1a08043f932c634d57e93f53603829e39))
+* **handoff:** scrub every push and fail closed if scrubber cannot run ([#92](https://github.com/kaiohenricunha/dotclaude/issues/92)) ([8d0e6a6](https://github.com/kaiohenricunha/dotclaude/commit/8d0e6a6ce2e4b76621604a438c1fdd810bc94583))
+* **handoff:** sort pull candidates by committer date ([#90](https://github.com/kaiohenricunha/dotclaude/issues/90) Gap 2) ([#95](https://github.com/kaiohenricunha/dotclaude/issues/95)) ([30e05c5](https://github.com/kaiohenricunha/dotclaude/commit/30e05c57271167633d5a666f89c89fca4c90e558))
+
+
+### Changed
+
+* **handoff:** extract remote transport to shared library ([#93](https://github.com/kaiohenricunha/dotclaude/issues/93)) ([d689d1e](https://github.com/kaiohenricunha/dotclaude/commit/d689d1e521cb56af4d1ce1db9b0db5f7aa1b5f52))
+
+
+### Documentation
+
+* **handoff:** drop --include-transcript from all docs ([#91](https://github.com/kaiohenricunha/dotclaude/issues/91) Gap 6) ([#103](https://github.com/kaiohenricunha/dotclaude/issues/103)) ([2545abe](https://github.com/kaiohenricunha/dotclaude/commit/2545abe252d8a5f681a1fbfe13d487e260d6da4e))
+* reposition dotclaude as a Claude Code toolkit ([#82](https://github.com/kaiohenricunha/dotclaude/issues/82)) ([8ac18d8](https://github.com/kaiohenricunha/dotclaude/commit/8ac18d83da07de97a38dbdfc58ceb114ad2cf80d))
+
 ## [0.11.0](https://github.com/kaiohenricunha/dotclaude/compare/v0.10.0...v0.11.0) (2026-04-20)
 
 
