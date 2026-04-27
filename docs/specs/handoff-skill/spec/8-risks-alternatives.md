@@ -17,13 +17,13 @@ behavior that prevents it) — not "we'll be careful."
 Two distinct ways the auto-trigger contract can fail; each needs a
 different mitigation.
 
-| Sub-mode | Failure                                                                                                                  | Mitigation                                                                                                                                               |
-| -------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R-1a     | **Doc drift.** Binary surface changes; SKILL.md / `docs/handoff-guide.md` / `--help` not updated. Phrase mapping invokes a removed flag or stale verb. | ARCH-10 drift test (CI gate per OPS-1). Tests the symbol list, not prose; updates ride in the same PR as the binary change.                            |
+| Sub-mode | Failure                                                                                                                                                                                                    | Mitigation                                                                                                                                                                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R-1a     | **Doc drift.** Binary surface changes; SKILL.md / `docs/handoff-guide.md` / `--help` not updated. Phrase mapping invokes a removed flag or stale verb.                                                     | ARCH-10 drift test (CI gate per OPS-1). Tests the symbol list, not prose; updates ride in the same PR as the binary change.                                                                                                                                                |
 | R-1b     | **Runtime misinterpretation within one LLM.** SKILL.md is current, but the host LLM reads ambiguous trigger language and produces the wrong invocation (e.g. drops `--from`, picks the wrong sub-command). | SKILL.md trigger language is **imperative and example-anchored**: "when the user says X, run exactly `dotclaude handoff push --from <your-cli>`." No free-form "when the user wants to push…" phrasing. §5.5.1's mapping table is what gets quoted into SKILL.md verbatim. |
 
-| Likelihood | Impact                                                              |
-| ---------- | ------------------------------------------------------------------- |
+| Likelihood | Impact                                                                                                      |
+| ---------- | ----------------------------------------------------------------------------------------------------------- |
 | Medium     | High for R-1a (silently broken slash command); medium for R-1b (one wrong invocation, exit 64 surfaces it). |
 
 ### R-2 — Direct-shell user trips on `--from` mandatory.
@@ -39,8 +39,8 @@ usage block listing `--from claude|copilot|codex`. `docs/handoff-guide.md`
 calls this out as the #1 gotcha in the migration section. CHANGELOG entry
 for the major bump (per §6.5) lists `--from` mandatory as its own line.
 
-| Likelihood | Impact |
-| ---------- | ------ |
+| Likelihood | Impact                                     |
+| ---------- | ------------------------------------------ |
 | High       | Low (hit-once, recoverable, helpful error) |
 
 ### R-3 — Scrub pattern set misses a new secret format.
@@ -64,9 +64,9 @@ the private remote unscrubbed.
   storage; it defends against secrets in a personal store the user
   controls.
 
-| Likelihood | Impact                                                  |
-| ---------- | ------------------------------------------------------- |
-| Medium     | Medium (private repo limits blast radius; user-owned)   |
+| Likelihood | Impact                                                |
+| ---------- | ----------------------------------------------------- |
+| Medium     | Medium (private repo limits blast radius; user-owned) |
 
 ### R-4 — Cross-LLM divergence on the same SKILL.md.
 
@@ -91,9 +91,9 @@ on the same source.
   divergence is structural (Codex always uses the binary directly per
   `from-codex.md`), not a reading-comprehension failure.
 
-| Likelihood | Impact                                                  |
-| ---------- | ------------------------------------------------------- |
-| Low-Medium | Low (binary-side checks catch the consequential cases)  |
+| Likelihood | Impact                                                 |
+| ---------- | ------------------------------------------------------ |
+| Low-Medium | Low (binary-side checks catch the consequential cases) |
 
 ### R-5 — Drift-test infrastructure is brittle.
 
@@ -108,9 +108,9 @@ surfaces in Phase 1 against today's SKILL.md, not in Phase 2 against
 a moving target. The Phase 1 PR includes a fixture-based test of the
 extractor itself (per §6.4 W-4 unit test).
 
-| Likelihood | Impact                                                |
-| ---------- | ----------------------------------------------------- |
-| Medium     | Low (false-positive CI red, fixed in the same PR)     |
+| Likelihood | Impact                                            |
+| ---------- | ------------------------------------------------- |
+| Medium     | Low (false-positive CI red, fixed in the same PR) |
 
 ### R-6 — Codex's bash tool quotes arguments badly for `--from` filling.
 
@@ -126,9 +126,9 @@ no SKILL.md-mediated translation path that could double-quote.
 Codex users are pushed onto the unambiguous direct-binary surface
 by design.
 
-| Likelihood | Impact                                                              |
-| ---------- | ------------------------------------------------------------------- |
-| Low        | Low (`from-codex.md` is the documented escape hatch; user reruns)   |
+| Likelihood | Impact                                                            |
+| ---------- | ----------------------------------------------------------------- |
+| Low        | Low (`from-codex.md` is the documented escape hatch; user reruns) |
 
 ### R-7 — Multi-machine push of the same source UUID.
 
@@ -146,19 +146,19 @@ Logged here so future-you doesn't get confused investigating "why
 did my morning push disappear" — it didn't, you just pushed the
 same UUID from two machines and the later one overwrote.
 
-| Likelihood | Impact                                |
-| ---------- | ------------------------------------- |
-| Very low   | Medium (one push lost, no recovery)   |
+| Likelihood | Impact                              |
+| ---------- | ----------------------------------- |
+| Very low   | Medium (one push lost, no recovery) |
 
 ### Risks intentionally not listed
 
-| Non-risk                                                   | Why omitted                                                                                                                              |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Branch-name collision across the user's own sessions        | Birthday-paradox math on 8-hex-char short_id puts this in "more likely to be hit by lightning" tier; REL-2's collision probe handles it. |
-| Network failure mid-push                                    | Git refs are atomic; no partial state possible. The push either completed or didn't.                                                      |
-| Substrate interface drift (extract.sh / resolve.sh changes) | Covered by the bats integration suite; not a category-level risk.                                                                        |
+| Non-risk                                                    | Why omitted                                                                                                                                     |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Branch-name collision across the user's own sessions        | Birthday-paradox math on 8-hex-char short_id puts this in "more likely to be hit by lightning" tier; REL-2's collision probe handles it.        |
+| Network failure mid-push                                    | Git refs are atomic; no partial state possible. The push either completed or didn't.                                                            |
+| Substrate interface drift (extract.sh / resolve.sh changes) | Covered by the bats integration suite; not a category-level risk.                                                                               |
 | User has to relearn verbs after the major bump              | That's how semver works. Listing it as a risk implies the design is doing something wrong; it isn't. Migration table in §6.5 is the affordance. |
-| PERF-1's 1000-branch baseline turning out to be wrong       | §7 PERF-1 self-mitigates via "ceiling adjusts, behavior doesn't." Listing it here would be redundant.                                    |
+| PERF-1's 1000-branch baseline turning out to be wrong       | §7 PERF-1 self-mitigates via "ceiling adjusts, behavior doesn't." Listing it here would be redundant.                                           |
 
 ## Rejected Alternatives
 
@@ -175,8 +175,8 @@ local emit so the host LLM (or the user) can pre-tune the
 
 **Rejected.** The flag is purely cosmetic — one line of text per
 target. It requires the user (or LLM) to predict where the block
-will be pasted at the moment it's emitted; the host LLM at *paste
-time* already knows where the block is going. The ARCH-2 design
+will be pasted at the moment it's emitted; the host LLM at _paste
+time_ already knows where the block is going. The ARCH-2 design
 moves target inference to "wherever the block lands," eliminating
 the prediction. §1's "redundant requirements" grievance applies.
 
@@ -254,8 +254,8 @@ remove.
 **Path.** Surface a notification on machine B when machine A pushes
 a fresh handoff (webhook → desktop notification → IDE banner).
 
-**Rejected.** `pull` and `fetch` are intentional acts of *starting
-work*. Push notifications would mean a misfired handoff from
+**Rejected.** `pull` and `fetch` are intentional acts of _starting
+work_. Push notifications would mean a misfired handoff from
 machine A interrupts machine B mid-thought. The async-by-default
 behavior is the **feature**, not a limitation. The user pulls when
 they sit down to start the next session, not when the network tells
@@ -299,7 +299,8 @@ the user's source code (which is far more sensitive than handoff
 digests typically are). E2E adds a key-rotation problem (what
 happens when the user generates a new SSH key? are old branches
 still readable?) that §2 explicitly de-scopes. Best-effort scrub
-+ private repo + sole-owner assumption (R-3) is the threat model.
+
+- private repo + sole-owner assumption (R-3) is the threat model.
 
 ### A-11 — Auto-inject the digest into the target agent.
 

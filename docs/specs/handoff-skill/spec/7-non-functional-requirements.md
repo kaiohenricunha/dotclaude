@@ -61,8 +61,8 @@ no duplicate config writes, idempotent push outcome.
 ### SEC-1 — Scrub patterns are spec-frozen.
 
 The eight perl regex passes in `handoff-scrub.sh` (GitHub tokens,
-OpenAI/sk-*, AWS access keys, Google API keys, Slack tokens,
-`Authorization: Bearer …`, `*_TOKEN`/`KEY`/`SECRET`/`PASSWORD`=…,
+OpenAI/sk-_, AWS access keys, Google API keys, Slack tokens,
+`Authorization: Bearer …`, `_\_TOKEN`/`KEY`/`SECRET`/`PASSWORD`=…,
 PEM private keys) are the complete redaction set for v1.x. Adding,
 removing, or modifying a pattern requires:
 
@@ -227,15 +227,15 @@ is a derived consequence of REL-2, not a feature to engineer.
 The following are explicitly **not** part of the spec's SLA. Future
 PRs that try to add them must amend this section first.
 
-| Non-requirement                                                | Why deliberately excluded                                                                                                                                                                                                  |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **GitHub availability**                                         | The skill depends on GitHub for the remote transport. When GitHub is down, `push` and `fetch` fail; the user re-runs when service returns. Building local queueing or alternate-region fallback is out of scope.       |
-| **Upstream CLI session-file format stability**                  | Claude Code, Copilot CLI, and Codex CLI may change their on-disk JSONL formats without coordination. The substrate scripts adapt as needed; the skill does not promise to work against future format changes that haven't shipped yet. |
-| **Transient network failure recovery**                          | No retry, no exponential backoff, no transient-error classifier. `git`'s defaults stand. If the network fails, the user re-runs. Adding a retry layer adds a state machine to a CLI that exits in <5s — wrong tradeoff. |
-| **Custom scrub patterns / per-user redaction rules**            | The eight patterns in SEC-1 are the redaction surface. Per-user customization adds drift between machines and risks unscrubbed leaks; out of scope.                                                                          |
-| **Encrypted-at-rest remote payloads**                           | Already in §2 out-of-scope; restated here. The private-repo + git-auth model is the threat model.                                                                                                                          |
-| **Auto-prune of old branches / TTL on the store**               | KD-3 already de-scopes this. Restated as a non-NFR so future PRs don't slip it in via an "operational" framing.                                                                                                                |
-| **Real-time push notification on the remote**                   | The user pulls when they sit down at the other machine; no webhook / push notification / server-sent event is part of this skill.                                                                                          |
+| Non-requirement                                      | Why deliberately excluded                                                                                                                                                                                                              |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub availability**                              | The skill depends on GitHub for the remote transport. When GitHub is down, `push` and `fetch` fail; the user re-runs when service returns. Building local queueing or alternate-region fallback is out of scope.                       |
+| **Upstream CLI session-file format stability**       | Claude Code, Copilot CLI, and Codex CLI may change their on-disk JSONL formats without coordination. The substrate scripts adapt as needed; the skill does not promise to work against future format changes that haven't shipped yet. |
+| **Transient network failure recovery**               | No retry, no exponential backoff, no transient-error classifier. `git`'s defaults stand. If the network fails, the user re-runs. Adding a retry layer adds a state machine to a CLI that exits in <5s — wrong tradeoff.                |
+| **Custom scrub patterns / per-user redaction rules** | The eight patterns in SEC-1 are the redaction surface. Per-user customization adds drift between machines and risks unscrubbed leaks; out of scope.                                                                                    |
+| **Encrypted-at-rest remote payloads**                | Already in §2 out-of-scope; restated here. The private-repo + git-auth model is the threat model.                                                                                                                                      |
+| **Auto-prune of old branches / TTL on the store**    | KD-3 already de-scopes this. Restated as a non-NFR so future PRs don't slip it in via an "operational" framing.                                                                                                                        |
+| **Real-time push notification on the remote**        | The user pulls when they sit down at the other machine; no webhook / push notification / server-sent event is part of this skill.                                                                                                      |
 
 ## Cross-references
 
