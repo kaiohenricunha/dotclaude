@@ -12,7 +12,7 @@ Each risk lists the **failure mode**, **likelihood**, **impact**, and
 **mitigation**. Mitigations are concrete (a test that catches it, a
 behavior that prevents it) — not "we'll be careful."
 
-### R-1 — SKILL.md / binary contract failure (two failure modes).
+### R-1 — SKILL.md / binary contract failure (two failure modes)
 
 Two distinct ways the auto-trigger contract can fail; each needs a
 different mitigation.
@@ -26,7 +26,7 @@ different mitigation.
 | ---------- | ----------------------------------------------------------------------------------------------------------- |
 | Medium     | High for R-1a (silently broken slash command); medium for R-1b (one wrong invocation, exit 64 surfaces it). |
 
-### R-2 — Direct-shell user trips on `--from` mandatory.
+### R-2 — Direct-shell user trips on `--from` mandatory
 
 A user invoking `dotclaude handoff push` from a shell (not via slash
 command) without `<query>` and without `--from` gets exit 64. They
@@ -43,7 +43,7 @@ for the major bump (per §6.5) lists `--from` mandatory as its own line.
 | ---------- | ------------------------------------------ |
 | High       | Low (hit-once, recoverable, helpful error) |
 
-### R-3 — Scrub pattern set misses a new secret format.
+### R-3 — Scrub pattern set misses a new secret format
 
 The eight perl regex passes (SEC-1) cover the secret prefixes that
 existed when this spec was written. A future cloud / API service ships
@@ -68,7 +68,7 @@ the private remote unscrubbed.
 | ---------- | ----------------------------------------------------- |
 | Medium     | Medium (private repo limits blast radius; user-owned) |
 
-### R-4 — Cross-LLM divergence on the same SKILL.md.
+### R-4 — Cross-LLM divergence on the same SKILL.md
 
 Three host LLMs (Claude Code and Copilot CLI auto-load SKILL.md;
 Codex doesn't load it at all) may interpret the **same trigger doc
@@ -95,7 +95,7 @@ on the same source.
 | ---------- | ------------------------------------------------------ |
 | Low-Medium | Low (binary-side checks catch the consequential cases) |
 
-### R-5 — Drift-test infrastructure is brittle.
+### R-5 — Drift-test infrastructure is brittle
 
 A SKILL.md grammar quirk (a missing colon, a bullet style change, a
 heading rename) breaks the drift test's symbol extractor. CI goes
@@ -112,7 +112,7 @@ extractor itself (per §6.4 W-4 unit test).
 | ---------- | ------------------------------------------------- |
 | Medium     | Low (false-positive CI red, fixed in the same PR) |
 
-### R-6 — Codex's bash tool quotes arguments badly for `--from` filling.
+### R-6 — Codex's bash tool quotes arguments badly for `--from` filling
 
 Codex's bash tool may shell-quote `--from claude` differently than
 expected when the user uses Codex's natural-language → shell
@@ -130,7 +130,7 @@ by design.
 | ---------- | ----------------------------------------------------------------- |
 | Low        | Low (`from-codex.md` is the documented escape hatch; user reruns) |
 
-### R-7 — Multi-machine push of the same source UUID.
+### R-7 — Multi-machine push of the same source UUID
 
 Edge case: the user manually copies a session JSONL from machine A to
 machine B (or has it shared via Dropbox / iCloud / similar) and pushes
@@ -167,7 +167,7 @@ rejected**, so future contributors don't relitigate the same
 decisions. Treat A-N as boundary markers: a PR proposing one of
 these must amend §8 first.
 
-### A-1 — Keep `--to <cli>` for next-step text customization.
+### A-1 — Keep `--to <cli>` for next-step text customization
 
 **Path.** Preserve the cosmetic `--to` flag on `push` / `pull` /
 local emit so the host LLM (or the user) can pre-tune the
@@ -180,7 +180,7 @@ time_ already knows where the block is going. The ARCH-2 design
 moves target inference to "wherever the block lands," eliminating
 the prediction. §1's "redundant requirements" grievance applies.
 
-### A-2 — Use env-var detection for source CLI.
+### A-2 — Use env-var detection for source CLI
 
 **Path.** Probe `CLAUDECODE`, `CODEX_*`, `GITHUB_COPILOT_*` /
 `COPILOT_*` to auto-detect the source CLI at `push` time without
@@ -195,7 +195,7 @@ SKILL.md fills `--from` for slash-command users (the host LLM
 trivially knows its own identity); shell-direct users pass `--from`
 explicitly. Never silently inferred.
 
-### A-3 — Multi-PR deprecation cycle with warnings shipped to npm.
+### A-3 — Multi-PR deprecation cycle with warnings shipped to npm
 
 **Path.** Land warnings for `--to`, old verbs, and env-detection
 fallback in one release; ship the breaking changes in the next.
@@ -207,7 +207,7 @@ codebase the maintainer must test and maintain twice. **Semver
 major is the only signal that actually fires.** §6.1's release-bang
 with phased PRs is the right shape.
 
-### A-4 — Pre-write detailed per-PR prompts in §6.3.
+### A-4 — Pre-write detailed per-PR prompts in §6.3
 
 **Path.** Author 15-25 fully-fleshed implementation prompts in §6.3
 with `<read-first>` file lists, TDD test names, exact paths, etc.
@@ -221,7 +221,7 @@ prompts aren't on that list. §6.3's skeletal layout + pointer to
 a future `docs/plans/handoff-skill-prompts.md` (written at
 implementation kickoff, not now) is the right shape.
 
-### A-5 — Auto-prune / TTL on the remote store.
+### A-5 — Auto-prune / TTL on the remote store
 
 **Path.** Ship a `prune` sub-command (or background pruning) that
 deletes branches older than N months / past M total / not tagged.
@@ -234,7 +234,7 @@ retention with regular git operations
 Restated as anti-NFR in §7 so future PRs can't slip it in via an
 "operational" framing.
 
-### A-6 — Drop `list` / `search` / `describe` / `doctor` entirely.
+### A-6 — Drop `list` / `search` / `describe` / `doctor` entirely
 
 **Path.** Strip the supporting commands so the surface is purely
 `pull`, `push`, `fetch` and nothing else.
@@ -249,7 +249,7 @@ remote misbehaves. Each one earns its slot by feeding the primary
 jobs; removing them re-creates the friction the redesign exists to
 remove.
 
-### A-7 — Real-time webhook / push notification on the remote.
+### A-7 — Real-time webhook / push notification on the remote
 
 **Path.** Surface a notification on machine B when machine A pushes
 a fresh handoff (webhook → desktop notification → IDE banner).
@@ -261,7 +261,7 @@ behavior is the **feature**, not a limitation. The user pulls when
 they sit down to start the next session, not when the network tells
 them to.
 
-### A-8 — Port the shell substrate to JS.
+### A-8 — Port the shell substrate to JS
 
 **Path.** Move `handoff-resolve.sh`, `handoff-extract.sh`,
 `handoff-scrub.sh`, `handoff-description.sh`, `handoff-doctor.sh`
@@ -276,7 +276,7 @@ identical — and risks regression on substrate that works. §2
 explicitly froze the substrate; restated here so a future "let's
 unify the runtime" PR can't smuggle this past spec review.
 
-### A-9 — Use a non-git transport (S3, raw HTTPS, Notion, gist-token).
+### A-9 — Use a non-git transport (S3, raw HTTPS, Notion, gist-token)
 
 **Path.** Replace or add to the git-repo transport with an
 alternative store.
@@ -289,7 +289,7 @@ already removed in PR #68 because of the gh-scope friction; they
 should not return. Any new transport adds an authentication problem
 the spec explicitly doesn't want to own.
 
-### A-10 — E2E-encrypt payloads with the user's SSH key.
+### A-10 — E2E-encrypt payloads with the user's SSH key
 
 **Path.** Encrypt `handoff.md` / `metadata.json` client-side before
 push using the user's existing SSH key; decrypt on fetch.
@@ -302,7 +302,7 @@ still readable?) that §2 explicitly de-scopes. Best-effort scrub
 
 - private repo + sole-owner assumption (R-3) is the threat model.
 
-### A-11 — Auto-inject the digest into the target agent.
+### A-11 — Auto-inject the digest into the target agent
 
 **Path.** Use clipboard, prefilled prompt injection, or IPC to
 deliver the `<handoff>` block to the next agent without manual
@@ -317,7 +317,7 @@ verification step. The paste step is where the user reads the
 "yes, this is the session I meant." Removing it eliminates the
 audit point.
 
-### A-12 — Add Cursor / Aider / Continue / [next agent].
+### A-12 — Add Cursor / Aider / Continue / [next agent]
 
 **Path.** Extend the supported-CLI set beyond claude / copilot /
 codex.

@@ -11,7 +11,7 @@
 
 ## Reliability
 
-### REL-1 — Scrub is fail-closed.
+### REL-1 — Scrub is fail-closed
 
 `push` aborts with exit 2 and writes nothing to the remote if any of
 the following holds:
@@ -29,7 +29,7 @@ remote.
 non-zero-exit, and a missing-count-line scenario; assert exit 2 and
 zero git operations performed.
 
-### REL-2 — Collision probe is fail-closed.
+### REL-2 — Collision probe is fail-closed
 
 `push` aborts with exit 2 if the target branch already exists on the
 remote and its `metadata.json.session_id` differs from the local
@@ -39,7 +39,7 @@ session_id. `--force-collision` is the explicit, documented override.
 foreign-session branch; assert exit 2 without `--force-collision`,
 exit 0 with it.
 
-### REL-3 — Bootstrap is idempotent.
+### REL-3 — Bootstrap is idempotent
 
 Running `dotclaude handoff push` repeatedly when bootstrap is needed:
 
@@ -58,7 +58,7 @@ no duplicate config writes, idempotent push outcome.
 
 ## Security
 
-### SEC-1 — Scrub patterns are spec-frozen.
+### SEC-1 — Scrub patterns are spec-frozen
 
 The eight perl regex passes in `handoff-scrub.sh` (GitHub tokens,
 OpenAI/sk-_, AWS access keys, Google API keys, Slack tokens,
@@ -75,7 +75,7 @@ Patterns ship as a single change set, not piecemeal.
 **Test:** dedicated bats suite with one positive + one boundary case
 per pattern; the suite is the authoritative pattern inventory.
 
-### SEC-2 — Transport URL validator rejects exec-triggering schemes.
+### SEC-2 — Transport URL validator rejects exec-triggering schemes
 
 `validateTransportUrl()` (in `plugins/dotclaude/src/lib/handoff-remote.mjs`)
 must accept only:
@@ -96,7 +96,7 @@ operations).
 schemes; bats integration on `push` with `DOTCLAUDE_HANDOFF_REPO=ext::…`
 asserting exit 2 before any git op fires.
 
-### SEC-3 — Persisted env file is mode 0600.
+### SEC-3 — Persisted env file is mode 0600
 
 `$XDG_CONFIG_HOME/dotclaude/handoff.env` (default
 `~/.config/dotclaude/handoff.env`) is written with mode `0600` and
@@ -106,7 +106,7 @@ embedded auth; world-readable mode is unacceptable.
 
 **Test:** bats verification of `stat -c '%a' <file>` post-bootstrap.
 
-### SEC-4 — Per-branch payload ceiling.
+### SEC-4 — Per-branch payload ceiling
 
 `handoff.md` written by `push` is bounded:
 
@@ -124,7 +124,7 @@ renders a > 1 MB block; assert exit 2 with the ceiling-message error.
 
 ## Performance
 
-### PERF-1 — Remote-list latency ceiling, baselined in Phase 1.
+### PERF-1 — Remote-list latency ceiling, baselined in Phase 1
 
 `list --remote` against a store with **≤ 1000 handoff branches** on a
 warm connection should complete in **< 2 s**. This is the §3 ARCH-9
@@ -141,7 +141,7 @@ against.
 Subsequent PRs run the same fixture and fail CI on > 1.5x baseline
 regression.
 
-### PERF-2 — Scrub on bounded input.
+### PERF-2 — Scrub on bounded input
 
 The scrubber must complete a single push within **< 1 s for inputs
 ≤ 1 MB**. For inputs **> 5 MB**, `push` aborts with exit 2 before the
@@ -158,7 +158,7 @@ a smell detector before the user notices.
 
 ## Operational
 
-### OPS-1 — Drift test runs as a CI gate on every PR.
+### OPS-1 — Drift test runs as a CI gate on every PR
 
 ARCH-10's drift test (`plugins/dotclaude/tests/handoff-drift.test.mjs`)
 runs in CI on every PR that touches:
@@ -174,7 +174,7 @@ the cleanup is part of the same PR that introduced the drift.
 **Test:** the drift test itself, plus a CI smoke that intentionally
 breaks the assertion via a fixture and expects red.
 
-### OPS-2 — Stdout determinism across TTY / non-TTY.
+### OPS-2 — Stdout determinism across TTY / non-TTY
 
 The `<handoff>` block on `pull` / `fetch`, and the four-line success
 output on `push`, are emitted on stdout **identically** regardless of
@@ -190,7 +190,7 @@ whether stdout is a terminal or a pipe. Specifically:
 captures stdout to a file; asserts byte-for-byte equality with the
 TTY-emulated run via `script` or equivalent.
 
-### OPS-3 — Exit codes are a public contract.
+### OPS-3 — Exit codes are a public contract
 
 The exit code set `{0, 1, 2, 64}` from §5.3 is frozen. Adding a new
 exit code (e.g. exit 3 for "partial success", exit 5 for "rate
@@ -201,7 +201,7 @@ fine.
 what the binary actually emits via fixture-driven bats coverage of
 each named condition.
 
-### OPS-4 — Cross-platform support: Linux + macOS first-class, Windows via WSL.
+### OPS-4 — Cross-platform support: Linux + macOS first-class, Windows via WSL
 
 Substrate requirement: POSIX shell + GNU `jq` + `perl 5` + `git`.
 Versions are not pinned; the substrate scripts use POSIX-portable
