@@ -299,7 +299,7 @@ the migration table that retires them).
 Tagged decisions that bind the rest of the spec; later sections must not
 contradict these without amending here.
 
-### KD-1 — Re-push of same UUID + month: update branch (force), but with a collision probe.
+### KD-1 — Re-push of same UUID + month: update branch (force), but with a collision probe
 
 The branch `handoff/<project>/<cli>/<YYYY-MM>/<short>` represents "the
 latest handoff snapshot for this session UUID in this month-bucket."
@@ -328,7 +328,7 @@ disambiguation. The collision probe is the safety net against the
 1-in-2^32 short-prefix collision between distinct UUIDs — the binary
 refuses to silently overwrite a stranger's branch.
 
-### KD-2 — Tags are mutable addressable labels, materialized as `refs/tags/<label>` and mirrored in the description and `metadata.tags`.
+### KD-2 — Tags are mutable addressable labels, materialized as `refs/tags/<label>` and mirrored in the description and `metadata.tags`
 
 `push --tag <label>` (repeatable, or comma-joined) creates or updates
 a remote tag ref at `refs/tags/<label>` pointing at the pushed handoff
@@ -352,7 +352,7 @@ with standard Git primitives and with `git ls-remote refs/tags/*`, while
 the mirrored description/`metadata.tags` preserves the richer handoff
 metadata on the branch itself.
 
-### KD-3 — Store retention is the user's job, not the skill's.
+### KD-3 — Store retention is the user's job, not the skill's
 
 The remote grows forever by default. No automatic GC, no `prune`
 sub-command, no TTL on branches. Users with full stores run
@@ -364,7 +364,7 @@ default policy (delete-by-age? by project? keep-tagged?). Shipping
 defaults wrong is worse than not shipping defaults. The user has
 explicitly de-scoped this.
 
-### KD-4 — `fetch` ambiguity resolves with the same model as `pull`.
+### KD-4 — `fetch` ambiguity resolves with the same model as `pull`
 
 When `fetch <query>` matches multiple refs (tags, branches, descriptions,
 or commits), the disambiguation is:
@@ -378,7 +378,7 @@ No silent first-match, no "newest wins" heuristic, no special-casing.
 for "I gave the binary an ambiguous identifier." Heuristic
 tie-breakers introduce silent failure modes.
 
-### KD-5 — Source CLI is determined by path, not by env.
+### KD-5 — Source CLI is determined by path, not by env
 
 Once the resolver returns an absolute JSONL path, the path's root
 prefix (`~/.claude/projects/`, `~/.copilot/session-state/`,
@@ -390,7 +390,7 @@ through `--from`, and only on the `push --no-query` path.
 in their own probe code. Eliminating env-detection eliminates the
 "silently picks wrong source" failure mode §1 was written to stop.
 
-### KD-6 — SKILL.md auto-trigger contract pre-fills `--from`.
+### KD-6 — SKILL.md auto-trigger contract pre-fills `--from`
 
 The skill markdown explicitly instructs Claude / Copilot host LLMs to
 include `--from <its-own-cli-name>` when invoking `dotclaude handoff
