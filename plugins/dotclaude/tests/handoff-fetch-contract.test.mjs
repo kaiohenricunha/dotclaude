@@ -10,7 +10,8 @@
 // which covers the §4.3 data-flow path (push then fetch, transport required,
 // --from filtering). This file scopes to argv-shape only and does NOT need a
 // real transport repo — argv parsing happens before the transport check, so
-// negative cases that exit 64 work even with DOTCLAUDE_HANDOFF_REPO unset.
+// negative cases that exit 64 work even with DOTCLAUDE_HANDOFF_REPO pointing
+// at a non-existent path (as runHandoff() sets it to /nonexistent/...).
 //
 // Deliberately NOT pinned (extra-spec but tolerated):
 //   --verify (currently accepted; not in §5.2.3).
