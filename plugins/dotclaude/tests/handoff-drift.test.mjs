@@ -283,13 +283,13 @@ describe("handoff drift (ARCH-10) — Phase 1", () => {
     skillSurface = extractFromSkillMd(skillText);
 
     // The bin sources `$XDG_CONFIG_HOME/dotclaude/handoff.env` at startup
-    // (default `$HOME/.config/...`). Point HOME at a fresh temp dir so a
-    // user's persisted handoff.env can't leak into the test, and parallel
-    // vitest workers can't collide on the same path.
+    // (default `$HOME/.config/...`). Point both HOME and XDG_CONFIG_HOME at
+    // a fresh temp dir so a user's persisted handoff.env can't leak into the
+    // test, and parallel vitest workers can't collide on the same path.
     const hermeticHome = mkdtempSync(resolve(tmpdir(), "handoff-drift-"));
-    const help = execFileSync("node", [HANDOFF_BIN, "--help"], {
+    const help = execFileSync(process.execPath, [HANDOFF_BIN, "--help"], {
       encoding: "utf8",
-      env: { ...process.env, HOME: hermeticHome },
+      env: { ...process.env, HOME: hermeticHome, XDG_CONFIG_HOME: hermeticHome },
     });
     helpSurface = extractFromHelp(help);
   });

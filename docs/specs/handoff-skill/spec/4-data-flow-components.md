@@ -25,12 +25,12 @@ those lines.
 
 ## Shared State
 
-| State                                            | Lifetime           | Read by                              | Written by              |
-| ------------------------------------------------ | ------------------ | ------------------------------------ | ----------------------- |
-| `$DOTCLAUDE_HANDOFF_REPO` (env)                  | shell process      | every `push` / `fetch` / `list -r`   | self-bootstrap          |
-| `$XDG_CONFIG_HOME/dotclaude/handoff.env`         | persistent, mode 0600 | binary startup (sourced)          | self-bootstrap (one-time) |
-| `~/.claude/projects/`, `~/.copilot/session-state/`, `~/.codex/sessions/` | persistent | `pull`, `push --query`, `search`, `list -l` | the host CLIs themselves |
-| `$DOTCLAUDE_HANDOFF_REPO`'s `handoff/...` branches | persistent       | `fetch`, `list -r`                   | `push`                  |
+| State                                                                    | Lifetime              | Read by                                     | Written by                |
+| ------------------------------------------------------------------------ | --------------------- | ------------------------------------------- | ------------------------- |
+| `$DOTCLAUDE_HANDOFF_REPO` (env)                                          | shell process         | every `push` / `fetch` / `list -r`          | self-bootstrap            |
+| `$XDG_CONFIG_HOME/dotclaude/handoff.env`                                 | persistent, mode 0600 | binary startup (sourced)                    | self-bootstrap (one-time) |
+| `~/.claude/projects/`, `~/.copilot/session-state/`, `~/.codex/sessions/` | persistent            | `pull`, `push --query`, `search`, `list -l` | the host CLIs themselves  |
+| `$DOTCLAUDE_HANDOFF_REPO`'s `handoff/...` branches                       | persistent            | `fetch`, `list -r`                          | `push`                    |
 
 No in-process caches, no daemons, no inter-invocation state on the local
 filesystem beyond the persisted env file.
@@ -328,26 +328,29 @@ disambiguation. The collision probe is the safety net against the
 1-in-2^32 short-prefix collision between distinct UUIDs — the binary
 refuses to silently overwrite a stranger's branch.
 
-### KD-2 — Tags are mutable addressable labels, encoded in the description and `metadata.tags`.
+### KD-2 — Tags are mutable addressable labels, materialized as `refs/tags/<label>` and mirrored in the description and `metadata.tags`.
 
-`push --tag <label>` (repeatable, or comma-joined) attaches the tag
-list to the branch's description string and to `metadata.tags`.
-Tags do **not** materialize as `refs/tags/` git tag refs; they live
-inside the branch's metadata. Re-pushing with a new tag list rewrites
-the metadata and description on the same branch — tags retarget when
-re-pushed because they are properties of the latest push, not standalone
-refs.
+`push --tag <label>` (repeatable, or comma-joined) creates or updates
+a remote tag ref at `refs/tags/<label>` pointing at the pushed handoff
+commit. The same tag list is also written into the branch's description
+string and `metadata.tags` as mirrored metadata for post-fetch
+inspection and UX. Re-pushing with a new tag list rewrites the metadata
+and description on the same branch, and any reused labels retarget by
+updating their corresponding `refs/tags/<label>` refs.
 
-`fetch <label>` matches the description's tag segment (and falls back
-to the on-branch `metadata.tags` after a candidate fetch). Multi-tag
-syntax: `--tag a --tag b` (repeated flag) or `--tag a,b` (comma-joined).
+`fetch <label>` resolves via `refs/tags/<label>` first (via
+`git ls-remote refs/tags/<label>`), then fetches the tagged commit and
+reads the branch metadata/description as confirmation and context.
+Multi-tag syntax: `--tag a --tag b` (repeated flag) or `--tag a,b`
+(comma-joined).
 
 **Reasoning**: tags are how the user addresses semantic snapshots
 ("end-of-day", "auth-fix"). Immutability would force the user to invent
-a new label each push, which destroys their addressing scheme. Storing
-tags inside the branch keeps the remote's ref namespace tidy
-(`refs/heads/handoff/...` only) and lets `git ls-remote` + description
-parsing surface tags without a separate tag-ref enumeration.
+a new label each push, which destroys their addressing scheme. Encoding
+tags as real `refs/tags/<label>` refs keeps fetch/list behavior aligned
+with standard Git primitives and with `git ls-remote refs/tags/*`, while
+the mirrored description/`metadata.tags` preserves the richer handoff
+metadata on the branch itself.
 
 ### KD-3 — Store retention is the user's job, not the skill's.
 
@@ -365,6 +368,7 @@ explicitly de-scoped this.
 
 When `fetch <query>` matches multiple refs (tags, branches, descriptions,
 or commits), the disambiguation is:
+
 - TTY → numbered prompt.
 - Non-TTY → exit 2 with TSV candidate list on stderr.
 

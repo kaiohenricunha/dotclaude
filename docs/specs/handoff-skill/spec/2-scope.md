@@ -5,7 +5,7 @@
 ## In Scope
 
 - **Public surface redesign.** Replace the current five-form / eleven-sub-command sprawl with a two-job surface (cross-agent + cross-machine) and demote supporting commands.
-- **Source-CLI auto-detection.** The binary determines source from where it's running; users never pass a `--from`-equivalent for normal flows.
+- **Source-CLI auto-detection.** For query-based flows, the binary determines source from the path it resolves; users do not pass a `--from`-equivalent. For `push` without a `<query>`, `--from` is required.
 - **Target-CLI implicit handling.** The target is "wherever the user pastes" — the user is never asked to declare it. The `--to` flag and the per-target Next-step text branching get removed.
 - **Push / pull contract for the GitHub-repo transport.** Lock the branch-naming, scrubbing, metadata, and pull-resolution semantics so they stop changing PR-to-PR.
 - **Supporting-command surface.** Define how `search`, `describe`, `list`, `file`, `digest`, `resolve`, `remote-list`, `doctor` are reachable without competing for primary attention. Some may be removed entirely if they don't feed a primary job.
@@ -40,19 +40,19 @@
 
 ## Boundaries
 
-| Touches                                                  | Does Not Touch                                              |
-| -------------------------------------------------------- | ----------------------------------------------------------- |
-| `skills/handoff/SKILL.md`                                | Other skill SKILL.md files                                  |
-| `skills/handoff/references/*.md`                         | Skills outside `skills/handoff/`                            |
-| `plugins/dotclaude/bin/dotclaude-handoff.mjs`            | Other `plugins/dotclaude/bin/*.mjs` entrypoints             |
-| `plugins/dotclaude/src/lib/handoff-remote.mjs`           | `plugins/dotclaude/src/lib/argv.mjs`, `exit-codes.mjs`      |
-| `plugins/dotclaude/src/lib/handoff-scrub.mjs`            | Scrub patterns in `plugins/dotclaude/scripts/handoff-scrub.sh` |
-| `plugins/dotclaude/scripts/handoff-doctor.sh`            | `handoff-extract.sh` (substrate, frozen)                    |
-| `plugins/dotclaude/scripts/handoff-description.sh`       | `handoff-resolve.sh` internals (substrate, frozen)          |
+| Touches                                                  | Does Not Touch                                                       |
+| -------------------------------------------------------- | -------------------------------------------------------------------- |
+| `skills/handoff/SKILL.md`                                | Other skill SKILL.md files                                           |
+| `skills/handoff/references/*.md`                         | Skills outside `skills/handoff/`                                     |
+| `plugins/dotclaude/bin/dotclaude-handoff.mjs`            | Other `plugins/dotclaude/bin/*.mjs` entrypoints                      |
+| `plugins/dotclaude/src/lib/handoff-remote.mjs`           | `plugins/dotclaude/src/lib/argv.mjs`, `exit-codes.mjs`               |
+| `plugins/dotclaude/src/lib/handoff-scrub.mjs`            | Scrub patterns in `plugins/dotclaude/scripts/handoff-scrub.sh`       |
+| `plugins/dotclaude/scripts/handoff-doctor.sh`            | `handoff-extract.sh` (substrate, frozen)                             |
+| `plugins/dotclaude/scripts/handoff-description.sh`       | `handoff-resolve.sh` internals (substrate, frozen)                   |
 | `plugins/dotclaude/tests/bats/handoff-*.bats`            | `plugins/dotclaude/tests/bats/dotclaude-*.bats` for non-handoff bins |
-| `plugins/dotclaude/tests/handoff-*.test.mjs`             | Other vitest suites in `plugins/dotclaude/tests/`           |
-| `docs/handoff-guide.md`                                  | Other `docs/*.md` files                                     |
-| `docs/specs/handoff-skill/spec.json` (added at finalize) | Other `docs/specs/*/spec.json` files                        |
+| `plugins/dotclaude/tests/handoff-*.test.mjs`             | Other vitest suites in `plugins/dotclaude/tests/`                    |
+| `docs/handoff-guide.md`                                  | Other `docs/*.md` files                                              |
+| `docs/specs/handoff-skill/spec.json` (added at finalize) | Other `docs/specs/*/spec.json` files                                 |
 
 ## Urgency
 
