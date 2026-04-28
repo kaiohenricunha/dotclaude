@@ -19,11 +19,11 @@
 
 ## Excluded sub-commands
 
-| Symbol        | Present in                                                          | Missing from               | Resolves in                                            |
-| ------------- | ------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------ |
-| `prune`       | `--help`                                                            | `SKILL.md`                 | Phase 2 PR 5 (cleanup)                                 |
-| `remote-list` | `--help`, SKILL.md (Sub-commands table only — see "Internal" below) | `SKILL.md` (argument-hint) | Phase 2 PR 5 — migration table maps to `list --remote` |
-| `resolve`     | `SKILL.md`                                                          | `--help`                   | Phase 2 PR 5 (cleanup)                                 |
+| Symbol        | Present in                                         | Missing from | Resolves in                                                                            |
+| ------------- | -------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------- |
+| `prune`       | `--help`                                           | `SKILL.md`   | Phase 2 PR 6 (SKILL.md shrink) — sub-commands table gains `prune`                      |
+| `remote-list` | `SKILL.md` (Sub-commands table only)               | `--help`     | Phase 2 PR 6 (SKILL.md shrink) — `remote-list` row removed in favor of `list --remote` |
+| `resolve`     | `SKILL.md` (argument-hint frontmatter + sub-table) | `--help`     | Phase 2 PR 6 (SKILL.md shrink) — `resolve` removed from frontmatter and sub-table      |
 
 ## Excluded flags
 
