@@ -1,6 +1,6 @@
 {
   "$schema": "https://dotclaude.dev/schemas/index.schema.json",
-  "generatedAt": "2026-04-23T14:45:59.879Z",
+  "generatedAt": "2026-04-28T21:39:06.712Z",
   "version": "0.11.0",
   "artifacts": [
     {
@@ -25,11 +25,13 @@
       "name": "architect-reviewer",
       "description": "Use when evaluating system design, reviewing architectural decisions, assessing technology choices, or identifying structural anti-patterns. Triggers on: \"review architecture\", \"design review\", \"architecture concerns\", \"tech stack\", \"coupling\", \"scalability review\", \"ADR review\". Uses opus — cross-cutting architectural analysis requires deep reasoning across large codebases.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["devex"],
+        "platform": ["none"],
+        "task": ["review"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "audit-and-fix",
@@ -53,11 +55,13 @@
       "name": "aws-engineer",
       "description": "Use when designing, debugging, or reviewing AWS workloads and service integrations. Triggers on: \"AWS\", \"EC2\", \"ECS\", \"EKS\", \"Lambda\", \"S3\", \"IAM role\", \"VPC\", \"RDS\", \"DynamoDB\", \"CloudFront\", \"ALB\", \"Route53\", \"CloudFormation\", \"CDK\", \"API Gateway\", \"EventBridge\", \"SQS\", \"SNS\". Uses opus — AWS architecture spans IAM trust, multi-service interactions, and compliance tradeoffs that benefit from deep analysis.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["infra"],
+        "platform": ["aws"],
+        "task": ["provisioning", "debugging"],
         "maturity": "draft"
       },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha",
       "related": ["aws-specialist"]
     },
     {
@@ -82,11 +86,13 @@
       "name": "azure-engineer",
       "description": "Use when designing, debugging, or reviewing Azure workloads and service integrations. Triggers on: \"Azure\", \"AKS\", \"ACI\", \"App Service\", \"Azure Functions\", \"Blob Storage\", \"VNet\", \"App Gateway\", \"Front Door\", \"EntraID\", \"Managed Identity\", \"ARM template\", \"Bicep\", \"Azure DevOps\", \"ACR\", \"Service Bus\", \"Logic Apps\", \"Cosmos DB\". Uses opus — Azure spans identity, networking, and multi-subscription governance; deep reasoning reduces costly misconfigurations.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["infra"],
+        "platform": ["azure"],
+        "task": ["provisioning", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "azure-specialist",
@@ -110,11 +116,13 @@
       "name": "backend-developer",
       "description": "Use when building or modifying server-side code: APIs, services, data models, background jobs, or infrastructure logic. Triggers on: \"build API\", \"add endpoint\", \"database schema\", \"backend service\", \"server-side\", \"REST\", \"GraphQL\", \"background job\", \"migration\". Uses sonnet — everyday backend implementation benefits from balanced capability and throughput.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["backend"],
+        "platform": ["none"],
+        "task": ["scaffolding", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "changelog",
@@ -138,11 +146,13 @@
       "name": "changelog-assistant",
       "description": "Use when generating changelog entries, drafting release notes, or summarizing git history for a release. Triggers on: \"generate changelog\", \"release notes\", \"what changed\", \"CHANGELOG\", \"summarize commits\", \"release summary\", \"version bump notes\". Uses haiku — changelog generation from git history is formulaic and lightweight; fast output benefits release flow.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["writing", "devex"],
+        "platform": ["none"],
+        "task": ["documentation"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "compliance-auditor",
@@ -151,11 +161,13 @@
       "name": "compliance-auditor",
       "description": "Use when auditing data quality gates, config-driven checks, or invariant enforcement. Cross-references declaration files against runtime enforcement code to find declared-not-enforced and enforced-not-declared gaps. Read-only — produces a coverage matrix, never modifies code or config. Triggers on: \"gate coverage\", \"quality check audit\", \"data invariants\", \"declared vs enforced\", \"config vs code gaps\", \"quality gate completeness\".\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["security"],
+        "platform": ["none"],
+        "task": ["review", "diagnostics"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "container-engineer",
@@ -164,11 +176,13 @@
       "name": "container-engineer",
       "description": "Use when authoring, optimizing, or reviewing container images and build pipelines. Triggers on: \"Dockerfile\", \"container image\", \"multi-stage build\", \"image size\", \"OCI\", \"Docker Compose\", \"container registry\", \"base image\", \"layer cache\". Uses sonnet — container image optimization is structured and pattern-driven; sonnet provides the right depth without excess cost.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["infra"],
+        "platform": ["docker"],
+        "task": ["provisioning", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "create-assessment",
@@ -222,11 +236,13 @@
       "name": "crossplane-engineer",
       "description": "Use when designing, debugging, or reviewing Crossplane configurations and Kubernetes-native IaC. Triggers on: \"Crossplane\", \"XRD\", \"Composition\", \"CompositeResource\", \"Claim\", \"managed resource\", \"provider config\", \"ProviderConfig\", \"composite resource definition\", \"Crossplane package\". Uses sonnet — Crossplane Composition authoring is well-specified; sonnet covers the depth needed.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["infra"],
+        "platform": ["kubernetes", "crossplane"],
+        "task": ["provisioning"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "crossplane-specialist",
@@ -250,11 +266,13 @@
       "name": "data-scientist",
       "description": "Use when validating statistical models, scoring formulas, or config-driven math. Audits formula correctness, boundary conditions, config-vs-code drift, and output scale changes. Read-only — surfaces findings, never modifies code. Triggers on: \"validate scoring math\", \"check formula\", \"config drift\", \"boundary conditions\", \"statistical model audit\", \"rating algorithm review\".\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["data"],
+        "platform": ["none"],
+        "task": ["review", "diagnostics"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "dependabot-sweep",
@@ -278,11 +296,13 @@
       "name": "deployment-engineer",
       "description": "Use when planning or executing deployment strategies, release coordination, traffic shifting, or rollback procedures. Triggers on: \"deployment strategy\", \"blue/green\", \"canary release\", \"rolling update\", \"traffic shifting\", \"rollback\", \"release coordination\", \"feature flag\", \"progressive delivery\", \"deploy to production\". Uses sonnet — deployment strategy execution is structured; sonnet handles the reasoning without over-provisioning cost.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["devex", "infra"],
+        "platform": ["none"],
+        "task": ["runtime-ops"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "detect-flaky",
@@ -306,11 +326,13 @@
       "name": "devops-engineer",
       "description": "Use when building or improving CI/CD pipelines, release workflows, build automation, or developer tooling. Triggers on: \"CI pipeline\", \"CD workflow\", \"GitHub Actions\", \"build automation\", \"artifact\", \"release workflow\", \"environment promotion\", \"pipeline stage\", \"deploy pipeline\", \"lint CI\". Uses sonnet — CI/CD pipeline work is structured and iterative; sonnet matches the workload.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["devex"],
+        "platform": ["github-actions"],
+        "task": ["scaffolding", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "docker-engineer",
@@ -319,11 +341,13 @@
       "name": "docker-engineer",
       "description": "Use when designing, operating, or debugging Docker Compose stacks and running containers. Triggers on: \"docker compose up\", \"docker compose exec\", \"docker compose ps\", \"docker compose down\", \"docker compose restart\", \"compose stack\", \"multi-service compose\", \"service dependencies\", \"docker exec\", \"inspect container\", \"container logs\", \"docker logs\", \"container networking\", \"docker network\", \"running container\", \"container debug\", \"docker stats\", \"docker scout\". Uses sonnet — Compose design and runtime ops are structured; sonnet provides the right depth.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["infra"],
+        "platform": ["docker"],
+        "task": ["debugging", "runtime-ops"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "documentation-writer",
@@ -332,11 +356,13 @@
       "name": "documentation-writer",
       "description": "Use when writing or updating documentation: user guides, READMEs, API references, onboarding materials, docstrings, or inline docs. Triggers on: \"write docs\", \"update README\", \"API documentation\", \"document this\", \"user guide\", \"onboarding guide\", \"add examples\", \"explain how\". Uses haiku — documentation writing is templated and fast-turnaround; throughput matters more than deep reasoning.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["writing", "devex"],
+        "platform": ["none"],
+        "task": ["documentation"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "fix-with-evidence",
@@ -360,11 +386,13 @@
       "name": "frontend-developer",
       "description": "Use when building or modifying client-side code: UI components, pages, forms, state management, or client-side data fetching. Triggers on: \"build UI\", \"React component\", \"frontend\", \"CSS\", \"accessibility\", \"form validation\", \"client-side\", \"Next.js page\", \"Tailwind\". Uses sonnet — everyday frontend implementation benefits from balanced capability and response speed.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["frontend"],
+        "platform": ["none"],
+        "task": ["scaffolding", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "gcp-engineer",
@@ -373,11 +401,13 @@
       "name": "gcp-engineer",
       "description": "Use when designing, debugging, or reviewing Google Cloud workloads and service integrations. Triggers on: \"GCP\", \"Google Cloud\", \"GKE\", \"Cloud Run\", \"GCE\", \"Cloud Functions\", \"Pub/Sub\", \"GCS\", \"BigQuery\", \"Cloud Build\", \"Workload Identity\", \"Service Account\", \"VPC\", \"Cloud Armor\", \"Cloud CDN\", \"Deployment Manager\", \"Config Connector\". Uses opus — GCP architecture across Workload Identity, VPC networks, and IAM hierarchies requires deep reasoning to avoid security gaps.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["infra"],
+        "platform": ["gcp"],
+        "task": ["provisioning", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "gcp-specialist",
@@ -436,7 +466,7 @@
         "task": ["documentation", "debugging"],
         "maturity": "draft"
       },
-      "version": "1.1.0",
+      "version": "1.2.0",
       "owner": "@kaiohenricunha"
     },
     {
@@ -446,11 +476,13 @@
       "name": "iac-engineer",
       "description": "Use when writing, reviewing, or refactoring infrastructure-as-code modules, managing state, or handling drift detection. Triggers on: \"Terraform\", \"Pulumi\", \"OpenTofu\", \"infrastructure as code\", \"IaC module\", \"state file\", \"drift detection\", \"resource graph\", \"provider\", \"workspace\", \"remote state\". Uses sonnet — IaC authoring is structured and pattern-driven; sonnet covers the depth needed without excess cost.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["infra"],
+        "platform": ["terraform", "terragrunt", "pulumi"],
+        "task": ["provisioning", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "kubernetes-specialist",
@@ -459,11 +491,13 @@
       "name": "kubernetes-specialist",
       "description": "Use when designing, debugging, or reviewing Kubernetes workloads and cluster configuration. Triggers on: \"kubernetes\", \"k8s\", \"pod\", \"deployment\", \"cluster\", \"kubectl\", \"namespace\", \"ingress\", \"helm chart\", \"workload\", \"node not ready\". Uses opus — Kubernetes troubleshooting spans scheduler decisions, network policy semantics, and control-plane interactions; deep reasoning prevents misdiagnosis.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["infra"],
+        "platform": ["kubernetes"],
+        "task": ["debugging", "diagnostics", "runtime-ops"],
         "maturity": "draft"
       },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha",
       "related": ["kubernetes-specialist"]
     },
     {
@@ -518,11 +552,13 @@
       "name": "platform-engineer",
       "description": "Use when designing or improving internal developer platforms, golden paths, self-service tooling, or environment parity. Triggers on: \"developer platform\", \"internal tooling\", \"golden path\", \"paved road\", \"developer experience\", \"self-service\", \"environment parity\", \"platform team\", \"scaffolding\", \"service catalog\". Uses opus — platform design decisions compound over time; deep reasoning prevents golden-path choices that become maintenance burdens.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["devex", "infra"],
+        "platform": ["none"],
+        "task": ["scaffolding", "provisioning"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "pre-pr",
@@ -546,11 +582,13 @@
       "name": "pulumi-engineer",
       "description": "Use when working with Pulumi stacks, component resources, or the Automation API. Triggers on: \"Pulumi\", \"pulumi up\", \"pulumi stack\", \"ComponentResource\", \"Pulumi ESC\", \"Automation API\", \"pulumi.Config\", \"pulumi new\", \"stack reference\", \"StackReference\". Uses sonnet — Pulumi stack work is code-first and structured; sonnet matches the task depth.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["infra"],
+        "platform": ["pulumi"],
+        "task": ["provisioning", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "pulumi-specialist",
@@ -604,11 +642,13 @@
       "name": "security-auditor",
       "description": "Use when conducting security audits, reviewing code for vulnerabilities, assessing secrets exposure, or evaluating compliance posture. Triggers on: \"audit security\", \"find vulnerabilities\", \"check secrets\", \"OWASP review\", \"security scan\", \"CVE\", \"threat model\". Uses opus — security analysis requires thorough reasoning; false negatives have high downstream cost.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["security"],
+        "platform": ["none"],
+        "task": ["review", "diagnostics"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "security-engineer",
@@ -617,11 +657,13 @@
       "name": "security-engineer",
       "description": "Use when hardening infrastructure security posture, reviewing network policies, managing secrets, or assessing supply-chain risks. Triggers on: \"infrastructure hardening\", \"network policy\", \"secrets management\", \"RBAC\", \"admission controller\", \"mTLS\", \"supply chain\", \"image signing\", \"privilege escalation\", \"security posture\". Uses opus — infrastructure hardening and privilege analysis require deep reasoning; a missed vector has high downstream cost.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["security", "infra"],
+        "platform": ["kubernetes"],
+        "task": ["review", "provisioning"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "security-review",
@@ -675,11 +717,13 @@
       "name": "terragrunt-engineer",
       "description": "Use when working with Terragrunt configurations, DRY Terraform patterns, or multi-environment root-module hierarchies. Triggers on: \"Terragrunt\", \"terragrunt.hcl\", \"run-all\", \"DRY Terraform\", \"dependency block\", \"env hierarchy\", \"root module\", \"terragrunt hooks\", \"generate block\". Uses sonnet — Terragrunt DRY patterns are well-specified; sonnet handles the reasoning without over-provisioning cost.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["infra"],
+        "platform": ["terragrunt", "terraform"],
+        "task": ["provisioning", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "terragrunt-specialist",
@@ -703,11 +747,13 @@
       "name": "test-engineer",
       "description": "Use when writing tests, auditing test coverage, fixing flaky tests, or setting up test infrastructure. Triggers on: \"write tests\", \"add test coverage\", \"fix flaky test\", \"integration test\", \"test suite\", \"coverage report\", \"missing tests\", \"test CI\". Uses sonnet — test design benefits from reasoning about edge cases and failure modes; sonnet balances depth and speed.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["backend", "frontend"],
+        "platform": ["none"],
+        "task": ["testing", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     },
     {
       "id": "validate-spec",
@@ -746,11 +792,13 @@
       "name": "workflow-orchestrator",
       "description": "Use when coordinating multi-step tasks that require multiple agents, managing parallel workstreams, or planning and delegating complex implementation efforts. Triggers on: \"orchestrate\", \"coordinate agents\", \"parallel tasks\", \"multi-step plan\", \"delegate work\", \"break down\", \"dispatch subagents\". Uses opus — orchestration quality compounds across delegated agents; poor decomposition cascades into downstream failures.\n",
       "facets": {
-        "domain": [],
-        "platform": [],
-        "task": [],
+        "domain": ["devex"],
+        "platform": ["none"],
+        "task": ["scaffolding", "debugging"],
         "maturity": "draft"
-      }
+      },
+      "version": "1.0.0",
+      "owner": "@kaiohenricunha"
     }
   ]
 }
