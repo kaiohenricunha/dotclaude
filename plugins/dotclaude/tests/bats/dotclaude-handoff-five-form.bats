@@ -219,11 +219,10 @@ teardown() {
   [[ "$output" == *"finishing-auth"* ]]
 }
 
-@test "push (zero-arg) pushes host's latest session" {
-  run node "$BIN" push
-  [ "$status" -eq 0 ]
-  run bash -c "git --git-dir='$TRANSPORT_REPO' branch -a"
-  [[ "$output" == *"handoff/"* ]]
+@test "push (zero-arg, no --from) exits 64 — §5.5.2 mandatory --from" {
+  run --separate-stderr node "$BIN" push
+  [ "$status" -eq 64 ]
+  [[ "$stderr" == *"requires --from"* ]]
 }
 
 # -- fetch (remote git transport, formerly `pull`) -----------------------
@@ -364,22 +363,20 @@ teardown() {
 
 # -- honest stderr fallback notes ----------------------------------------
 
-@test "push (no args, no host signal) emits stderr note about unknown host" {
+@test "push (no args, no host signal) exits 64 — §5.5.2 mandatory --from" {
   run --separate-stderr env -i HOME="$TEST_HOME" PATH="$PATH" \
     DOTCLAUDE_HANDOFF_REPO="$TRANSPORT_REPO" \
     node "$BIN" push
-  [ "$status" -eq 0 ]
-  [[ "$stderr" == *"host not detected"* ]]
-  [[ "$stderr" == *"latest across all clis"* ]]
+  [ "$status" -eq 64 ]
+  [[ "$stderr" == *"requires --from"* ]]
 }
 
-@test "push (no args, CLAUDECODE=1) emits stderr note about claude" {
+@test "push (no args, CLAUDECODE=1) exits 64 — §5.5.2 mandatory --from" {
   run --separate-stderr env -i HOME="$TEST_HOME" PATH="$PATH" \
     DOTCLAUDE_HANDOFF_REPO="$TRANSPORT_REPO" CLAUDECODE=1 \
     node "$BIN" push
-  [ "$status" -eq 0 ]
-  [[ "$stderr" == *"latest claude session"* ]]
-  [[ "$stderr" == *"aaaa1111"* ]]
+  [ "$status" -eq 64 ]
+  [[ "$stderr" == *"requires --from"* ]]
 }
 
 # -- cross-agent regression tests (#87) ----------------------------------

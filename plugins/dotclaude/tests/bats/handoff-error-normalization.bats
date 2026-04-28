@@ -68,7 +68,7 @@ if [[ "$1" == "push" ]]; then
 fi
 exec /usr/bin/git "$@"
 '
-  run --separate-stderr node "$BIN" push
+  run --separate-stderr node "$BIN" push --from claude
   [ "$status" -eq 2 ]
   [[ "$stderr" == *"stage:  upload"* ]]
   [[ "$stderr" == *"push failed"* ]]

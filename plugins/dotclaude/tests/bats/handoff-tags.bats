@@ -75,7 +75,7 @@ teardown() {
 # ---- 1: multi-tag push writes both tags array and legacy tag field --------
 
 @test "push --tag foo --tag bar: writes metadata.tags=[foo,bar] and tag=foo" {
-  run --separate-stderr node "$BIN" push --tag foo --tag bar
+  run --separate-stderr node "$BIN" push --from claude --tag foo --tag bar
   [ "$status" -eq 0 ]
 
   # Fetch the branch and inspect metadata.json.
@@ -167,7 +167,7 @@ teardown() {
 
 @test "fetch \"Foo Bar!\": matches a branch tagged foo-bar (slug-aware exact match)" {
   # Push with raw special-char tag — encoder slugifies into description.
-  run --separate-stderr node "$BIN" push --tag 'Foo Bar!'
+  run --separate-stderr node "$BIN" push --from claude --tag 'Foo Bar!'
   [ "$status" -eq 0 ]
   # Fetch with the SAME raw user input — resolver must slugify before
   # comparing to description-side tags so this exact-tag hit lands.
@@ -181,7 +181,7 @@ teardown() {
 # ---- 6: special-char tag slugify round-trip -------------------------------
 
 @test "push --tag 'Foo Bar!': slugifies to foo-bar and round-trips" {
-  run --separate-stderr node "$BIN" push --tag 'Foo Bar!'
+  run --separate-stderr node "$BIN" push --from claude --tag 'Foo Bar!'
   [ "$status" -eq 0 ]
 
   local branch; branch=$(echo "$output" | head -1)

@@ -46,7 +46,7 @@ teardown() {
 # ---- test 1: happy path prints DRY-RUN banner, exits 0, no branches -------
 
 @test "push --dry-run: exits 0, prints DRY-RUN banner, writes no branches" {
-  run --separate-stderr node "$BIN" push --dry-run
+  run --separate-stderr node "$BIN" push --from claude --dry-run
   [ "$status" -eq 0 ]
   [[ "$output" == *"DRY-RUN (no network calls)"* ]]
   [[ "$output" == *"branch:"* ]]
@@ -64,7 +64,7 @@ teardown() {
 # ---- test 2: --json emits parseable JSON with dryRun=true -----------------
 
 @test "push --dry-run --json: parseable JSON with dryRun=true" {
-  run --separate-stderr node "$BIN" push --dry-run --json
+  run --separate-stderr node "$BIN" push --from claude --dry-run --json
   [ "$status" -eq 0 ]
   # Sanity: jq can parse it and the marker is set.
   echo "$output" | jq -e '.dryRun == true' >/dev/null
@@ -79,7 +79,7 @@ teardown() {
   unset DOTCLAUDE_HANDOFF_REPO
   # Also clear the persisted config file path in case a prior test wrote one.
   rm -f "$TEST_HOME/.config/dotclaude/handoff.env" 2>/dev/null || true
-  run --separate-stderr node "$BIN" push --dry-run
+  run --separate-stderr node "$BIN" push --from claude --dry-run
   [ "$status" -eq 2 ]
   [[ "$stderr" == *"stage:  preflight"* ]]
   [[ "$stderr" == *"push failed"* ]]
@@ -101,7 +101,7 @@ exit 1
 SH
   chmod +x "$STUB_DOCTOR"
 
-  run --separate-stderr node "$BIN" push --dry-run
+  run --separate-stderr node "$BIN" push --from claude --dry-run
   [ "$status" -eq 0 ]
   [ ! -f "$sentinel" ]
   rm -rf "$sentinel_dir"
