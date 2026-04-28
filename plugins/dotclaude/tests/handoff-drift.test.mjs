@@ -82,8 +82,8 @@ const HANDOFF_BIN = resolve(repoRoot, "plugins/dotclaude/bin/dotclaude-handoff.m
 // Phase 1 expected baselines
 // ---------------------------------------------------------------------------
 
-/** Cross-source intersection of sub-commands on c117418. */
-const PHASE_1_BASELINE_COMMANDS = ["doctor", "fetch", "list", "pull", "push", "search"];
+/** Cross-source intersection of sub-commands. `prune` joined in Phase 2 PR 6. */
+const PHASE_1_BASELINE_COMMANDS = ["doctor", "fetch", "list", "prune", "pull", "push", "search"];
 
 /**
  * Cross-source intersection of global flags on c117418.
