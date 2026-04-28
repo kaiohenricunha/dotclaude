@@ -13,7 +13,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -23,26 +23,22 @@ const repoRoot = resolve(__dirname, "../../..");
 const HANDOFF_BIN = resolve(repoRoot, "plugins/dotclaude/bin/dotclaude-handoff.mjs");
 
 function runHandoff(args, hermeticHome) {
-  try {
-    const stdout = execFileSync(process.execPath, [HANDOFF_BIN, ...args], {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        HOME: hermeticHome,
-        XDG_CONFIG_HOME: hermeticHome,
-        DOTCLAUDE_HANDOFF_REPO: "/nonexistent/handoff-push-from-contract",
-        DOTCLAUDE_QUIET: "1",
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    return { status: 0, stdout, stderr: "" };
-  } catch (err) {
-    return {
-      status: err.status ?? 1,
-      stdout: err.stdout?.toString("utf8") ?? "",
-      stderr: err.stderr?.toString("utf8") ?? "",
-    };
-  }
+  const result = spawnSync(process.execPath, [HANDOFF_BIN, ...args], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: hermeticHome,
+      XDG_CONFIG_HOME: hermeticHome,
+      DOTCLAUDE_HANDOFF_REPO: "/nonexistent/handoff-push-from-contract",
+      DOTCLAUDE_QUIET: "1",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return {
+    status: result.status ?? 1,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+  };
 }
 
 describe("handoff push — §5.5.2 mandatory-`--from` contract (Phase 2 PR 3)", () => {
