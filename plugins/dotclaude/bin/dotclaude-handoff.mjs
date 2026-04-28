@@ -112,7 +112,6 @@ const META = {
     from: { type: "string" },
     limit: { type: "string" },
     since: { type: "string" },
-    "out-dir": { type: "string" },
     output: { type: "string", short: "o" },
     local: { type: "boolean" },
     remote: { type: "boolean" },
