@@ -272,8 +272,10 @@ export function extractFromRule(text) {
  *
  * Sub-commands come from the `## When to use it` table's second column —
  * each non-header row's cell is scanned for backtick-wrapped lowercase-alpha
- * tokens (the verb names). Global flags come from the `## The five forms`
+ * tokens (the verb names). Flat flag tokens come from the `## The five forms`
  * and `## Common patterns` sections, scanned for `--flag` and `-o` tokens.
+ * Note: per-command flags (e.g. `--local`, `--remote`) are included; the
+ * intersection logic, not this extractor, limits what reaches the baseline.
  *
  * @param {string} text
  * @returns {HandoffSurface}

@@ -62,8 +62,9 @@ source ~/.config/dotclaude/handoff.env
 
 to your `~/.bashrc` or `~/.zshrc`.
 
-When no query argument is given to `push`, `--from <cli>` is required — the flag
-identifies which local session to upload (e.g. `--from codex`).
+When calling `dotclaude handoff push` with no query argument, `--from <cli>` is
+required — the flag identifies which local session to upload (e.g. `--from codex`).
+Skill invocations (`/handoff push`) auto-fill `--from` from the host session.
 
 **On machine B** (any CLI):
 
