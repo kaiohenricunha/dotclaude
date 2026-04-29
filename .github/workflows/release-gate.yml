@@ -36,6 +36,7 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
           pkg_version=$(node -p "require('./package.json').version")
@@ -47,9 +48,13 @@ jobs:
           latest_tag=$(git tag --list 'v*' --sort=-version:refname | head -1 || true)
           latest_tag_version=${latest_tag#v}
 
+          # Treat manual release( PRs and release-please automated PRs as release PRs.
           is_release_pr=false
           case "$PR_TITLE" in
             release\(*) is_release_pr=true ;;
+          esac
+          case "$HEAD_REF" in
+            release-please--*) is_release_pr=true ;;
           esac
 
           {
@@ -147,12 +152,11 @@ jobs:
           drift_count=0
           for rel in "${source_paths[@]}"; do
             shipped="$work/extracted/package/$rel"
-            tagged=$(git show "$latest_tag:$rel" 2>/dev/null || true)
-            if [ ! -f "$shipped" ] || [ -z "$tagged" ]; then
+            if [ ! -f "$shipped" ] || ! git cat-file -e "$latest_tag:$rel" 2>/dev/null; then
               echo "skip $rel (missing on one side at $latest_tag)"
               continue
             fi
-            if ! printf '%s' "$tagged" | diff -q "$shipped" - >/dev/null 2>&1; then
+            if ! git show "$latest_tag:$rel" | diff -q "$shipped" - >/dev/null 2>&1; then
               echo "::error::$rel: published $pkg_name@$prev_version diverges from git $latest_tag"
               drift_count=$((drift_count + 1))
             else
