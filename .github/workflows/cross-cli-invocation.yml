@@ -86,9 +86,16 @@ jobs:
         id: capture
         env:
           WORK: ${{ steps.seed.outputs.work }}
-          CLAUDE_SHORT: ${{ steps.seed.outputs.claude_short }}
-          COPILOT_SHORT: ${{ steps.seed.outputs.copilot_short }}
-          CODEX_SHORT: ${{ steps.seed.outputs.codex_short }}
+          # NB: deliberately NOT named CLAUDE_*/COPILOT_*/CODEX_* — those
+          # prefixes are exactly what dotclaude-handoff.mjs:detectHost matches
+          # as host-CLI markers, so naming a fixture short-id `CODEX_SHORT`
+          # would make detectHost return "codex" and corrupt the rendered
+          # `target` attribute. The scrub below is also defensive, but
+          # avoiding the collision in the first place keeps the contract
+          # legible.
+          FIXTURE_CLAUDE_SHORT: ${{ steps.seed.outputs.claude_short }}
+          FIXTURE_COPILOT_SHORT: ${{ steps.seed.outputs.copilot_short }}
+          FIXTURE_CODEX_SHORT: ${{ steps.seed.outputs.codex_short }}
           ROW: ${{ matrix.row }}
           INVOCATION_CONTEXT: ${{ matrix.invocation_context }}
         run: |
@@ -99,13 +106,24 @@ jobs:
           export DOTCLAUDE_QUIET=1
           export TZ=UTC
 
+          # Scrub host-CLI detection markers (dotclaude-handoff.mjs:detectHost).
+          # GH Actions runners are clean today, but defending against a future
+          # runner that injects a CODEX_/COPILOT_/CLAUDECODE marker keeps the
+          # symmetry contract anchored in the wrapper, not the host.
+          unset CLAUDECODE CLAUDE_CODE_SSE_PORT
+          while IFS='=' read -r _name _; do
+            case "$_name" in
+              CODEX_*|COPILOT_*|GITHUB_COPILOT_*) unset "$_name" ;;
+            esac
+          done < <(env)
+
           BIN="$GITHUB_WORKSPACE/plugins/dotclaude/bin/dotclaude-handoff.mjs"
 
           case "$ROW" in
-            claude-pull)         args=("pull" "$CLAUDE_SHORT") ;;
-            copilot-pull)        args=("pull" "$COPILOT_SHORT") ;;
-            copilot-pull-summary) args=("pull" "$COPILOT_SHORT" "--summary") ;;
-            codex-pull)          args=("pull" "$CODEX_SHORT") ;;
+            claude-pull)         args=("pull" "$FIXTURE_CLAUDE_SHORT") ;;
+            copilot-pull)        args=("pull" "$FIXTURE_COPILOT_SHORT") ;;
+            copilot-pull-summary) args=("pull" "$FIXTURE_COPILOT_SHORT" "--summary") ;;
+            codex-pull)          args=("pull" "$FIXTURE_CODEX_SHORT") ;;
             *) echo "::error::unknown row: $ROW"; exit 64 ;;
           esac
 
