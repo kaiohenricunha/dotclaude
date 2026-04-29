@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 # Integration tests for #91 Gap 7: tags first-class.
 #
-# Covers (a) multi-tag push writes both metadata.tags and legacy
-# metadata.tag, (b) exact-tag pull resolution beats substring,
+# Covers (a) multi-tag push writes metadata.tags without legacy metadata.tag,
+# (b) exact-tag pull resolution beats substring,
 # (c) `list --remote --tag <name>` filter, (d) `list --remote --tags`
 # histogram, (e) legacy single-tag metadata still resolves through
 # the migration helper, (f) special-char tag slugification round-trip.
