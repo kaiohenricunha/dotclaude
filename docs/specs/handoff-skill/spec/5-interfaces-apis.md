@@ -275,12 +275,18 @@ command and locks the **prefix** of the stderr template.
 
 ### 5.3.2 `pull`-specific exits
 
-| Code | Condition                         | Stderr template                                                                    |
-| ---- | --------------------------------- | ---------------------------------------------------------------------------------- |
-| 2    | no session matches                | `dotclaude-handoff: no session matches: <query>`                                   |
-| 2    | multiple sessions match (non-TTY) | header `dotclaude-handoff: multiple sessions match "<query>":` + TSV lines (5.3.5) |
-| 64   | unknown flag                      | `dotclaude-handoff: unknown flag: <flag>` + usage                                  |
-| 64   | missing `<query>`                 | `dotclaude-handoff: pull requires a <query>` + usage                               |
+| Code | Condition                                | Stderr template                                                                    |
+| ---- | ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| 2    | no session matches (no `--from`)         | `dotclaude-handoff: no session matches: <query>`                                   |
+| 2    | no session matches (with `--from <cli>`) | `dotclaude-handoff: no <cli> session matches: <query>`                             |
+| 2    | multiple sessions match (non-TTY)        | header `dotclaude-handoff: multiple sessions match "<query>":` + TSV lines (5.3.5) |
+| 64   | unknown flag                             | `dotclaude-handoff: unknown flag: <flag>` + usage                                  |
+| 64   | missing `<query>`                        | `dotclaude-handoff: pull requires a <query>` + usage                               |
+
+When `--from <cli>` is set the no-match message is narrowed to the requested
+CLI ("no `<cli>` session matches"), giving a clearer diagnostic when the user
+has scoped the lookup. The unnarrowed form remains the contract for union
+lookups (no `--from`). Both forms are stable public output (#136).
 
 ### 5.3.3 `push`-specific exits
 

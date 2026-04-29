@@ -939,18 +939,19 @@ semantic-correctness check.
 
 | Blocker                                                               | Status                                                                                                                                                                                                               |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **#129**                                                              | Open. Substrate portability (busybox/Alpine `pick_newest`). Code-fix needed in `plugins/dotclaude/scripts/handoff-resolve.sh:39–62`.                                                                                 |
+| **#129**                                                              | **Closed** in [#139](https://github.com/kaiohenricunha/dotclaude/pull/139). Substrate portability fixed via `_STAT_FLAVOR` probe-once in `handoff-resolve.sh`.                                                       |
 | **#133**                                                              | Open, **not a code bug**. Release-pipeline action only: bump version, tag, `npm publish`. Repo binary @ `be25258` is functionally green per the 13-row matrix above. Verbatim diff evidence in Phase 1.              |
 | #134 (new)                                                            | Process bug: `package.json:version` not bumped between npm publish and 17+ post-publish commits. Filed as [#134](https://github.com/kaiohenricunha/dotclaude/issues/134). Root cause behind #133. v1.0.x mitigation. |
-| #135 (new)                                                            | INFO — Pull stderr leaks `handoff-resolve:` prefix. Filed as [#135](https://github.com/kaiohenricunha/dotclaude/issues/135). v1.0.x patch material.                                                                  |
-| #136 (new)                                                            | INFO — Pull `--from <cli>` no-match stderr is CLI-narrowed; spec drift. Filed as [#136](https://github.com/kaiohenricunha/dotclaude/issues/136). v1.0.x patch material.                                              |
+| #135 (new)                                                            | **Closed** — Pull stderr `handoff-resolve:` double-prefix stripped in `dotclaude-handoff.mjs`. Spec §5.3.2 template now matches actual output.                                                                       |
+| #136 (new)                                                            | **Closed** — Spec §5.3.2 amended to formalize narrowed `no <cli> session matches` form when `--from` is set, alongside the unnarrowed form. No code change.                                                          |
+| #130                                                                  | **Closed** — `js-yaml` import in `build-index.mjs` made lazy via `createRequire`; `dotclaude-handoff --help` no longer requires `js-yaml` to be present.                                                             |
 | CP-1                                                                  | INFO — Copilot's slash-handler rejects `--summary` / `-o` flags before invoking the binary. Documentation-only; not a dotclaude bug. v1.0 release-notes material.                                                    |
 | CX-1                                                                  | INFO — Codex's `!`-shell capture displays interleaved stream; OPS-2 is honored on the binary side. Documentation-only; not a dotclaude bug. v1.0 release-notes material.                                             |
 | CX-2 / [#137](https://github.com/kaiohenricunha/dotclaude/issues/137) | **Positive** — R-7 quoting risk does not materialize; bare-binary surface is symmetric across CC / Copilot `!` / Codex `!`. Tracking issue filed to lock the symmetry in CI. v1.0.x or v1.1.                         |
 
-**v1.0 = unblocked once both ship**: #129 needs a one-liner in the
-resolver; #133 needs a release. After that, #134 / #135 / #136 and any
-Phase 2.5 / Phase 4 findings can ride the v1.0 release notes — none are
+**v1.0 = unblocked once #133 ships**: #129 closed via #139; #135 / #136
+/ #130 closed in this PR's bundle. #133 still needs a release.
+Phase 2.5 / Phase 4 findings remain release-notes material — none are
 blockers on their own.
 
 Closing note on the audit-coverage gap that let #133 ship: the

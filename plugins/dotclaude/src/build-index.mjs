@@ -35,9 +35,18 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, relative, sep, basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import yaml from "js-yaml";
+import { createRequire } from "node:module";
 import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
+
+// js-yaml is loaded lazily so importers that never touch the index path
+// (e.g. dotclaude-handoff via src/index.mjs re-exports) don't pay the load
+// cost or break in environments where js-yaml is unavailable (#130).
+const require = createRequire(import.meta.url);
+let _yamlMod;
+function getYaml() {
+  return (_yamlMod ??= require("js-yaml"));
+}
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DEFAULT_SCHEMAS_DIR = resolve(__dirname, "..", "..", "..", "schemas");
@@ -87,7 +96,7 @@ export function parseFrontmatter(content) {
   }
   const block = lines.slice(1, closeIdx).join("\n");
   try {
-    const parsed = yaml.load(block);
+    const parsed = getYaml().load(block);
     if (parsed === null || parsed === undefined) {
       return { frontmatter: {}, warnings };
     }
@@ -242,7 +251,7 @@ function loadTemplateArtifact(repoRoot, absPath) {
   const warnings = [];
   let frontmatter = {};
   try {
-    const parsed = yaml.load(content);
+    const parsed = getYaml().load(content);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       frontmatter = normalizeDates(parsed);
     } else if (parsed !== null && parsed !== undefined) {
