@@ -139,9 +139,9 @@ jobs:
               ;;
             bash-c)
               # Mirrors Copilot's `!`-shell wrapper, which round-trips
-              # through `bash -c "<cmdline>"`. Tests that flag-prefixed
-              # args (--summary) and dash-bearing UUIDs survive a single
-              # bash re-parse.
+              # through `bash -c "<cmdline>"`. Tests that the command
+              # string — including flag-prefixed args such as --summary —
+              # survives a single bash re-parse.
               bash -c "$cmd" >"$captured" 2>/dev/null
               ;;
             sh-c)

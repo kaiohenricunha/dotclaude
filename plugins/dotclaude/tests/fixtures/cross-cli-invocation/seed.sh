@@ -10,8 +10,10 @@
 # Usage:
 #   seed.sh <target-home>
 #
-# The caller must export DOTCLAUDE_HANDOFF_REPO=/nonexistent and DOTCLAUDE_QUIET=1
-# in the invocation environment so pull stays local-only and quiet.
+# Seeding only requires <target-home>. For the LATER `dotclaude handoff pull`
+# invocation against the seeded tree, the caller should export
+# DOTCLAUDE_HANDOFF_REPO=/nonexistent and DOTCLAUDE_QUIET=1 so pull stays
+# local-only and quiet — but those vars are not consumed by this script.
 set -euo pipefail
 
 target_home="${1:?usage: seed.sh <target-home>}"
@@ -28,26 +30,37 @@ COPILOT_CWD="/seed/copilot"
 CODEX_CWD="/seed/codex"
 
 # Fixed mtime keeps `--summary`'s timestamp byte-stable across regens.
+# `touch -d <ISO>` is GNU-only; BSD/macOS need `touch -t <stamp>`. Probe both
+# so maintainers can run regenerate-baseline.sh from either substrate.
 FIXED_MTIME="2026-04-29T12:00:00Z"
+FIXED_MTIME_TOUCH_T="202604291200.00"
+
+set_fixed_mtime() {
+  local path="${1:?usage: set_fixed_mtime <path>}"
+  if touch -d "$FIXED_MTIME" "$path" 2>/dev/null; then
+    return 0
+  fi
+  TZ=UTC touch -t "$FIXED_MTIME_TOUCH_T" "$path"
+}
 
 mkdir -p "$target_home/.claude/projects/-seed-claude"
 printf '{"cwd":"%s","sessionId":"%s","version":"2.1"}\n' \
   "$CLAUDE_CWD" "$CLAUDE_UUID" \
   > "$target_home/.claude/projects/-seed-claude/$CLAUDE_UUID.jsonl"
-touch -d "$FIXED_MTIME" "$target_home/.claude/projects/-seed-claude/$CLAUDE_UUID.jsonl"
+set_fixed_mtime "$target_home/.claude/projects/-seed-claude/$CLAUDE_UUID.jsonl"
 
 mkdir -p "$target_home/.copilot/session-state/$COPILOT_UUID"
 printf '{"type":"session.start","data":{"cwd":"%s","model":"gpt","sessionId":"%s"}}\n' \
   "$COPILOT_CWD" "$COPILOT_UUID" \
   > "$target_home/.copilot/session-state/$COPILOT_UUID/events.jsonl"
-touch -d "$FIXED_MTIME" "$target_home/.copilot/session-state/$COPILOT_UUID/events.jsonl"
+set_fixed_mtime "$target_home/.copilot/session-state/$COPILOT_UUID/events.jsonl"
 
 mkdir -p "$target_home/.codex/sessions/2026/04/29"
 codex_path="$target_home/.codex/sessions/2026/04/29/rollout-2026-04-29T12-00-00-$CODEX_UUID.jsonl"
 printf '{"type":"session_meta","payload":{"id":"%s","cwd":"%s"}}\n' \
   "$CODEX_UUID" "$CODEX_CWD" \
   > "$codex_path"
-touch -d "$FIXED_MTIME" "$codex_path"
+set_fixed_mtime "$codex_path"
 
 # Print the short-ids so callers can compose invocation rows without
 # re-hardcoding them. Stable under regeneration.
