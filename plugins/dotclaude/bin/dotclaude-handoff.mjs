@@ -157,6 +157,18 @@ function parseSinceOrFail(raw, { defaultDays = null } = {}) {
  */
 
 /**
+ * Strip the resolver-script's `handoff-resolve:` prefix from captured stderr
+ * so the binary's own `dotclaude-handoff:` prefix doesn't double up (#135).
+ * Returns the trimmed remainder.
+ *
+ * @param {string} raw
+ * @returns {string}
+ */
+function stripResolverPrefix(raw) {
+  return raw.trim().replace(/^handoff-resolve:\s*/, "");
+}
+
+/**
  * Call `handoff-resolve.sh any <query>`. Handles the collision contract:
  *   - 0 hits: exits 2 (bubble up)
  *   - 1 hit:  returns {cli, path}
@@ -177,7 +189,10 @@ async function resolveAny(query) {
   // collision. Otherwise it's "no session matches" or an env error.
   const stderr = r.stderr;
   if (!stderr.includes("multiple sessions match")) {
-    fail(r.status === 64 ? EXIT_CODES.USAGE : 2, stderr.trim() || `no session matches: ${query}`);
+    fail(
+      r.status === 64 ? EXIT_CODES.USAGE : 2,
+      stripResolverPrefix(stderr) || `no session matches: ${query}`,
+    );
   }
   // Parse candidate TSV lines (4 fields: cli\tsid\tpath\tquery).
   const candidates = [];
@@ -209,7 +224,7 @@ function resolveNarrowed(cli, id) {
   if (r.status !== 0) {
     fail(
       r.status === 64 ? EXIT_CODES.USAGE : 2,
-      r.stderr.trim() || `no ${cli} session matches: ${id}`,
+      stripResolverPrefix(r.stderr) || `no ${cli} session matches: ${id}`,
     );
   }
   return { cli, path: r.stdout.trim() };
@@ -240,7 +255,7 @@ async function resolveLocalForPull(id, narrowTo) {
     return await resolveAny(id);
   }
   const msg =
-    stderr.trim() ||
+    stripResolverPrefix(stderr) ||
     (narrowTo ? `no ${narrowTo} session matches: ${id}` : `no session matches: ${id}`);
   process.stderr.write(`dotclaude-handoff: ${msg}\n`);
   if (process.env.DOTCLAUDE_HANDOFF_REPO) {
