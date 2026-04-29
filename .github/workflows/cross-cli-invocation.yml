@@ -1,0 +1,165 @@
+name: cross-cli-invocation
+
+# Locks the cross-CLI invocation symmetry contract surfaced as a positive
+# finding in the 2026-04-29 audit (Phase 2.5, CX-2). The audit verified that
+# `dotclaude handoff pull` produces byte-equivalent stdout when launched from
+# Claude Code's bash, Copilot CLI's `!`-shell, and Codex CLI's `!`-shell. CI
+# can't run the AI hosts, but it CAN run the shell wrappers each host
+# delegates to: direct bash, `bash -c`, and `sh -c`. Catching a regression
+# under any of those is sufficient to catch a host-side regression — the
+# binary doesn't know who launched it.
+#
+# Matrix is invocation_context × pull_row = 12 cells. Each cell:
+#   1. Seeds deterministic per-CLI session trees via fixtures/.../seed.sh.
+#   2. Captures stdout for one row in one invocation context.
+#   3. Diffs against the matching section of the baseline fixture.
+# Any non-empty diff fails the cell.
+#
+# Tracking issue: #137. Audit reference:
+# docs/audits/handoff-skill-validation-2026-04-29.md § Phase 2.5.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "plugins/dotclaude/bin/**"
+      - "plugins/dotclaude/scripts/**"
+      - "plugins/dotclaude/src/**"
+      - "plugins/dotclaude/tests/fixtures/cross-cli-invocation/**"
+      - "plugins/dotclaude/tests/fixtures/cross-cli-invocation-baseline.txt"
+      - ".github/workflows/cross-cli-invocation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline-fresh:
+    name: baseline-fresh (regen check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: baseline matches current binary output
+        run: bash plugins/dotclaude/tests/fixtures/cross-cli-invocation/regenerate-baseline.sh --check
+
+  symmetry:
+    name: ${{ matrix.invocation_context }} × ${{ matrix.row }}
+    needs: baseline-fresh
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        invocation_context: [direct-bash, bash-c, sh-c]
+        row:
+          - claude-pull
+          - copilot-pull
+          - copilot-pull-summary
+          - codex-pull
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+
+      - name: seed deterministic session trees
+        id: seed
+        run: |
+          set -euo pipefail
+          work=$(mktemp -d)
+          eval "$(bash plugins/dotclaude/tests/fixtures/cross-cli-invocation/seed.sh "$work")"
+          {
+            echo "work=$work"
+            echo "claude_short=$CLAUDE_SHORT"
+            echo "copilot_short=$COPILOT_SHORT"
+            echo "codex_short=$CODEX_SHORT"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: capture stdout in invocation context
+        id: capture
+        env:
+          WORK: ${{ steps.seed.outputs.work }}
+          CLAUDE_SHORT: ${{ steps.seed.outputs.claude_short }}
+          COPILOT_SHORT: ${{ steps.seed.outputs.copilot_short }}
+          CODEX_SHORT: ${{ steps.seed.outputs.codex_short }}
+          ROW: ${{ matrix.row }}
+          INVOCATION_CONTEXT: ${{ matrix.invocation_context }}
+        run: |
+          set -euo pipefail
+          export HOME="$WORK"
+          export XDG_CONFIG_HOME="$WORK"
+          export DOTCLAUDE_HANDOFF_REPO="$WORK/nonexistent-handoff-repo"
+          export DOTCLAUDE_QUIET=1
+          export TZ=UTC
+
+          BIN="$GITHUB_WORKSPACE/plugins/dotclaude/bin/dotclaude-handoff.mjs"
+
+          case "$ROW" in
+            claude-pull)         args=("pull" "$CLAUDE_SHORT") ;;
+            copilot-pull)        args=("pull" "$COPILOT_SHORT") ;;
+            copilot-pull-summary) args=("pull" "$COPILOT_SHORT" "--summary") ;;
+            codex-pull)          args=("pull" "$CODEX_SHORT") ;;
+            *) echo "::error::unknown row: $ROW"; exit 64 ;;
+          esac
+
+          # Build the exact command string each shell wrapper will execute.
+          cmd="node \"$BIN\" ${args[*]}"
+
+          captured=$(mktemp)
+          case "$INVOCATION_CONTEXT" in
+            direct-bash)
+              # Mirrors Claude Code's pre-spawned bash environment — args
+              # arrive as a parsed argv, no shell re-parsing.
+              node "$BIN" "${args[@]}" >"$captured" 2>/dev/null
+              ;;
+            bash-c)
+              # Mirrors Copilot's `!`-shell wrapper, which round-trips
+              # through `bash -c "<cmdline>"`. Tests that flag-prefixed
+              # args (--summary) and dash-bearing UUIDs survive a single
+              # bash re-parse.
+              bash -c "$cmd" >"$captured" 2>/dev/null
+              ;;
+            sh-c)
+              # Mirrors Codex's `!`-shell wrapper. POSIX sh on ubuntu
+              # latest is dash, which has different quoting semantics
+              # from bash — surfaces the R-7 risk class.
+              sh -c "$cmd" >"$captured" 2>/dev/null
+              ;;
+            *)
+              echo "::error::unknown invocation context: $INVOCATION_CONTEXT"
+              exit 64
+              ;;
+          esac
+          echo "captured=$captured" >> "$GITHUB_OUTPUT"
+
+      - name: diff against baseline section
+        env:
+          CAPTURED: ${{ steps.capture.outputs.captured }}
+          ROW: ${{ matrix.row }}
+        run: |
+          set -euo pipefail
+          baseline="plugins/dotclaude/tests/fixtures/cross-cli-invocation-baseline.txt"
+
+          # Extract just this row's section from the baseline file. Section
+          # markers are `=== <row> ===` / `=== /<row> ===`.
+          expected=$(mktemp)
+          awk -v row="$ROW" '
+            $0 == "=== " row " ===" { f=1; next }
+            $0 == "=== /" row " ===" { f=0 }
+            f { print }
+          ' "$baseline" > "$expected"
+
+          if ! diff -u "$expected" "$CAPTURED"; then
+            echo "::error::cross-CLI symmetry broken: $ROW under ${{ matrix.invocation_context }} diverges from baseline"
+            echo "::error::see diff above; if intentional, regenerate via:"
+            echo "::error::  bash plugins/dotclaude/tests/fixtures/cross-cli-invocation/regenerate-baseline.sh"
+            exit 1
+          fi
+          echo "✓ $ROW under ${{ matrix.invocation_context }} matches baseline"
