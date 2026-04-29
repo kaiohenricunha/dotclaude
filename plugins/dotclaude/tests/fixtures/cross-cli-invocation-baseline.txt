@@ -1,0 +1,57 @@
+=== claude-pull ===
+<handoff origin="claude" session="aaaa1111" cwd="/seed/claude" target="claude">
+
+**Summary.** Session opened with: "(no user prompts captured)". Last assistant output (truncated): "(no assistant turns captured)". Full prompt log and assistant tail follow for context.
+
+**User prompts (last 10, in order).**
+
+1. (no user prompts captured)
+
+**Last assistant turns (tail).**
+
+_(no assistant output captured)_
+**Next step.** Continue from the last assistant turn using the same file scope and goals summarized above.
+
+</handoff>
+=== /claude-pull ===
+=== copilot-pull ===
+<handoff origin="copilot" session="bbbb1111" cwd="/seed/copilot" target="claude">
+
+**Summary.** Session opened with: "(no user prompts captured)". Last assistant output (truncated): "(no assistant turns captured)". Full prompt log and assistant tail follow for context.
+
+**User prompts (last 10, in order).**
+
+1. (no user prompts captured)
+
+**Last assistant turns (tail).**
+
+_(no assistant output captured)_
+**Next step.** Continue from the last assistant turn using the same file scope and goals summarized above.
+
+</handoff>
+=== /copilot-pull ===
+=== copilot-pull-summary ===
+**copilot** `bbbb1111` — `/seed/copilot` — 2026-04-29T12:00:00Z
+
+**User prompts:**
+
+- (no user prompts captured)
+
+**Prompt count:** 0
+=== /copilot-pull-summary ===
+=== codex-pull ===
+<handoff origin="codex" session="cccc1111" cwd="/seed/codex" target="claude">
+
+**Summary.** Session opened with: "(no user prompts captured)". Last assistant output (truncated): "(no assistant turns captured)". Full prompt log and assistant tail follow for context.
+
+**User prompts (last 10, in order).**
+
+1. (no user prompts captured)
+
+**Last assistant turns (tail).**
+
+_(no assistant output captured)_
+**Next step.** Continue from the last assistant turn using the same file scope and goals summarized above.
+
+</handoff>
+=== /codex-pull ===
