@@ -6,6 +6,23 @@ All notable changes to `@dotclaude/dotclaude` land here. Format follows
 
 ## Unreleased
 
+## [1.1.0](https://github.com/kaiohenricunha/dotclaude/compare/v1.0.1...v1.1.0) (2026-04-30)
+
+
+### Added
+
+* **commands:** add /create-experiment sandboxed exploration skill ([#150](https://github.com/kaiohenricunha/dotclaude/issues/150)) ([4bbf8a2](https://github.com/kaiohenricunha/dotclaude/commit/4bbf8a209630a6e21b2f864b6756b055189974cc))
+
+
+### Fixed
+
+* **handoff:** v1.0.2 patch bundle — input validation, output contract, validation coverage, docs ([#147](https://github.com/kaiohenricunha/dotclaude/issues/147) [#148](https://github.com/kaiohenricunha/dotclaude/issues/148) [#149](https://github.com/kaiohenricunha/dotclaude/issues/149) [#152](https://github.com/kaiohenricunha/dotclaude/issues/152)) ([#154](https://github.com/kaiohenricunha/dotclaude/issues/154)) ([c02c13e](https://github.com/kaiohenricunha/dotclaude/commit/c02c13ef810066d5f1756b7767138da04e13ae96))
+
+
+### Documentation
+
+* **audit:** append Pair B engagement-depth note to Phase 4 result block ([#153](https://github.com/kaiohenricunha/dotclaude/issues/153)) ([42c1fae](https://github.com/kaiohenricunha/dotclaude/commit/42c1faee15b59e012c70be47aa0d9bfa9f1501a3))
+
 ## [1.0.1](https://github.com/kaiohenricunha/dotclaude/compare/v1.0.0...v1.0.1) (2026-04-29)
 
 
