@@ -934,6 +934,42 @@ and must be flagged prominently. The single-machine matrix above
 already verifies the block shape is well-formed; Phase 4 is the
 semantic-correctness check.
 
+**Result (2026-04-30, post-v1.0.1).** Dogfood passed: from a CC session
+running the v1.0.1 pull-validation matrix (report at
+`/tmp/handoff-pull-validation-v1.0.1.md`, surfacing issues #147 / #148 / #149),
+the `<handoff>` block was pasted into a fresh Codex session.
+Codex resumed coherently, independently confirmed the cell-14 / cell-33
+false-positive analysis (case (b) — coverage gap, not path-specific
+behavior), agreed with the #148 fix scope, and filed [#152](https://github.com/kaiohenricunha/dotclaude/issues/152)
+without further prompting. This is stronger evidence than
+"context survives paste": **context is actionable** — the receiving
+agent made forward progress on the in-flight work, not just
+acknowledged it.
+
+**Result (2026-04-30, consuming-agent closure).** Copilot and CC both
+absorbed handoff blocks as actionable context. Pair A (Claude→Copilot) pasted the
+`61a7b56e` CC-origin dotclaude block into Copilot; Copilot did not
+treat the XML as opaque, recovered the truncated instruction, inspected
+the repository/session state, and continued the pending block-generation
+work. Pair B (Copilot→CC) pasted the `8297e379` Copilot-origin block into CC; CC
+recognized the completed 9-row capture, summarized the slash/bare-binary
+findings, and identified the remaining unstaged audit update rather than
+asking what the block meant.
+
+The earlier Copilot Row 1 `no handoffs match: latest` observation was
+classified as stale pre-v1.0.1 noise, not a current slash-handler bug:
+v1.0.1 `pull` routes through the local resolver, where unmatched IDs emit
+`no session matches`, while `no handoffs match` is transport-path-only.
+No new issue was filed. The only UX note worth carrying forward is that
+`pull latest` resolves globally across the source CLI's session root, not
+only sessions under the current working directory.
+
+Dogfood passes are not uniform — Pair B (Copilot→CC) showed
+shallower context engagement than the two strong passes
+(Claude→Codex, Claude→Copilot). The §1 acceptance criterion is met by
+all three, but consumer-LLM engagement depth varies. Worth tracking if
+the pattern reproduces in future tests.
+
 ### Verdict update — v1.0 readiness
 
 | Blocker                                                               | Status                                                                                                                                                                                                            |
