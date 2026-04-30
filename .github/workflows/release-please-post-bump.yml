@@ -45,6 +45,9 @@ jobs:
       - name: regen index
         run: node plugins/dotclaude/bin/dotclaude-index.mjs
 
+      - name: format regen output
+        run: npx prettier --write index/artifacts.json index/by-type.json index/by-facet.json
+
       - name: stamp doc versions
         run: node scripts/stamp-doc-versions.mjs
 
