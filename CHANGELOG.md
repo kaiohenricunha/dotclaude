@@ -16,7 +16,10 @@ All notable changes to `@dotclaude/dotclaude` land here. Format follows
 
 ### Fixed
 
-* **handoff:** v1.0.2 patch bundle — input validation, output contract, validation coverage, docs ([#147](https://github.com/kaiohenricunha/dotclaude/issues/147) [#148](https://github.com/kaiohenricunha/dotclaude/issues/148) [#149](https://github.com/kaiohenricunha/dotclaude/issues/149) [#152](https://github.com/kaiohenricunha/dotclaude/issues/152)) ([#154](https://github.com/kaiohenricunha/dotclaude/issues/154)) ([c02c13e](https://github.com/kaiohenricunha/dotclaude/commit/c02c13ef810066d5f1756b7767138da04e13ae96))
+* **handoff:** reject empty `--from` value ([#147](https://github.com/kaiohenricunha/dotclaude/issues/147)) ([#154](https://github.com/kaiohenricunha/dotclaude/issues/154)) ([c02c13e](https://github.com/kaiohenricunha/dotclaude/commit/c02c13ef810066d5f1756b7767138da04e13ae96))
+* **handoff:** `pull -o <path>` stdout contract per §5.5.1 OPS-2 ([#148](https://github.com/kaiohenricunha/dotclaude/issues/148)) ([#154](https://github.com/kaiohenricunha/dotclaude/issues/154)) ([c02c13e](https://github.com/kaiohenricunha/dotclaude/commit/c02c13ef810066d5f1756b7767138da04e13ae96))
+* **handoff:** document resolver session-validity rules in spec §4.1.1 ([#149](https://github.com/kaiohenricunha/dotclaude/issues/149)) ([#154](https://github.com/kaiohenricunha/dotclaude/issues/154)) ([c02c13e](https://github.com/kaiohenricunha/dotclaude/commit/c02c13ef810066d5f1756b7767138da04e13ae96))
+* **handoff:** `pull` requires explicit `<query>` per spec §5.2.1. Previous versions silently defaulted to `latest` when the positional was omitted, which contradicted the spec. The fix removes the implicit default; users who relied on bare `dotclaude handoff pull` as shorthand must now type `dotclaude handoff pull latest`. Narrowing behavior of `pull latest` (host detection via env vars + `--from`) is unchanged. ([#152](https://github.com/kaiohenricunha/dotclaude/issues/152)) ([#154](https://github.com/kaiohenricunha/dotclaude/issues/154)) ([c02c13e](https://github.com/kaiohenricunha/dotclaude/commit/c02c13ef810066d5f1756b7767138da04e13ae96))
 
 
 ### Documentation
