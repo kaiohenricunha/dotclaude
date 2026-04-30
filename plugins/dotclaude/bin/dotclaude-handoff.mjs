@@ -667,7 +667,7 @@ if (!/^\d+$/.test(limit.toString()))
 const detectedHost = detectHost();
 const toCli = detectedHost === "unknown" ? "claude" : detectedHost;
 
-const fromCli = argv.flags.from ? String(argv.flags.from) : null;
+const fromCli = argv.flags.from !== undefined ? String(argv.flags.from).trim() : null;
 if (fromCli !== null && !CLIS.has(fromCli)) {
   fail(EXIT_CODES.USAGE, `--from must be one of: ${[...CLIS].join(", ")}`);
 }
