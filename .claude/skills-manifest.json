@@ -208,7 +208,7 @@
     {
       "name": "create-experiment",
       "path": ".claude/commands/create-experiment.md",
-      "checksum": "sha256:bf797e14ec8dc20261abb78b7099a3a08615ab2abc4608c5c006422f7b46e9d5",
+      "checksum": "sha256:4753333a2accc36379fa84ff2e1ef491be7e0ddce21707e17e4edba5fec1c972",
       "dependencies": [],
       "lastValidated": "2026-04-30"
     }

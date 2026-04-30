@@ -9,7 +9,7 @@ task: [exploration, prototyping, documentation]
 maturity: validated
 owner: "@kaiohenricunha"
 created: 2026-04-29
-updated: 2026-04-29
+updated: 2026-04-30
 description: >
   Run a scoped, local-only experiment to try things out before committing to a spec or roadmap, and save the report to docs/experiments/. Use when the user is exploring options, comparing libraries, validating assumptions, or prototyping an approach. Sits before /create-spec (which is heavier and design-oriented).
 argument-hint: "[topic or hypothesis]"
@@ -28,30 +28,31 @@ Arguments: `$ARGUMENTS` — a topic or hypothesis (e.g. "ripgrep vs grep on this
 
 The output is a dated markdown file under `docs/experiments/` plus a sandbox directory containing the runnable artifacts. Both are left untracked for the user to review.
 
-## Phases
+## Steps
 
-### Phase 0 — Refine the goal (interactive, blocking)
+### Step 0 — Refine the goal (interactive, blocking)
 
-Before running anything, ask the user up to 5 short questions. Skip any already answered in `$ARGUMENTS` or recent context. Do not infer answers — ask.
+If `$ARGUMENTS` already covers hypothesis + observable success signal, echo the refined goal back as a paragraph + bulleted success criteria and **wait for user sign-off** before proceeding. Skip questions already answered in `$ARGUMENTS` or recent context.
+
+Otherwise, ask up to 4 short questions:
 
 1. **What are you trying to learn?** — one-sentence hypothesis.
 2. **What does "it worked" look like?** — concrete, observable signal (a benchmark number, a working prototype, a config that boots, a passing test).
 3. **What's out of scope?** — what should NOT be touched.
 4. **Time-box** — sketch (≤30 min), half-day (≤4 hr), or full-day (≤8 hr).
-5. **Environment** — repo / language / runtime, plus any external services that need stubbing or mocking.
 
-Echo the refined goal back as a paragraph + bulleted success criteria. **Wait for explicit user sign-off before continuing.** Do not proceed to Phase 1 until the user confirms.
+Echo the refined goal back as a paragraph + bulleted success criteria. **Wait for explicit user sign-off before continuing.** Do not proceed to Step 1 until the user confirms.
 
-### Phase 1 — Plan the experiment
+### Step 1 — Plan the experiment
 
 - Propose 1–3 approaches to try. Each is a distinct path to the same hypothesis.
 - For each approach, sketch: what gets installed, what runs, what's measured.
 - Pick the sandbox target:
-  - **Default:** a fresh git worktree at `.claude/worktrees/experiment-<slug>/` branched from the latest `origin/main` (per the dotclaude *Worktree discipline* rule). Run `git fetch origin main` first.
+  - **Default:** a fresh git worktree at `.claude/worktrees/experiment-<slug>/` branched from the latest `origin/main`. Run `git fetch origin main` first.
   - **Fallback:** `~/experiments/<slug>/` if there is no enclosing git repo.
 - Show this plan to the user and get a final go-ahead before touching the system.
 
-### Phase 2 — Set up the environment
+### Step 2 — Set up the environment
 
 Execute setup commands in the sandbox. **Capture every command and its full output** — this is the reproducibility ledger and goes verbatim into the report. Examples:
 
@@ -63,20 +64,22 @@ Execute setup commands in the sandbox. **Capture every command and its full outp
 
 If a setup step fails, document the failure, attempt **one** recovery (e.g. install a missing system dep), and proceed only if it succeeds. Do not silently swallow errors.
 
-### Phase 3 — Execute the approaches
+### Step 3 — Execute the approaches
+
+Approaches are independent by default — execute concurrently when possible (parallel tool calls or background jobs with per-approach log files). Fall back to serial execution only when one approach depends on another's artifact.
 
 For each approach:
 
 - Save code/config under `experiments/<slug>/<approach>/` inside the sandbox.
-- Run the approach. Capture stdout/stderr — keep at least the **last 10 lines** of every non-trivial command (per the dotclaude *Test Plan Verification* rule).
-- Evaluate against the success criteria from Phase 0. Record the result as **PASS**, **PARTIAL**, or **FAIL**.
+- Run the approach. For measurement commands and any failing command, capture full output — at minimum the last 10 lines.
+- Evaluate against the success criteria from Step 0. Record the result as **PASS**, **PARTIAL**, or **FAIL**.
 - If an approach surfaces a blocker that invalidates the hypothesis itself, stop and surface that to the user before continuing — they may want to refine the goal.
 
-### Phase 4 — Compare & recommend
+### Step 4 — Compare & recommend
 
 Build a comparison table that maps each approach against the agreed success criteria. Pick a recommendation, **or** explicitly say "none of these — here's why and what to try next." A clean negative result is a complete experiment.
 
-### Phase 5 — Write the report
+### Step 5 — Write the report
 
 Generate a filename: `<topic-slug>-<YYYY-MM-DD>.md` in lowercase kebab-case (e.g. `ripgrep-vs-grep-2026-04-29.md`). Create `docs/experiments/` if it doesn't exist. Use this structure:
 
@@ -96,13 +99,13 @@ Generate a filename: `<topic-slug>-<YYYY-MM-DD>.md` in lowercase kebab-case (e.g
 
 ## Environment Setup
 
-Sandbox: `<absolute path to worktree or ~/experiments/<slug>/>`
+Sandbox: `<absolute path chosen in Step 1>`
 
 ```bash
 <exact commands run, in order>
 ```
 
-<key output snippets — last 10 lines per command if non-trivial>
+<output snippets for any measurement or failing command — last 10 lines minimum>
 
 ## Approaches Tried
 
@@ -117,13 +120,13 @@ Sandbox: `<absolute path to worktree or ~/experiments/<slug>/>`
 - **Result:** PASS | PARTIAL | FAIL — <observed signal vs criterion>
 - **Notes:** <gotchas, surprises, dead-ends>
 
-### Approach 2: …
+<!-- Add sections for each approach tried; omit if only one approach was attempted -->
 
 ## Comparison
 
-| Approach | Result | Effort | Risk | Criterion 1 | Criterion 2 |
-| -------- | ------ | ------ | ---- | ----------- | ----------- |
-| ...      | ...    | ...    | ...  | ...         | ...         |
+| Approach | Result | <Criterion 1> | <Criterion 2> | Effort |
+| -------- | ------ | ------------- | ------------- | ------ |
+| ...      | ...    | ...           | ...           | ...    |
 
 ## Recommendation
 
@@ -147,19 +150,16 @@ rm -rf ~/experiments/<slug>
 ```
 ```
 
-### Phase 6 — Report back
+### Step 6 — Report back
 
-Show the user: the doc path, the recommendation in one sentence, and the sandbox path so they can re-enter it. **Do not dump the full document into chat.**
+Reply with: doc path, one-sentence recommendation, and sandbox path. **Do not paste the full document into chat.**
 
 ## Rules
 
-- Refine the goal **before** running anything. No code executes until success criteria are agreed and the user signs off.
 - All work runs **locally**. No production endpoints, no cloud writes, no real auth tokens, no shared infrastructure. If the experiment needs an external service, mock it or use a disposable test account.
 - Environment setup is part of the experiment — every install/config/boot command must appear in the report. Reproducibility is the bar.
 - Capture failed approaches too. Negative results are valuable signal and **must** be in the report.
-- Cite `file:line` for any code referenced. Paste the last 10 lines of any command output claimed.
-- Default sandbox is a git worktree at `.claude/worktrees/experiment-<slug>/`. Fall back to `~/experiments/<slug>/` only when there is no enclosing git repo.
 - Do not commit the experiment doc or the sandbox. Leave both untracked for the user.
-- Do not install global tools (`apt`, `brew`, `npm i -g`) without explicit user approval during Phase 1.
+- Do not install global tools (`apt`, `brew`, `npm i -g`) without explicit user approval during Step 1.
 - Tables and code blocks over prose. No filler.
 - An experiment is **done when success criteria are evaluated** — not when "everything works." A clean failure is a finished experiment.
