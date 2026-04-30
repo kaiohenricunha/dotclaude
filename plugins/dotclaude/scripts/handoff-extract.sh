@@ -266,8 +266,6 @@ prompts_codex() {
   # The first user message in every Codex session is an <environment_context>
   # block. Filter it out; every other user turn stays.
   # Output: one JSON-encoded string per line so multi-line prompts stay atomic.
-  # Reads response_item only; see turns_codex below for the response_item-vs-
-  # event_msg single-source note.
   jq -c '
     select(.type == "response_item"
            and .payload.type == "message"
