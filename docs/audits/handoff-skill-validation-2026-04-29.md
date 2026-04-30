@@ -947,11 +947,11 @@ agent made forward progress on the in-flight work, not just
 acknowledged it.
 
 **Result (2026-04-30, consuming-agent closure).** Copilot and CC both
-absorbed handoff blocks as actionable context. Pair A pasted the
-`61a7b56e` Claude-origin dotclaude block into Copilot; Copilot did not
+absorbed handoff blocks as actionable context. Pair A (Claude→Copilot) pasted the
+`61a7b56e` CC-origin dotclaude block into Copilot; Copilot did not
 treat the XML as opaque, recovered the truncated instruction, inspected
 the repository/session state, and continued the pending block-generation
-work. Pair B pasted the `8297e379` Copilot-origin block into CC; CC
+work. Pair B (Copilot→CC) pasted the `8297e379` Copilot-origin block into CC; CC
 recognized the completed 9-row capture, summarized the slash/bare-binary
 findings, and identified the remaining unstaged audit update rather than
 asking what the block meant.
@@ -964,7 +964,11 @@ No new issue was filed. The only UX note worth carrying forward is that
 `pull latest` resolves globally across the source CLI's session root, not
 only sessions under the current working directory.
 
-Dogfood passes are not uniform — Pair B (copilot→claude) showed shallower context engagement than the two strong passes (claude→codex, claude→copilot). The §1 acceptance criterion is met by all three, but consumer-LLM engagement depth varies. Worth tracking if the pattern reproduces in future tests.
+Dogfood passes are not uniform — Pair B (Copilot→CC) showed
+shallower context engagement than the two strong passes
+(Claude→Codex, Claude→Copilot). The §1 acceptance criterion is met by
+all three, but consumer-LLM engagement depth varies. Worth tracking if
+the pattern reproduces in future tests.
 
 ### Verdict update — v1.0 readiness
 
