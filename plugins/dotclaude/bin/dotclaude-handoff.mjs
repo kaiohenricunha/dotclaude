@@ -4,7 +4,7 @@
  *
  * Usage:
  *   dotclaude handoff                              print usage and exit 0 (#86)
- *   dotclaude handoff pull [<id>] [--summary] [-o <path|auto|->] [--from <cli>]
+ *   dotclaude handoff pull <query> [--summary] [-o <path|auto|->] [--from <cli>]
  *                                                  render a local session: <handoff> block (default),
  *                                                  --summary for inline markdown, -o to write to disk.
  *   dotclaude handoff fetch [<query>] [--from <cli>] [--verify]
@@ -355,12 +355,12 @@ function writeOutput(body, out, meta, { kind, prompts, sourcePath, toCli }) {
       `- Prompts: ${(prompts ?? []).length} (verbatim); assistant turns summarized above.`,
     ].join("\n");
     writeFileSync(outPath, envelope + "\n");
-    process.stdout.write(`${outPath}\n`);
+    process.stderr.write(`${outPath}\n`);
     return;
   }
   const outPath = resolvePath(out.toString());
   writeFileSync(outPath, body.endsWith("\n") ? body : body + "\n");
-  process.stdout.write(`${outPath}\n`);
+  process.stderr.write(`${outPath}\n`);
 }
 
 function renderDescribeMarkdown(meta, prompts) {
@@ -667,7 +667,7 @@ if (!/^\d+$/.test(limit.toString()))
 const detectedHost = detectHost();
 const toCli = detectedHost === "unknown" ? "claude" : detectedHost;
 
-const fromCli = argv.flags.from ? String(argv.flags.from) : null;
+const fromCli = argv.flags.from !== undefined ? String(argv.flags.from).trim() : null;
 if (fromCli !== null && !CLIS.has(fromCli)) {
   fail(EXIT_CODES.USAGE, `--from must be one of: ${[...CLIS].join(", ")}`);
 }
@@ -946,7 +946,8 @@ async function main() {
     // runs the local resolver — never forwards to remote. When local misses
     // and DOTCLAUDE_HANDOFF_REPO is set, resolveLocalForPull appends a
     // single stderr hint pointing at `fetch` (#87).
-    const id = second ?? "latest";
+    if (second === undefined) fail(EXIT_CODES.USAGE, "pull requires a <query>");
+    const id = second;
     const summaryMode = Boolean(argv.flags.summary);
     const out = argv.flags.output != null ? String(argv.flags.output) : undefined;
     let hit;

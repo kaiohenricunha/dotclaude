@@ -84,6 +84,33 @@ OUTPUT: <handoff>...</handoff> on stdout.
 No transport, no scrubbing, no remote calls. `pull` is local-only by
 definition.
 
+#### 4.1.1 Session-validity rules
+
+The resolver in step 2 only treats a session as discoverable when its
+per-CLI **marker file** is present. Directories without the marker are
+invisible to `pull`: `latest` skips them, and a UUID prefix that points
+at one returns exit 2 ("no session matches"). This is by design — a
+session without its event log has no replayable content.
+
+| CLI     | Root                            | Required marker file                     |
+| ------- | ------------------------------- | ---------------------------------------- |
+| claude  | `~/.claude/projects/<slug>/`    | any `*.jsonl` (typically `<uuid>.jsonl`) |
+| copilot | `~/.copilot/session-state/`     | `<uuid>/events.jsonl`                    |
+| codex   | `~/.codex/sessions/YYYY/MM/DD/` | `rollout-<ts>-<uuid>.jsonl`              |
+
+Implications:
+
+- An incomplete copilot directory (`workspace.yaml`, `checkpoints/`,
+  `files/`, `research/`, but no `events.jsonl`) is treated as if the
+  directory did not exist. `pull <its-prefix>` returns exit 2.
+- `pull latest` falls through to the next-newest session whose marker
+  exists; the incomplete dir's mtime does not advance the candidate set.
+- If every session in a root is incomplete, `pull latest --from <cli>`
+  returns exit 2 with `no <cli> session matches: latest` per §5.3.2.
+- If every session across every root is incomplete or absent,
+  `pull latest` (no `--from`) returns exit 2 with
+  `no session matches: latest`.
+
 ### 4.2 `push [<query>] [--tag <label>...] [--from <cli>]` — upload to remote
 
 ```
