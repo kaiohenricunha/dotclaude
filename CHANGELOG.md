@@ -6,6 +6,13 @@ All notable changes to `@dotclaude/dotclaude` land here. Format follows
 
 ## Unreleased
 
+## [1.1.1](https://github.com/kaiohenricunha/dotclaude/compare/v1.1.0...v1.1.1) (2026-04-30)
+
+
+### Fixed
+
+* v1.x patch bundle — placeholder wording, post-bump regen prettier, codex format-drift coverage ([#159](https://github.com/kaiohenricunha/dotclaude/issues/159) [#156](https://github.com/kaiohenricunha/dotclaude/issues/156) [#160](https://github.com/kaiohenricunha/dotclaude/issues/160)) ([#161](https://github.com/kaiohenricunha/dotclaude/issues/161)) ([c871fc2](https://github.com/kaiohenricunha/dotclaude/commit/c871fc21506623093c7111b836b5a80db150cb7e))
+
 ## [1.1.0](https://github.com/kaiohenricunha/dotclaude/compare/v1.0.1...v1.1.0) (2026-04-30)
 
 
