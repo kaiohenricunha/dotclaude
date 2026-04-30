@@ -53,19 +53,38 @@ model: gpt-5
 summary: Test session
 EOF
 
-  # --- Codex fixture: session_meta + env-context first user turn + real prompts ---
+  # --- Codex fixture: session_meta + turn_context + response_items + event_msg mirrors.
+  # Schema mirror per docs/audits/codex-extraction-investigation-2026-04-30.md Phase 2:
+  # top-level types {session_meta, turn_context, response_item, event_msg}; response_item
+  # content blocks use input_text (user) / output_text (assistant).
   CODEX_FILE="$TEST_DIR/codex.jsonl"
   cat > "$CODEX_FILE" <<'EOF'
 {"type":"session_meta","payload":{"id":"eeee5555-5555-5555-5555-555555555555","cwd":"/work/demo","cli_version":"0.121.0","timestamp":"2026-04-18T20:38:53Z","model_provider":"openai"}}
-{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"text","text":"<environment_context>shell: zsh\ncwd: /work/demo</environment_context>"}]}}
-{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"text","text":"Improve documentation in @README.md"}]}}
-{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"text","text":"I'll read README.md first."}]}}
-{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"text","text":"Go ahead"}]}}
-{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"text","text":"Refactor this:\n- step one\n- step two"}]}}
-{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"text","text":"Done."}]}}
+{"type":"turn_context","payload":{"cwd":"/work/demo","sandbox_policy":{"mode":"workspace-write"}}}
+{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>shell: zsh\ncwd: /work/demo</environment_context>"}]}}
+{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Improve documentation in @README.md"}]}}
+{"type":"event_msg","payload":{"type":"user_message","message":"Improve documentation in @README.md"}}
+{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"I'll read README.md first."}]}}
+{"type":"event_msg","payload":{"type":"agent_message","message":"I'll read README.md first.","phase":"commentary"}}
+{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Go ahead"}]}}
+{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Refactor this:\n- step one\n- step two"}]}}
+{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Done."}]}}
+{"type":"event_msg","payload":{"type":"agent_message","message":"Done.","phase":"final"}}
 EOF
 
-  export CLAUDE_FILE COPILOT_FILE COPILOT_DIR CODEX_FILE TEST_DIR
+  # --- Codex empty-case fixture: shell-only session with no assistant turns.
+  # Mirrors the 019ddf95 profile from the investigation — turns_codex must
+  # return empty (not crash) and prompts_codex must filter the env_context
+  # record cleanly to also return empty.
+  CODEX_EMPTY_FILE="$TEST_DIR/codex-empty.jsonl"
+  cat > "$CODEX_EMPTY_FILE" <<'EOF'
+{"type":"session_meta","payload":{"id":"ffff6666-6666-6666-6666-666666666666","cwd":"/work/empty","cli_version":"0.121.0","timestamp":"2026-04-30T15:10:00Z","model_provider":"openai"}}
+{"type":"turn_context","payload":{"cwd":"/work/empty","sandbox_policy":{"mode":"workspace-write"}}}
+{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>shell: bash\ncwd: /work/empty</environment_context>"}]}}
+{"type":"event_msg","payload":{"type":"exec_command_end","exit_code":0,"stdout":"ok"}}
+EOF
+
+  export CLAUDE_FILE COPILOT_FILE COPILOT_DIR CODEX_FILE CODEX_EMPTY_FILE TEST_DIR
 }
 
 teardown() {
@@ -200,6 +219,25 @@ teardown() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"I'll read README.md first."* ]]
   [[ "$output" == *"Done."* ]]
+}
+
+@test "turns codex returns empty for shell-only session" {
+  run "$EX" turns codex "$CODEX_EMPTY_FILE"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "prompts codex returns empty when only environment_context user record exists" {
+  run "$EX" prompts codex "$CODEX_EMPTY_FILE"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "meta codex still parses session_meta on shell-only session" {
+  run "$EX" meta codex "$CODEX_EMPTY_FILE"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"session_id":"ffff6666-6666-6666-6666-666666666666"'* ]]
+  [[ "$output" == *'"cwd":"/work/empty"'* ]]
 }
 
 # -- usage / errors -------------------------------------------------------

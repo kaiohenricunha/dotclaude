@@ -266,6 +266,8 @@ prompts_codex() {
   # The first user message in every Codex session is an <environment_context>
   # block. Filter it out; every other user turn stays.
   # Output: one JSON-encoded string per line so multi-line prompts stay atomic.
+  # Reads response_item only; see turns_codex below for the response_item-vs-
+  # event_msg single-source note.
   jq -c '
     select(.type == "response_item"
            and .payload.type == "message"
@@ -276,6 +278,12 @@ prompts_codex() {
   ' "$file" 2>/dev/null
 }
 
+# Reads response_item records only. Codex also emits event_msg agent_message
+# records that mirror assistant turns 1:1 in every session tested per
+# docs/audits/codex-extraction-investigation-2026-04-30.md Phase 2. If those
+# mirrors ever desync from response_item (streaming interruption, partial
+# writes, schema change), assistant content would silently drop here.
+# Potential v1.x hardening: fallback chain to event_msg.agent_message.
 turns_codex() {
   local file="$1"
   local limit="${2:-20}"
