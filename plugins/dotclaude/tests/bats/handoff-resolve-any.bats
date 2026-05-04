@@ -147,7 +147,7 @@ teardown() {
   # Add claude session with customTitle "shared-cross-cli"
   local claude_path="$TEST_HOME/.claude/projects/-home-u-demo/$claude_uuid.jsonl"
   printf '{"cwd":"/home/u/demo","sessionId":"%s","version":"2.1"}\n' "$claude_uuid" > "$claude_path"
-  printf '{"type":"custom-title","customTitle":"shared-cross-cli","sessionId":"%s"}\n' "$claude_uuid" >> "$claude_path"
+  set_claude_custom_title "$claude_path" "$claude_uuid" "shared-cross-cli"
 
   # Add copilot session with workspace.yaml:name "shared-cross-cli"
   make_copilot_session_tree "$TEST_HOME" "$copilot_uuid"

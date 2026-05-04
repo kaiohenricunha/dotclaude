@@ -126,7 +126,7 @@ teardown() {
   # Append 100 identical custom-title records (simulates rewrite-on-every-save).
   local i=0
   while (( i < 100 )); do
-    printf '{"type":"custom-title","customTitle":"force-push-collision-guard","sessionId":"%s"}\n' "$uuid" >> "$path"
+    set_claude_custom_title "$path" "$uuid" "force-push-collision-guard"
     i=$((i + 1))
   done
 
@@ -149,9 +149,9 @@ teardown() {
   local path1="$dir1/$uuid1.jsonl"
   local path2="$dir2/$uuid2.jsonl"
   printf '{"cwd":"/home/user/projects/c1","sessionId":"%s","version":"2.1"}\n' "$uuid1" > "$path1"
-  printf '{"type":"custom-title","customTitle":"shared-title","sessionId":"%s"}\n' "$uuid1" >> "$path1"
+  set_claude_custom_title "$path1" "$uuid1" "shared-title"
   printf '{"cwd":"/home/user/projects/c2","sessionId":"%s","version":"2.1"}\n' "$uuid2" > "$path2"
-  printf '{"type":"custom-title","customTitle":"shared-title","sessionId":"%s"}\n' "$uuid2" >> "$path2"
+  set_claude_custom_title "$path2" "$uuid2" "shared-title"
 
   run --separate-stderr "$RESOLVE" claude "shared-title"
   [ "$status" -eq 2 ]
@@ -173,7 +173,7 @@ teardown() {
   mkdir -p "$dir"
   local path="$dir/$uuid.jsonl"
   printf '{"cwd":"/home/user/projects/aititle","sessionId":"%s","version":"2.1"}\n' "$uuid" > "$path"
-  printf '{"type":"ai-title","aiTitle":"Refactor extract pipeline","sessionId":"%s"}\n' "$uuid" >> "$path"
+  set_claude_ai_title "$path" "$uuid" "Refactor extract pipeline"
 
   run --separate-stderr "$RESOLVE" claude "Refactor extract pipeline"
   [ "$status" -eq 0 ]
@@ -285,10 +285,10 @@ teardown() {
   mkdir -p "$dir"
   local path1="$dir/rollout-2026-04-19T10-00-00-${uuid1}.jsonl"
   local path2="$dir/rollout-2026-04-19T11-00-00-${uuid2}.jsonl"
-  printf '{"type":"session_meta","payload":{"id":"%s","cwd":"/work"}}\n{"type":"event_msg","payload":{"thread_id":"%s","thread_name":"shared-thread","type":"thread_renamed"}}\n' \
-    "$uuid1" "$uuid1" > "$path1"
-  printf '{"type":"session_meta","payload":{"id":"%s","cwd":"/work"}}\n{"type":"event_msg","payload":{"thread_id":"%s","thread_name":"shared-thread","type":"thread_renamed"}}\n' \
-    "$uuid2" "$uuid2" > "$path2"
+  printf '{"type":"session_meta","payload":{"id":"%s","cwd":"/work"}}\n' "$uuid1" > "$path1"
+  set_codex_thread_name "$path1" "$uuid1" "shared-thread"
+  printf '{"type":"session_meta","payload":{"id":"%s","cwd":"/work"}}\n' "$uuid2" > "$path2"
+  set_codex_thread_name "$path2" "$uuid2" "shared-thread"
 
   run --separate-stderr "$RESOLVE" codex "shared-thread"
   [ "$status" -eq 2 ]
@@ -344,7 +344,7 @@ teardown() {
   mkdir -p "$dir"
   local path="$dir/$uuid.jsonl"
   printf '{"cwd":"/home/user/projects/case1","sessionId":"%s","version":"2.1"}\n' "$uuid" > "$path"
-  printf '{"type":"custom-title","customTitle":"Refactor Pipeline","sessionId":"%s"}\n' "$uuid" >> "$path"
+  set_claude_custom_title "$path" "$uuid" "Refactor Pipeline"
 
   # Query with all-lowercase variant; jq's ascii_downcase on both sides matches.
   run --separate-stderr "$RESOLVE" claude "refactor pipeline"
@@ -361,7 +361,7 @@ teardown() {
   mkdir -p "$dir"
   local path="$dir/$uuid.jsonl"
   printf '{"cwd":"/home/user/projects/case2","sessionId":"%s","version":"2.1"}\n' "$uuid" > "$path"
-  printf '{"type":"ai-title","aiTitle":"Extract Pipeline","sessionId":"%s"}\n' "$uuid" >> "$path"
+  set_claude_ai_title "$path" "$uuid" "Extract Pipeline"
 
   run --separate-stderr "$RESOLVE" claude "EXTRACT PIPELINE"
   [ "$status" -eq 0 ]
@@ -375,8 +375,8 @@ teardown() {
   local dir="$TEST_HOME/.codex/sessions/2026/04/19"
   mkdir -p "$dir"
   local path="$dir/rollout-2026-04-19T14-00-00-${uuid}.jsonl"
-  printf '{"type":"session_meta","payload":{"id":"%s","cwd":"/work"}}\n{"type":"event_msg","payload":{"thread_id":"%s","thread_name":"my-thread","type":"thread_renamed"}}\n' \
-    "$uuid" "$uuid" > "$path"
+  printf '{"type":"session_meta","payload":{"id":"%s","cwd":"/work"}}\n' "$uuid" > "$path"
+  set_codex_thread_name "$path" "$uuid" "my-thread"
 
   run --separate-stderr "$RESOLVE" codex "MY-Thread"
   [ "$status" -eq 0 ]

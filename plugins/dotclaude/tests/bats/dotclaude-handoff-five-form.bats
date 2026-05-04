@@ -177,9 +177,9 @@ teardown() {
   local path1="$dir1/$uuid1.jsonl"
   local path2="$dir2/$uuid2.jsonl"
   printf '{"type":"user","cwd":"/c1","sessionId":"%s","version":"2.1","message":{"content":"hi"}}\n' "$uuid1" > "$path1"
-  printf '{"type":"custom-title","customTitle":"shared-title","sessionId":"%s"}\n' "$uuid1" >> "$path1"
+  set_claude_custom_title "$path1" "$uuid1" "shared-title"
   printf '{"type":"user","cwd":"/c2","sessionId":"%s","version":"2.1","message":{"content":"hi"}}\n' "$uuid2" > "$path2"
-  printf '{"type":"custom-title","customTitle":"shared-title","sessionId":"%s"}\n' "$uuid2" >> "$path2"
+  set_claude_custom_title "$path2" "$uuid2" "shared-title"
 
   run --separate-stderr node "$BIN" pull "shared-title" </dev/null
   [ "$status" -eq 2 ]
@@ -228,7 +228,7 @@ teardown() {
   mkdir -p "$claude_dir"
   local claude_path="$claude_dir/$claude_uuid.jsonl"
   printf '{"type":"user","cwd":"/cross","sessionId":"%s","version":"2.1","message":{"content":"hi"}}\n' "$claude_uuid" > "$claude_path"
-  printf '{"type":"custom-title","customTitle":"shared-cross-cli","sessionId":"%s"}\n' "$claude_uuid" >> "$claude_path"
+  set_claude_custom_title "$claude_path" "$claude_uuid" "shared-cross-cli"
 
   make_copilot_session_tree "$TEST_HOME" "$copilot_uuid"
   set_copilot_workspace_name "$TEST_HOME" "$copilot_uuid" "shared-cross-cli"
