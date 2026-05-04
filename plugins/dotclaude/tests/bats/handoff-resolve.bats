@@ -137,6 +137,40 @@ teardown() {
   [[ "$stderr" == *"matched-value=force-push-collision-guard"* ]]
 }
 
+@test "intra-CLI collision: claude customTitle + aiTitle cross-mechanism emits 5-col TSV" {
+  # Claude has TWO alias mechanisms — customTitle (user-set) and aiTitle
+  # (auto-generated). Per ARCH-3, both are equally-weighted alias surfaces
+  # for the same CLI; a query that matches one mechanism in session A and
+  # the other mechanism in session B is a real cross-mechanism collision,
+  # not a single-hit. The resolver must collect rows from BOTH scans into
+  # one Claude alias candidate set before deciding single-hit vs collision.
+  local uuid_custom="aaaa9999-9999-9999-9999-999999999999"
+  local uuid_ai="bbbb5555-5555-5555-5555-555555555555"
+  local dir_custom="$TEST_HOME/.claude/projects/-home-user-projects-cross-mech1"
+  local dir_ai="$TEST_HOME/.claude/projects/-home-user-projects-cross-mech2"
+  mkdir -p "$dir_custom" "$dir_ai"
+  local path_custom="$dir_custom/$uuid_custom.jsonl"
+  local path_ai="$dir_ai/$uuid_ai.jsonl"
+  printf '{"cwd":"/home/user/projects/cm1","sessionId":"%s","version":"2.1"}\n' "$uuid_custom" > "$path_custom"
+  set_claude_custom_title "$path_custom" "$uuid_custom" "shared-cross-mech"
+  printf '{"cwd":"/home/user/projects/cm2","sessionId":"%s","version":"2.1"}\n' "$uuid_ai" > "$path_ai"
+  set_claude_ai_title "$path_ai" "$uuid_ai" "shared-cross-mech"
+
+  run --separate-stderr "$RESOLVE" claude "shared-cross-mech"
+  [ "$status" -eq 2 ]
+  [ -z "$output" ]
+  [[ "$stderr" == *"multiple sessions match"* ]]
+  [[ "$stderr" == *"$path_custom"* ]]
+  [[ "$stderr" == *"$path_ai"* ]]
+  # Each row carries its own matched-field tag.
+  local custom_rows
+  custom_rows=$(echo "$stderr" | grep -c $'\t'"customTitle"$)
+  [ "$custom_rows" -eq 1 ]
+  local ai_rows
+  ai_rows=$(echo "$stderr" | grep -c $'\t'"aiTitle"$)
+  [ "$ai_rows" -eq 1 ]
+}
+
 @test "intra-CLI collision: claude customTitle shared by 2 sessions emits 5-col TSV" {
   # Two distinct claude sessions (different UUIDs) with the same customTitle.
   # Without dedup-by-sessionId would dedupe; with dedup-by-sessionId these

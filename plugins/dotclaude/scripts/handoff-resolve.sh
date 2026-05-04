@@ -182,26 +182,31 @@ resolve_claude() {
     die_runtime "claude session not found for short-uuid: $id"
   fi
 
-  # Claude `custom-title` alias scan: `claude --resume "<name>"` stores
-  # the alias as a JSONL record `{"type":"custom-title","customTitle":"<name>","sessionId":"<uuid>"}`.
-  # Case-insensitive exact match via jq ascii_downcase (Decision 1/2). Collect-all
-  # per ARCH-3: collisions emit 5-col TSV via emit_collision_tsv; single hit emits
-  # matched-field/matched-value to stderr alongside path on stdout.
-  # Prefilter with grep -iF so case-folded inputs pass the gate.
+  # Claude alias scans — `customTitle` (user-set via `claude --resume "<name>"`)
+  # and `aiTitle` (auto-generated TUI summary). Per ARCH-3, both fields are
+  # equally-weighted alias surfaces for the same CLI; the two mechanisms are
+  # SCANNED INDEPENDENTLY but their hits ACCUMULATE into a single Claude alias
+  # candidate set with shared dedup-by-sessionId. Only after BOTH scans complete
+  # do we decide single-hit vs collision — otherwise a cross-mechanism match
+  # (e.g. customTitle="x" in session A and aiTitle="x" in session B) would
+  # silently exit on the first scan, missing the collision.
+  #
+  # Both scans use:
+  #   - jq ascii_downcase for case-insensitive exact match (Decisions 1/2)
+  #   - grep -iF prefilter so case-folded inputs pass the gate
+  #   - intra-file dedup-by-sessionId (claude rewrites these records on every
+  #     save, producing 100+ identical records per file — Phase 1 cardinality
+  #     survey: 73-366 records per file)
   if command -v jq >/dev/null 2>&1; then
     local f session_id matched_value
-    local -a custom_rows=()
-    local custom_hit_path="" custom_hit_value=""
+    local -a claude_rows=()
+    local claude_hit_path="" claude_hit_value="" claude_hit_field=""
     local seen_sids=""
+
+    # customTitle scan
     while IFS= read -r f; do
       while IFS=$'\t' read -r session_id matched_value; do
         [[ -n "$session_id" ]] || continue
-        # Intra-file dedup-by-sessionId: a single conversation file can hold
-        # 100+ identical custom-title records (Claude rewrites the record on
-        # every save). Skip if we've already collected this sessionId.
-        # NOT to be confused with cross-file collision detection — different
-        # sessionIds with the same alias are real collisions, handled by the
-        # outer loop's accumulation into custom_rows + emit_collision_tsv.
         case " $seen_sids " in
           *" $session_id "*) continue ;;
         esac
@@ -209,9 +214,12 @@ resolve_claude() {
         local hit
         hit="$(find "$root" -maxdepth 2 -type f -name "${session_id}.jsonl" 2>/dev/null | head -1)"
         [[ -n "$hit" ]] || continue
-        custom_hit_path="$hit"
-        custom_hit_value="$matched_value"
-        custom_rows+=("$(printf '%s\t%s\t%s\t%s\t%s' \
+        if [[ -z "$claude_hit_path" ]]; then
+          claude_hit_path="$hit"
+          claude_hit_value="$matched_value"
+          claude_hit_field="customTitle"
+        fi
+        claude_rows+=("$(printf '%s\t%s\t%s\t%s\t%s' \
           "claude" \
           "$(short_id_from_session "$session_id")" \
           "$hit" \
@@ -223,49 +231,26 @@ resolve_claude() {
         | "\(.sessionId)\t\(.customTitle | gsub("[\t\n]"; " "))"' "$f" 2>/dev/null)
     done < <(grep -rl --include='*.jsonl' -iF "\"customTitle\":\"${id}\"" "$root" 2>/dev/null)
 
-    case ${#custom_rows[@]} in
-      0) ;;  # no customTitle match; fall through to die_runtime at function bottom
-      1)
-        printf '%s\n' "$custom_hit_path"
-        printf 'matched-field=customTitle\n' >&2
-        printf 'matched-value=%s\n' "$(sanitize_for_tsv "$custom_hit_value")" >&2
-        return 0
-        ;;
-      *)
-        emit_collision_tsv "$id" "${custom_rows[@]}"
-        ;;
-    esac
-  fi
-
-  # Claude `ai-title` alias scan: Claude Code auto-generates a short summary
-  # for sessions that accumulate enough conversation, persisted as JSONL records
-  # `{"type":"ai-title","aiTitle":"<text>","sessionId":"<uuid>"}`. This is the
-  # primary TUI title source — what `claude --resume`'s picker displays for
-  # sessions that have an ai-title (4/24 in dotclaude project per Phase 1).
-  # Same shape as the customTitle scan above: case-insensitive via jq
-  # ascii_downcase, intra-file dedup-by-sessionId, single-hit metadata to
-  # stderr, collisions via emit_collision_tsv. Files can hold many ai-title
-  # records (Claude rewrites the summary as conversation grows; one observed
-  # file has 3 distinct historical aiTitles for one session — historical
-  # values still resolve to the same session via dedup-by-sessionId).
-  if command -v jq >/dev/null 2>&1; then
-    local f session_id matched_value
-    local -a aititle_rows=()
-    local aititle_hit_path="" aititle_hit_value=""
-    local seen_sids_aititle=""
+    # aiTitle scan — shares seen_sids with customTitle so a session matched by
+    # both mechanisms collapses to one row (whichever scan saw it first wins
+    # the matched-field tag). Different sessions matched by different mechanisms
+    # remain distinct rows in claude_rows for collision dispatch below.
     while IFS= read -r f; do
       while IFS=$'\t' read -r session_id matched_value; do
         [[ -n "$session_id" ]] || continue
-        case " $seen_sids_aititle " in
+        case " $seen_sids " in
           *" $session_id "*) continue ;;
         esac
-        seen_sids_aititle="$seen_sids_aititle $session_id"
+        seen_sids="$seen_sids $session_id"
         local hit
         hit="$(find "$root" -maxdepth 2 -type f -name "${session_id}.jsonl" 2>/dev/null | head -1)"
         [[ -n "$hit" ]] || continue
-        aititle_hit_path="$hit"
-        aititle_hit_value="$matched_value"
-        aititle_rows+=("$(printf '%s\t%s\t%s\t%s\t%s' \
+        if [[ -z "$claude_hit_path" ]]; then
+          claude_hit_path="$hit"
+          claude_hit_value="$matched_value"
+          claude_hit_field="aiTitle"
+        fi
+        claude_rows+=("$(printf '%s\t%s\t%s\t%s\t%s' \
           "claude" \
           "$(short_id_from_session "$session_id")" \
           "$hit" \
@@ -277,16 +262,17 @@ resolve_claude() {
         | "\(.sessionId)\t\(.aiTitle | gsub("[\t\n]"; " "))"' "$f" 2>/dev/null)
     done < <(grep -rl --include='*.jsonl' -iF "\"aiTitle\":\"${id}\"" "$root" 2>/dev/null)
 
-    case ${#aititle_rows[@]} in
-      0) ;;  # no aiTitle match; fall through to die_runtime at function bottom
+    # Unified dispatch over the union of customTitle + aiTitle hits.
+    case ${#claude_rows[@]} in
+      0) ;;  # no alias match in either mechanism; fall through to die_runtime
       1)
-        printf '%s\n' "$aititle_hit_path"
-        printf 'matched-field=aiTitle\n' >&2
-        printf 'matched-value=%s\n' "$(sanitize_for_tsv "$aititle_hit_value")" >&2
+        printf '%s\n' "$claude_hit_path"
+        printf 'matched-field=%s\n' "$claude_hit_field" >&2
+        printf 'matched-value=%s\n' "$(sanitize_for_tsv "$claude_hit_value")" >&2
         return 0
         ;;
       *)
-        emit_collision_tsv "$id" "${aititle_rows[@]}"
+        emit_collision_tsv "$id" "${claude_rows[@]}"
         ;;
     esac
   fi

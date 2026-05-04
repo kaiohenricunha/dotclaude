@@ -1006,8 +1006,11 @@ async function main() {
     const summaryMode = Boolean(argv.flags.summary);
     const out = argv.flags.output != null ? String(argv.flags.output) : undefined;
     let hit;
-    if (id === "latest") {
+    if (id.toLowerCase() === "latest") {
       // Host-scope the `latest` shortcut per #85: --from > detected host > union.
+      // Case-fold matches the resolver's case-glob (Decision 2) so mixed-case
+      // `Latest`/`LATEST` enter the host-scoped path here instead of falling
+      // through to `any` resolution.
       const { hit: latestHit, note } = await resolveLatestWithHostScope({ fromCli, detectedHost });
       if (note) process.stderr.write(note + "\n");
       hit = latestHit;

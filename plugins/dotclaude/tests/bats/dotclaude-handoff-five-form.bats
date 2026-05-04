@@ -127,6 +127,20 @@ teardown() {
   [[ "$stderr" == *"aaaa1111"* ]]
 }
 
+@test "pull Latest (mixed case) under CLAUDECODE=1 narrows to claude root" {
+  # The resolver case-folds the `latest` keyword (Decision 2). The wrapper's
+  # host-scope dispatch must do the same — otherwise mixed-case `Latest`
+  # bypasses resolveLatestWithHostScope and falls through to `any Latest`,
+  # which case-folds at the resolver layer and returns the cross-root newest
+  # (codex here, not the host-scoped claude).
+  run --separate-stderr env -i HOME="$TEST_HOME" PATH="$PATH" CLAUDECODE=1 \
+    node "$BIN" pull Latest
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"aaaa1111"* ]]
+  [[ "$output" != *"bbbb2222"* ]]
+  [[ "$stderr" == *"latest claude session"* ]]
+}
+
 @test "pull latest --from codex overrides host detection" {
   # --from must outrank detectedHost, mirroring push's precedence.
   run --separate-stderr env -i HOME="$TEST_HOME" PATH="$PATH" CLAUDECODE=1 \
