@@ -98,4 +98,18 @@ describe("quality discovery", () => {
       expect.objectContaining({ reason: "policy pattern fixtures/**", count: 1 }),
     ]));
   });
+
+  it("does not plan another language's Make target for a stray-source component", () => {
+    // #337: the stray .py file is tooling, not a Python project.
+    const repoRoot = tempRepo({
+      "Makefile": "lint:\n\tcd api && golangci-lint run ./...\ntest:\n\tcd api && go test ./...\n",
+      "api/go.mod": "module example/api\n",
+      "api/main.go": "package main\n",
+      "tools/render/helper.py": "x = 1\n",
+    });
+    const detection = detectQualityCapabilities({ repoRoot });
+    expect(detection.components.find((item) => item.id === ".:python")?.markers).toEqual([]);
+    const plans = planQualityCheck({ repoRoot, profile: "pr", changeSet: { changedFiles: [] }, detection }).plans;
+    expect(plans.filter((plan) => plan.componentId === ".:python" && plan.executable === "make")).toEqual([]);
+  });
 });

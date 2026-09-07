@@ -18,14 +18,27 @@ function targets(root) {
   return new Set([...fs.readFileSync(file, "utf8").matchAll(/^([A-Za-z0-9_.-]+)\s*:(?![=])/gm)].map((match) => match[1]));
 }
 
-/** Select repository-owned Make targets without reading recipe commands. */
+/**
+ * Select repository-owned Make targets without reading recipe commands.
+ *
+ * An unowned component -- inferred from stray source files, with neither a
+ * manifest nor an operator declaration -- may claim only the `quality-*`
+ * namespace. The CONVENTIONAL names are ambient: `lint` in a polyglot repo
+ * belongs to whichever language wrote it, and matching by name would run that
+ * toolchain under the wrong component (#337). `quality-lint` cannot collide by
+ * accident, so it stays available. Skipping beats emitting a `not_configured`
+ * plan, which would resolve through `on_unavailable` and fail the hard rules
+ * where no plan at all is informational.
+ */
 export function makeRepositoryPlans(component, profile, claimed = new Set()) {
+  const unowned = (component.markers ?? []).length === 0 && !component.configured;
   const available = targets(component.absoluteRoot);
   const plans = [];
   for (const capability of ["format", "compile", "typecheck", "lint", "test", "coverage", "complexity", "mutation", "dead-code", "dependencies", "duplication", "security", "race"]) {
     if (claimed.has(capability) || !capabilityInProfile(capability, profile)) continue;
     const preferred = `quality-${capability}`;
-    const candidates = available.has(preferred) ? [preferred] : (CONVENTIONAL[capability] ?? []).filter((name) => available.has(name));
+    const conventional = unowned ? [] : (CONVENTIONAL[capability] ?? []).filter((name) => available.has(name));
+    const candidates = available.has(preferred) ? [preferred] : conventional;
     if (candidates.length === 0) continue;
     if (candidates.length > 1) {
       plans.push({ id: `${component.id}:${capability}:ambiguous-make`, componentId: component.id, capability, ruleIds: capabilityRules(capability), availability: "not_configured", candidates, evidence: "equal-authority Make targets require a project tool override" });

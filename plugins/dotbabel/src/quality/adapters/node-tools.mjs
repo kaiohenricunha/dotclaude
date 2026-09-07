@@ -21,7 +21,13 @@ function readScripts(root) {
   catch { return {}; }
 }
 
-/** Select repository-owned Node scripts without executing package metadata. */
+/**
+ * Select repository-owned Node scripts without executing package metadata.
+ *
+ * Needs no unowned-component guard, unlike its Make sibling: the file it reads
+ * for candidates (package.json) is the same file that proves the component
+ * exists, so a component with no marker yields no scripts.
+ */
 export function nodeRepositoryPlans(component, profile, claimed = new Set()) {
   const root = component.absoluteRoot;
   const scripts = readScripts(root);
