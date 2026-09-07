@@ -98,4 +98,20 @@ describe("quality discovery", () => {
       expect.objectContaining({ reason: "policy pattern fixtures/**", count: 1 }),
     ]));
   });
+
+  it("does not plan another language's Make target for a stray-source component", () => {
+    // #337: a .py file belonging to tooling (not a Python project) discovers a
+    // `.`-rooted markerless component, which used to claim the repo's `lint`
+    // target -- running Go's linter and failing correctness.lint/compile/tests.
+    const repoRoot = tempRepo({
+      "Makefile": "lint:\n\tcd api && golangci-lint run ./...\ntest:\n\tcd api && go test ./...\n",
+      "api/go.mod": "module example/api\n",
+      "api/main.go": "package main\n",
+      "tools/render/helper.py": "x = 1\n",
+    });
+    const detection = detectQualityCapabilities({ repoRoot });
+    expect(detection.components.find((item) => item.id === ".:python")?.markers).toEqual([]);
+    const plans = planQualityCheck({ repoRoot, profile: "pr", changeSet: { changedFiles: [] }, detection }).plans;
+    expect(plans.filter((plan) => plan.componentId === ".:python" && plan.executable === "make")).toEqual([]);
+  });
 });

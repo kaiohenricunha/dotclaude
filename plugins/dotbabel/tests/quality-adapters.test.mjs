@@ -59,6 +59,27 @@ describe("quality adapters", () => {
     } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 
+  it("does not let a markerless component claim repository Make targets", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "dotbabel-markerless-adapter-"));
+    try {
+      // A repo whose `lint` target belongs to another language entirely (#337):
+      // a stray .py file discovers a `.`-rooted Python component with no manifest,
+      // and claiming this target would run Go's linter under a Python component.
+      fs.writeFileSync(path.join(root, "Makefile"), "lint:\n\tgolangci-lint run ./...\n");
+      const plans = getQualityAdapter("python").plan({ id: ".:python", root: ".", absoluteRoot: root, language: "python", files: ["tools/helper.py"], markers: [], tools: {} }, { rules: {} }, { changedFiles: [] }, "pr");
+      expect(plans.filter((plan) => plan.executable === "make")).toEqual([]);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it("still claims repository Make targets for a component with a manifest", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "dotbabel-marked-adapter-"));
+    try {
+      fs.writeFileSync(path.join(root, "Makefile"), "lint:\n\truff check .\n");
+      const plans = getQualityAdapter("python").plan({ id: ".:python", root: ".", absoluteRoot: root, language: "python", files: ["a.py"], markers: ["pyproject.toml"], tools: {} }, { rules: {} }, { changedFiles: [] }, "pr");
+      expect(plans.find((plan) => plan.capability === "lint")).toMatchObject({ executable: "make", argv: ["lint"], source: "repository-target" });
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
   it("uses the detected Python package manager for configured Ruff", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "dotbabel-python-adapter-"));
     try {
