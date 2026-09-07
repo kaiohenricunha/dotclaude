@@ -62,9 +62,7 @@ describe("quality adapters", () => {
   it("does not let a markerless component claim repository Make targets", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "dotbabel-markerless-adapter-"));
     try {
-      // A repo whose `lint` target belongs to another language entirely (#337):
-      // a stray .py file discovers a `.`-rooted Python component with no manifest,
-      // and claiming this target would run Go's linter under a Python component.
+      // #337: this `lint` target belongs to another language entirely.
       fs.writeFileSync(path.join(root, "Makefile"), "lint:\n\tgolangci-lint run ./...\n");
       const plans = getQualityAdapter("python").plan({ id: ".:python", root: ".", absoluteRoot: root, language: "python", files: ["tools/helper.py"], markers: [], tools: {} }, { rules: {} }, { changedFiles: [] }, "pr");
       expect(plans.filter((plan) => plan.executable === "make")).toEqual([]);

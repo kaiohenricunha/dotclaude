@@ -100,9 +100,7 @@ describe("quality discovery", () => {
   });
 
   it("does not plan another language's Make target for a stray-source component", () => {
-    // #337: a .py file belonging to tooling (not a Python project) discovers a
-    // `.`-rooted markerless component, which used to claim the repo's `lint`
-    // target -- running Go's linter and failing correctness.lint/compile/tests.
+    // #337: the stray .py file is tooling, not a Python project.
     const repoRoot = tempRepo({
       "Makefile": "lint:\n\tcd api && golangci-lint run ./...\ntest:\n\tcd api && go test ./...\n",
       "api/go.mod": "module example/api\n",
