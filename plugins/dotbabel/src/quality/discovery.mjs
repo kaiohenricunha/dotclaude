@@ -86,7 +86,11 @@ export function detectQualityCapabilities({ repoRoot, policy = {} } = {}) {
     const root = path.posix.normalize(configured.root);
     for (const language of configured.languages) {
       const key = `${root}:${language}`;
-      byKey.set(key, { ...(byKey.get(key) ?? { root, language, markers: [] }), tools: configured.tools ?? {} });
+      // `configured` records provenance: the operator declared this component,
+      // which is a stronger claim on the repository than any discovered marker.
+      // Adapters use it to tell a hand-declared root from one inferred out of
+      // stray source files (make-tools.mjs).
+      byKey.set(key, { ...(byKey.get(key) ?? { root, language, markers: [] }), configured: true, tools: configured.tools ?? {} });
     }
   }
   const components = [...byKey.values()].map((component) => ({

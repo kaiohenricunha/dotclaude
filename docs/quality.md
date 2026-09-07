@@ -112,6 +112,9 @@ Unknown language names are valid. They produce `unsupported` unless an explicit 
 Project tool mappings have the highest authority. Adapters then inspect repository scripts, targets, configured ecosystem tools, and safe language built-ins.
 Equal candidates produce `not_configured`; dotbabel does not guess. CI workflow text is a suggestion only and never executes automatically.
 
+Repository Make targets match by name, so a component with neither a manifest nor an explicit declaration claims only the `quality-<capability>` namespace.
+Conventional names such as `lint` are ambient: in a polyglot repository they belong to whichever language wrote them. Declare the component, or name the target `quality-lint`, to bind one deliberately.
+
 Project commands use argument arrays with `shell: false`, ignored input, bounded output, timeouts, and a restricted environment.
 Use repeated `--pass-env <name>` for required extra variables. Reports must stay inside the repository and be regular files.
 

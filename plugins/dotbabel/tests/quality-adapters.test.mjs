@@ -65,7 +65,29 @@ describe("quality adapters", () => {
       // #337: this `lint` target belongs to another language entirely.
       fs.writeFileSync(path.join(root, "Makefile"), "lint:\n\tgolangci-lint run ./...\n");
       const plans = getQualityAdapter("python").plan({ id: ".:python", root: ".", absoluteRoot: root, language: "python", files: ["tools/helper.py"], markers: [], tools: {} }, { rules: {} }, { changedFiles: [] }, "pr");
-      expect(plans.filter((plan) => plan.executable === "make")).toEqual([]);
+      expect(plans).toEqual([]);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it("lets an unowned component claim the explicit quality- namespace", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "dotbabel-unowned-quality-"));
+    try {
+      // `quality-lint` is dotbabel's own opt-in convention: it cannot be claimed
+      // by accident the way a bare `lint` can, so #337 does not apply to it.
+      fs.writeFileSync(path.join(root, "Makefile"), "quality-lint:\n\truff check .\nlint:\n\tgolangci-lint run ./...\n");
+      const plans = getQualityAdapter("python").plan({ id: ".:python", root: ".", absoluteRoot: root, language: "python", files: ["tools/helper.py"], markers: [], tools: {} }, { rules: {} }, { changedFiles: [] }, "pr");
+      expect(plans.find((plan) => plan.capability === "lint")).toMatchObject({ executable: "make", argv: ["quality-lint"], source: "repository-target" });
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it("still claims repository Make targets for an operator-declared component", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "dotbabel-configured-adapter-"));
+    try {
+      // discovery.mjs seeds a policy.components entry with markers: [], so the
+      // declaration -- a stronger claim than any marker -- must not read as unowned.
+      fs.writeFileSync(path.join(root, "Makefile"), "lint:\n\truff check .\n");
+      const plans = getQualityAdapter("python").plan({ id: ".:python", root: ".", absoluteRoot: root, language: "python", files: ["a.py"], markers: [], configured: true, tools: {} }, { rules: {} }, { changedFiles: [] }, "pr");
+      expect(plans.find((plan) => plan.capability === "lint")).toMatchObject({ executable: "make", argv: ["lint"], source: "repository-target" });
     } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 
